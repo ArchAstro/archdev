@@ -1,0 +1,87 @@
+name: Installer Smoke Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unix-installer:
+    name: Unix Installer (${{ matrix.os }}, ${{ matrix.shell_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell_name: bash
+            completion_file: .local/share/bash-completion/completions/archdev
+          - os: macos-latest
+            shell_name: zsh
+            completion_file: .zsh/completions/_archdev
+          - os: ubuntu-latest
+            shell_name: fish
+            completion_file: .config/fish/completions/archdev.fish
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build fixture release
+        run: |
+          chmod +x install.sh scripts/create-unix-fixtures.sh
+          scripts/create-unix-fixtures.sh --output-dir "$RUNNER_TEMP/release" --version 0.31.0
+      - name: Start fixture server
+        run: |
+          cd "$RUNNER_TEMP/release"
+          python3 -m http.server 8123 --bind 127.0.0.1 >"$RUNNER_TEMP/server.log" 2>&1 &
+          echo $! >"$RUNNER_TEMP/server.pid"
+          for attempt in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8123/SHA256SUMS >/dev/null && exit 0
+            sleep 1
+          done
+          exit 1
+      - name: Install CLI and dashboard
+        env:
+          ARCHDEV_RELEASE_BASE_URL: http://127.0.0.1:8123
+          ARCHDEV_VERSION: 0.31.0
+          HOME: ${{ runner.temp }}/home
+          SHELL: /bin/${{ matrix.shell_name }}
+          ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home/.local/bin
+        run: |
+          mkdir -p "$HOME"
+          ./install.sh
+          test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
+          test -x "$HOME/.local/bin/archdev-dashboard"
+          test -f "$HOME/${{ matrix.completion_file }}"
+      - name: Stop fixture server
+        if: always()
+        run: test ! -f "$RUNNER_TEMP/server.pid" || kill "$(cat "$RUNNER_TEMP/server.pid")" || true
+
+  windows-installer:
+    name: Windows Installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build fixture release
+        shell: pwsh
+        run: ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release" -Version 0.31.0
+      - name: Start fixture server
+        shell: pwsh
+        run: |
+          $server = Start-Process python -ArgumentList "-m", "http.server", "8123", "--bind", "127.0.0.1" -WorkingDirectory "$env:RUNNER_TEMP\release" -PassThru
+          $server.Id | Set-Content "$env:RUNNER_TEMP\server.pid"
+          Start-Sleep -Seconds 2
+      - name: Install CLI and dashboard
+        shell: pwsh
+        run: |
+          ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
+          $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
+          if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
+          $sidecarVersion = & "$env:RUNNER_TEMP\bin\archdev-dashboard.exe" --version
+          if ($sidecarVersion.Trim() -ne "0.31.0") { throw "archdev-dashboard.exe is not runnable" }
+      - name: Stop fixture server
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:RUNNER_TEMP\server.pid") {
+            Stop-Process -Id (Get-Content "$env:RUNNER_TEMP\server.pid") -Force -ErrorAction SilentlyContinue
+          }
