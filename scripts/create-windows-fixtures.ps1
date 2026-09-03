@@ -16,7 +16,12 @@ public static class Program {
 $FixtureBinaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("archdev-fixture-bin-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $FixtureBinaryRoot | Out-Null
 $FixtureBinary = Join-Path $FixtureBinaryRoot "archdev.exe"
-Add-Type -TypeDefinition $Source -OutputAssembly $FixtureBinary -OutputType ConsoleApplication
+$SourcePath = Join-Path $FixtureBinaryRoot "Program.cs"
+$Compiler = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if (-not (Test-Path $Compiler)) { throw "Windows C# compiler not found at $Compiler" }
+Set-Content -Path $SourcePath -Value $Source
+& $Compiler /nologo /target:exe "/out:$FixtureBinary" $SourcePath
+if ($LASTEXITCODE -ne 0) { throw "Windows fixture compilation failed" }
 foreach ($Arch in @("arm64", "x64")) {
     $Fixture = Join-Path ([IO.Path]::GetTempPath()) ("archdev-fixture-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $Fixture | Out-Null

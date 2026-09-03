@@ -24,7 +24,7 @@ jobs:
             shell_name: fish
             completion_file: .config/fish/completions/archdev.fish
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build fixture release
         run: |
           chmod +x install.sh scripts/create-unix-fixtures.sh
@@ -60,7 +60,7 @@ jobs:
     name: Windows Installer
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build fixture release
         shell: pwsh
         run: ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release" -Version 0.31.0
