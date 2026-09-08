@@ -22,12 +22,8 @@ if [ "\${1:-}" = "--version" ]; then printf '%s\n' '$VERSION'; exit 0; fi
 if [ "\${1:-}" = "completion" ]; then printf '# completion for %s\n' "\${2:-unknown}"; exit 0; fi
 exit 0
 EOF
-  cat >"$fixture/archdev-dashboard" <<'EOF'
-#!/usr/bin/env sh
-exit 0
-EOF
-  chmod +x "$fixture/archdev" "$fixture/archdev-dashboard"
-  tar -C "$fixture" -czf "$OUTPUT_DIR/archdev-$target.tar.gz" archdev archdev-dashboard
+  chmod +x "$fixture/archdev"
+  tar -C "$fixture" -czf "$OUTPUT_DIR/archdev-$target.tar.gz" archdev
   rm -rf "$fixture"
 done
 (

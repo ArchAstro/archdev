@@ -39,7 +39,7 @@ jobs:
             sleep 1
           done
           exit 1
-      - name: Install CLI and dashboard
+      - name: Install CLI
         env:
           ARCHDEV_RELEASE_BASE_URL: http://127.0.0.1:8123
           ARCHDEV_VERSION: 0.31.0
@@ -47,10 +47,11 @@ jobs:
           SHELL: /bin/${{ matrix.shell_name }}
           ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home/.local/bin
         run: |
-          mkdir -p "$HOME"
+          mkdir -p "$HOME" "$ARCHDEV_INSTALL_DIR"
+          touch "$ARCHDEV_INSTALL_DIR/archdev-dashboard"
           ./install.sh
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
-          test -x "$HOME/.local/bin/archdev-dashboard"
+          test ! -e "$HOME/.local/bin/archdev-dashboard"
           test -f "$HOME/${{ matrix.completion_file }}"
       - name: Stop fixture server
         if: always()
@@ -70,14 +71,15 @@ jobs:
           $server = Start-Process python -ArgumentList "-m", "http.server", "8123", "--bind", "127.0.0.1" -WorkingDirectory "$env:RUNNER_TEMP\release" -PassThru
           $server.Id | Set-Content "$env:RUNNER_TEMP\server.pid"
           Start-Sleep -Seconds 2
-      - name: Install CLI and dashboard
+      - name: Install CLI
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP\bin" -Force | Out-Null
+          New-Item -ItemType File -Path "$env:RUNNER_TEMP\bin\archdev-dashboard.exe" -Force | Out-Null
           ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
           $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
           if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
-          $sidecarVersion = & "$env:RUNNER_TEMP\bin\archdev-dashboard.exe" --version
-          if ($sidecarVersion.Trim() -ne "0.31.0") { throw "archdev-dashboard.exe is not runnable" }
+          if (Test-Path "$env:RUNNER_TEMP\bin\archdev-dashboard.exe") { throw "retired archdev-dashboard.exe was installed" }
       - name: Stop fixture server
         if: always()
         shell: pwsh
