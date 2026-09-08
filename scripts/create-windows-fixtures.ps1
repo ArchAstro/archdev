@@ -26,8 +26,7 @@ foreach ($Arch in @("arm64", "x64")) {
     $Fixture = Join-Path ([IO.Path]::GetTempPath()) ("archdev-fixture-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $Fixture | Out-Null
     Copy-Item $FixtureBinary (Join-Path $Fixture "archdev.exe")
-    Copy-Item (Join-Path $Fixture "archdev.exe") (Join-Path $Fixture "archdev-dashboard.exe")
-    Compress-Archive -Path (Join-Path $Fixture "archdev.exe"), (Join-Path $Fixture "archdev-dashboard.exe") -DestinationPath (Join-Path $OutputDir "archdev-windows-$Arch.zip")
+    Compress-Archive -Path (Join-Path $Fixture "archdev.exe") -DestinationPath (Join-Path $OutputDir "archdev-windows-$Arch.zip")
     Remove-Item $Fixture -Recurse -Force
 }
 Remove-Item $FixtureBinaryRoot -Recurse -Force
