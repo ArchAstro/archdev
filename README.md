@@ -74,6 +74,19 @@ npx skills add ArchAstro/archdev --skill tasks --global --yes
 Omit `--global` to install only in the current repository. Then ask your agent:
 “Turn our plan into Tasks, open the web review, and iterate on my feedback.”
 
+## Install Jobs independently
+
+Jobs guides a coding agent through repository setup, private submissions,
+pipeline and model configuration, durable job execution, automatic PR watching,
+and recovery. It follows the CLI's setup audit and installs ArchDev if needed.
+
+```bash
+npx skills add ArchAstro/archdev --skill jobs --global --yes
+```
+
+Omit `--global` for repository-only installation. Ask your agent to configure
+repository automation, run a pipeline, or investigate a failed job.
+
 ## Repository scope
 
 This repository owns public distribution: installers, skills, release
