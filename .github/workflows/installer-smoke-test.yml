@@ -106,22 +106,29 @@ jobs:
       - name: Build fixture release
         shell: pwsh
         run: ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release" -Version 0.31.0
-      - name: Start fixture server
-        shell: pwsh
-        run: |
-          $server = Start-Process python -ArgumentList "-m", "http.server", "8123", "--bind", "127.0.0.1" -WorkingDirectory "$env:RUNNER_TEMP\release" -PassThru
-          $server.Id | Set-Content "$env:RUNNER_TEMP\server.pid"
-          Start-Sleep -Seconds 2
       - name: Install CLI-only release
         shell: pwsh
         run: |
-          ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
-          $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
-          if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
-      - name: Stop fixture server
-        if: always()
-        shell: pwsh
-        run: |
-          if (Test-Path "$env:RUNNER_TEMP\server.pid") {
-            Stop-Process -Id (Get-Content "$env:RUNNER_TEMP\server.pid") -Force -ErrorAction SilentlyContinue
+          $serverLog = Join-Path $env:RUNNER_TEMP "server.log"
+          $serverError = Join-Path $env:RUNNER_TEMP "server-error.log"
+          $server = Start-Process python -ArgumentList "-m", "http.server", "8123", "--bind", "127.0.0.1" -WorkingDirectory (Join-Path $env:RUNNER_TEMP "release") -RedirectStandardOutput $serverLog -RedirectStandardError $serverError -PassThru
+          try {
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 20; $attempt++) {
+              if ($server.HasExited) { throw "Fixture server exited before becoming ready" }
+              try {
+                Invoke-WebRequest http://127.0.0.1:8123/SHA256SUMS -TimeoutSec 1 | Out-Null
+                $ready = $true
+                break
+              } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $ready) { throw "Fixture server did not become ready" }
+            ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
+            $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
+            if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
+          } catch {
+            Get-Content $serverLog, $serverError -ErrorAction SilentlyContinue
+            throw
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
           }
