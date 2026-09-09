@@ -105,6 +105,21 @@ npx skills add ArchAstro/archdev --skill agents --global --yes
 Omit `--global` for repository-only installation. Ask your agent to connect your
 provider, run a coding session, resume existing work, or set up Factory.
 
+## Install Reviews independently
+
+Reviews drives local browser code review: capture changes, stream inline
+feedback to the coding agent, fix and verify, then open a fresh snapshot.
+It also covers GitHub access through the site, AI review workflows,
+publication, and the Jobs handoff for automated PR remediation.
+
+```bash
+npx skills add ArchAstro/archdev --skill reviews --global --yes
+```
+
+Omit `--global` for repository-only installation. Ask your coding agent to open
+local review and iterate on your feedback. No Task, PR, or daemon is required
+for that local loop.
+
 ## Repository scope
 
 This repository owns public distribution: installers, skills, release
