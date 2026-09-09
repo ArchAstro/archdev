@@ -59,6 +59,21 @@ Then ask your coding agent to connect to the company Room, search what the team
 knows, or start a substantial piece of work. The first participant creates the
 Room; later participants join the same Room automatically.
 
+## Install Tasks independently
+
+Tasks turns a conversation or an existing coding-agent plan into a dependency
+graph for browser review. The agent opens the review, reads your feedback,
+revises the same plan, and verifies that **Approve & save** saved the Tasks.
+The skill installs or updates ArchDev on first use; no Factory or daemon is
+required.
+
+```bash
+npx skills add ArchAstro/archdev --skill tasks --global --yes
+```
+
+Omit `--global` to install only in the current repository. Then ask your agent:
+“Turn our plan into Tasks, open the web review, and iterate on my feedback.”
+
 ## Repository scope
 
 This repository owns public distribution: installers, skills, release
