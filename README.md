@@ -79,6 +79,9 @@ Omit `--global` to install only in the current repository. Then ask your agent:
 Jobs guides a coding agent through repository setup, private submissions,
 pipeline and model configuration, durable job execution, automatic PR watching,
 and recovery. It follows the CLI's setup audit and installs ArchDev if needed.
+Tasks are optional: `archdev jobs repo submit` (the canonical replacement for
+`archdev push`) sends any committed branch through its configured pipeline.
+Use `--task <task-id>` only when you want to associate an existing Task.
 
 ```bash
 npx skills add ArchAstro/archdev --skill jobs --global --yes
@@ -86,6 +89,21 @@ npx skills add ArchAstro/archdev --skill jobs --global --yes
 
 Omit `--global` for repository-only installation. Ask your agent to configure
 repository automation, run a pipeline, or investigate a failed job.
+
+## Install Agents independently
+
+Agents guides interactive and headless coding, Factory, saved sessions,
+workflows, definitions, and worktree/local-work management. It also covers
+`settings provider`: connect your ChatGPT or Grok subscription through OAuth,
+use an API key when chosen, manage accounts, and select the intended model.
+Agent-only onboarding does not install Jobs.
+
+```bash
+npx skills add ArchAstro/archdev --skill agents --global --yes
+```
+
+Omit `--global` for repository-only installation. Ask your agent to connect your
+provider, run a coding session, resume existing work, or set up Factory.
 
 ## Repository scope
 

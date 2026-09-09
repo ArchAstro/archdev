@@ -9,7 +9,10 @@ Drive the operation through the public ArchDev CLI, from repository setup to
 verified job results. The shared local daemon owns scheduling, worktrees,
 attempts, and PR automation. Use the canonical `jobs` commands below; older
 `init`, `push`, `sync`, and `daemon` spellings are compatibility aliases.
-This skill does not require a separate orchestration script or Factory.
+Tasks are optional. Any committed branch can enter its configured pipeline:
+ordinary bug fixes, experiments, maintenance, or work planned outside ArchDev.
+Do not create a Task or DAG just to submit code. This skill does not require
+a separate orchestration script or Factory.
 
 ## 1. Bootstrap and choose the operation
 
@@ -103,6 +106,17 @@ asking for the same approval.
 
 ## 3. Submit work and follow its lifecycle
 
+`jobs repo submit` is the canonical replacement for `archdev push`; both use
+the same private-push implementation. The ordinary path needs no Task:
+
+```sh
+"$archdev" jobs repo submit
+```
+
+This submits the current committed branch to its configured branch-update
+pipeline. `--task <task-id>` only attaches an existing Task association; it is
+not a prerequisite for submission, pipeline execution, or automatic publication.
+
 Choose the entry point by the result the user wants:
 
 | Intent | Command | Behavior |
@@ -117,8 +131,8 @@ Choose the entry point by the result the user wants:
    not upload your unsaved working tree. Ordinary private submission may rebase
    the checkout onto current upstream main. Surface that consequence if the
    user has constrained rebasing; do not bypass it with internal Factory flags.
-2. Submit once. Use `jobs repo submit --task <task-id>` when delivering an
-   existing Task; repeat `--task` for several. Retain the actual submitted SHA
+2. Submit once with `jobs repo submit`. Optionally add `--task <task-id>` when
+   delivering an existing Task; repeat `--task` for several. Retain the actual submitted SHA
    and returned job identity, or find it in `jobs list` by project/ref/SHA.
    Do not infer success from the private ref moving alone.
 3. Read `jobs show <id>` and `jobs logs <id>`. Follow queued → running → terminal
