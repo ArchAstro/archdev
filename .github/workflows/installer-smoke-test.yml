@@ -39,6 +39,14 @@ jobs:
       - name: Verify Agents skill packaging and bootstrap
         run: bash tests/agents-skill.sh
 
+  reviews-skill:
+    name: Reviews Skill Installation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify Reviews skill packaging and bootstrap
+        run: bash tests/reviews-skill.sh
+
   unix-installer:
     name: Unix Installer (${{ matrix.os }}, ${{ matrix.shell_name }})
     runs-on: ${{ matrix.os }}
