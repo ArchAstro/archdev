@@ -100,6 +100,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify Rooms bootstrap compatibility
+        shell: pwsh
+        run: ./tests/rooms-bootstrap.ps1
       - name: Build fixture release
         shell: pwsh
         run: ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release" -Version 0.31.0

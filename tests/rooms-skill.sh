@@ -20,7 +20,7 @@ test -x "$root/home/.agents/skills/rooms/scripts/bootstrap.sh"
     --skill rooms --agent codex --yes --copy >/dev/null
 )
 test -x "$root/project/.agents/skills/rooms/scripts/bootstrap.sh"
-grep -F '7c16002d66a004b13812cf675042cb1c50fbf6df' \
+grep -F '9d50e7ce1e64a731d88cca8ae15ec2c45b1375df' \
   "$root/project/.agents/skills/rooms/scripts/bootstrap.sh" >/dev/null
 if grep -Fq '/archdev/main/install' \
   "$root/project/.agents/skills/rooms/scripts/bootstrap.sh"; then
@@ -38,10 +38,14 @@ cat >"$ARCHDEV_INSTALL_DIR/archdev" <<'ARCHDEV'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "${1:-}" == "--version" ]]; then
-  printf 'archdev test\n'
+  printf '0.35.4\n'
   exit 0
 fi
 if [[ "${1:-}" == "rooms" && "${2:-}" == "start" && "${3:-}" == "--help" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "rooms" && "${2:-}" == "search" && "${3:-}" == "--help" ]]; then
+  printf 'Usage: archdev rooms search [options] <query>\n  --messages Search recent messages directly\n'
   exit 0
 fi
 if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
@@ -63,7 +67,7 @@ if [[ "${1:-}" == "rooms" && "${2:-}" == "messages" && "${3:-}" == "tem_room" ]]
   exit 0
 fi
 if [[ "${1:-}" == "rooms" && "${2:-}" == "search" ]]; then
-  printf '{"room":{"id":"tem_room"},"data":[{"id":"msg_fact","content":"The stable retry key survives response loss","user":"usr_teammate","agent":null,"created_at":"2026-09-07T17:00:00Z","similarity_score":0.9}]}\n'
+  printf '{"room":{"id":"tem_room"},"source":"cks_room","data":[{"id":"cki_fact","content":"The stable retry key survives response loss","raw_content":{"id":"11de9a9e-93ea-428a-9224-0a94f3ef5a54","user_id":"547ec22d-cccf-4413-a883-0a5071e9e502","inserted_at":"2026-09-07T17:00:00Z","metadata":{"human":"Teammate","post_type":"lesson","refs":["https://example.com/review"]}},"similarity_score":0.9}]}\n'
   exit 0
 fi
 if [[ "${1:-}" == "rooms" && "${2:-}" == "lesson" ]]; then
@@ -90,9 +94,48 @@ test "$binary" = "$expected"
 test -x "$binary"
 "$binary" rooms start --help
 
-# First-use boundary: follow the public skill's actual happy path from an
-# unauthenticated machine through login, connection, recall, Q&A evidence, and
-# one durable structured post.
+# Bootstrap compatibility: lifecycle commands alone are insufficient. An old
+# CLI on PATH must be replaced, and the returned path must name the new binary.
+mkdir -p "$root/old"
+cat >"$root/old/archdev" <<'OLD_ARCHDEV'
+#!/usr/bin/env bash
+if [[ "$*" == '--version' ]]; then printf '0.34.0\n'; exit 0; fi
+if [[ "$*" == 'rooms start --help' ]]; then exit 0; fi
+if [[ "$*" == 'rooms search --help' ]]; then printf 'Usage: archdev rooms search <query>\n'; exit 0; fi
+printf 'Usage: archdev rooms [options] [command]\n'
+exit 0
+OLD_ARCHDEV
+chmod 0755 "$root/old/archdev"
+upgraded="$(PATH="$root/old:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/upgraded" \
+  ARCHDEV_INSTALLER_URL="file://$root/installer/install.sh" \
+  bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh")"
+test "$upgraded" = "$(cd -P "$root/upgraded" && pwd)/archdev" || {
+  printf 'Bootstrap accepted a lifecycle-only CLI without Knowledge search.\n' >&2
+  exit 1
+}
+
+# A capable binary must not invoke the installer, even if another install
+# directory is configured. A failed upgrade must not return the old binary.
+existing="$(PATH="$root/bin:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/unused" \
+  ARCHDEV_INSTALLER_URL="file://$root/missing-installer" \
+  bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh")"
+test "$existing" = "$expected"
+cat >"$root/installer/old.sh" <<'OLD_INSTALLER'
+#!/usr/bin/env bash
+mkdir -p "$ARCHDEV_INSTALL_DIR"
+cp "$OLD_ARCHDEV" "$ARCHDEV_INSTALL_DIR/archdev"
+OLD_INSTALLER
+if PATH="$root/old:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/rejected" \
+  OLD_ARCHDEV="$root/old/archdev" ARCHDEV_INSTALLER_URL="file://$root/installer/old.sh" \
+  bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh" >"$root/rejected-output" 2>"$root/rejected-error"; then
+  printf 'Bootstrap accepted an installer that still lacks Knowledge search.\n' >&2
+  exit 1
+fi
+test ! -s "$root/rejected-output"
+grep -F 'Installed ArchDev does not provide' "$root/rejected-error" >/dev/null
+
+# Command-contract fixture only: this is not live authentication, Knowledge,
+# or agent behavior. Those boundaries are verified separately.
 if HOME="$root/home" "$binary" auth status; then
   printf 'Expected the cold test user to start signed out.\n' >&2
   exit 1
@@ -105,8 +148,8 @@ printf '%s' "$connected" | grep -F '"id":"tem_room"' >/dev/null
 recent="$(HOME="$root/home" "$binary" --json rooms messages tem_room --limit 15)"
 printf '%s' "$recent" | grep -F '"id":"msg_recent"' >/dev/null
 answer_sources="$(HOME="$root/home" "$binary" --json rooms search 'how do retries avoid duplicates')"
-printf '%s' "$answer_sources" | grep -F '"id":"msg_fact"' >/dev/null
+printf '%s' "$answer_sources" | grep -F '"id":"11de9a9e-93ea-428a-9224-0a94f3ef5a54"' >/dev/null
 published="$(HOME="$root/home" "$binary" --json rooms lesson 'Retry evidence is durable' -b 'Keep one stable key')"
 printf '%s' "$published" | grep -F '"queued":true' >/dev/null
 
-printf 'Rooms installs in both scopes and completes login, join, recall, search, and publish.\n'
+printf 'Rooms packaging passes both install scopes, CLI compatibility, and fixture command contracts.\n'
