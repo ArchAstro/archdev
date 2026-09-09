@@ -5,7 +5,6 @@ set -euo pipefail
 OWNER="ArchAstro"
 REPO="archdev"
 BINARY_NAME="archdev"
-SIDECAR_NAME="archdev-dashboard"
 INSTALL_DIR="${ARCHDEV_INSTALL_DIR:-}"
 REQUESTED_VERSION="${ARCHDEV_VERSION:-latest}"
 RELEASE_BASE_URL="${ARCHDEV_RELEASE_BASE_URL:-}"
@@ -112,7 +111,6 @@ asset_url=${ASSET_URL}
 checksum_url=${CHECKSUM_URL}
 install_dir=${INSTALL_DIR}
 binary_path=${INSTALL_DIR}/${BINARY_NAME}
-sidecar_path=${INSTALL_DIR}/${SIDECAR_NAME}
 EOF
   exit 0
 fi
@@ -146,10 +144,8 @@ fi
 
 mkdir -p "$EXTRACT_DIR"
 tar -xzf "$ASSET_PATH" -C "$EXTRACT_DIR"
-for executable in "$BINARY_NAME" "$SIDECAR_NAME"; do
-  [[ -f "$EXTRACT_DIR/$executable" ]] || { printf 'Archive is missing %s\n' "$executable" >&2; exit 1; }
-  install -m 0755 "$EXTRACT_DIR/$executable" "$INSTALL_DIR/$executable"
-done
+[[ -f "$EXTRACT_DIR/$BINARY_NAME" ]] || { printf 'Archive is missing %s\n' "$BINARY_NAME" >&2; exit 1; }
+install -m 0755 "$EXTRACT_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
 
 append_once() {
   local file="$1" line="$2"
@@ -198,4 +194,4 @@ fi
 if [[ "$SKIP_VERIFY" != true ]]; then
   "$INSTALL_DIR/$BINARY_NAME" --version
 fi
-printf 'Installed %s and %s to %s\n' "$BINARY_NAME" "$SIDECAR_NAME" "$INSTALL_DIR"
+printf 'Installed %s to %s\n' "$BINARY_NAME" "$INSTALL_DIR"

@@ -33,9 +33,8 @@ curl -fsSL https://raw.githubusercontent.com/ArchAstro/archdev/main/install.sh |
 irm https://raw.githubusercontent.com/ArchAstro/archdev/main/install.ps1 | iex
 ```
 
-The release archive installs both `archdev` and its `archdev-dashboard`
-sidecar. The Unix installer also configures Bash, Zsh, or Fish completions for
-the active shell.
+The release archive installs `archdev`. The Unix installer also configures
+Bash, Zsh, or Fish completions for the active shell.
 
 ## Install Rooms independently
 
