@@ -5,24 +5,27 @@ function Resolve-ArchDevPath([string]$Candidate) {
 }
 
 function Install-ArchDev {
-    $installerUrl = if ($env:ARCHDEV_INSTALLER_URL) {
-        $env:ARCHDEV_INSTALLER_URL
-    } else {
-        "https://raw.githubusercontent.com/ArchAstro/archdev/7c16002d66a004b13812cf675042cb1c50fbf6df/install.ps1"
-    }
+    # Reviewed installer bytes; update the revision and digest together.
+    $installerUrl = "https://raw.githubusercontent.com/ArchAstro/archdev/7c16002d66a004b13812cf675042cb1c50fbf6df/install.ps1"
+    $installerSha256 = "2ebe7a76fc442dfd015b497f620381e7bcdaa0aac38c472e3ae4812ffb76e0bf"
     $installDir = if ($env:ARCHDEV_INSTALL_DIR) {
         $env:ARCHDEV_INSTALL_DIR
     } else {
         Join-Path $env:LOCALAPPDATA "ArchDev\bin"
     }
-    $installerPath = Join-Path ([IO.Path]::GetTempPath()) ("archdev-install-" + [Guid]::NewGuid().ToString("N") + ".ps1")
+    $installerRoot = Join-Path ([IO.Path]::GetTempPath()) ("archdev-install-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $installerRoot -ErrorAction Stop | Out-Null
+    $installerPath = Join-Path $installerRoot "install.ps1"
     try {
         Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-        $env:ARCHDEV_INSTALL_DIR = $installDir
-        & $installerPath -SkipPathUpdate *> $null
+        $actualHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash
+        if ($actualHash -ne $installerSha256) {
+            throw "ArchDev installer SHA256 mismatch; refusing to execute downloaded content."
+        }
+        & $installerPath -InstallDir $installDir -BaseUrl "" -SkipPathUpdate -SkipVerify:$false *> $null
         if (-not $?) { throw "ArchDev installer failed" }
     } finally {
-        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $installerRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
     return (Resolve-ArchDevPath (Join-Path $installDir "archdev.exe"))
 }

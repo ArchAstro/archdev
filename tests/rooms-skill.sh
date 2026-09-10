@@ -4,6 +4,7 @@ set -euo pipefail
 
 repo="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 root="$(mktemp -d)"
+root="$(cd -P "$root" && pwd)"
 trap 'rm -rf "$root"' EXIT
 
 mkdir -p "$root/home" "$root/project" "$root/installer"
@@ -33,6 +34,8 @@ fi
 cat >"$root/installer/install.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ -z "${ARCHDEV_RELEASE_BASE_URL:-}" ]] || exit 1
+[[ "${ARCHDEV_INSTALL_SKIP_VERIFY:-}" == false ]] || exit 1
 mkdir -p "$ARCHDEV_INSTALL_DIR"
 cat >"$ARCHDEV_INSTALL_DIR/archdev" <<'ARCHDEV'
 #!/usr/bin/env bash
@@ -75,13 +78,16 @@ ARCHDEV
 chmod 0755 "$ARCHDEV_INSTALL_DIR/archdev"
 INSTALLER
 chmod 0755 "$root/installer/install.sh"
+bootstrap="$root/project/.agents/skills/rooms/scripts/bootstrap.sh"
+source "$repo/tests/bootstrap-fixture.sh"
+prepare_bootstrap_fixture
+export ARCHDEV_INSTALL_DIR="$root/bin"
 
 binary="$(
   cd "$root/project"
   HOME="$root/home" \
-    PATH="/usr/bin:/bin" \
+    PATH="$root/transport:/usr/bin:/bin" \
     ARCHDEV_INSTALL_DIR="$root/bin" \
-    ARCHDEV_INSTALLER_URL="file://$root/installer/install.sh" \
     bash .agents/skills/rooms/scripts/bootstrap.sh
 )"
 
@@ -108,5 +114,7 @@ answer_sources="$(HOME="$root/home" "$binary" --json rooms search 'how do retrie
 printf '%s' "$answer_sources" | grep -F '"id":"msg_fact"' >/dev/null
 published="$(HOME="$root/home" "$binary" --json rooms lesson 'Retry evidence is durable' -b 'Keep one stable key')"
 printf '%s' "$published" | grep -F '"queued":true' >/dev/null
+
+assert_bootstrap_rejects_untrusted_installer
 
 printf 'Rooms installs in both scopes and completes login, join, recall, search, and publish.\n'
