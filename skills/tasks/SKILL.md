@@ -139,7 +139,9 @@ opening the page, or kill it when the command tool yields.
    If browser control is unavailable, hand the URL to the human. Without
    `--no-open`, the CLI attempts to open the default browser itself.
 3. Tell the human where to review and that **Approve & save** writes Tasks to
-   the selected destination. Begin listening for feedback in the same turn.
+   the selected destination in a progress update, then enter the feedback loop
+   in the same turn. Opening the page and leaving its server running do not
+   monitor feedback; do not end the turn with an invitation to review.
 
 The URL and session handle contain a local bearer capability. Do not commit
 or publish them, dump the handle contents, or put them in shared logs. The
@@ -158,8 +160,12 @@ Start the feedback cursor at `0` for this session.
 "$archdev" tasks review update <sessionFile> --file plans/task-review.json --revision <currentRevision>
 ```
 
-Drive this loop until the current revision is saved, the user pauses/cancels,
-or a concrete blocker needs their input:
+Keep the turn active and drive this loop until the current revision is saved
+and verified, the user explicitly pauses/cancels, or a concrete blocker needs
+their input. Answer status questions in progress updates and continue polling;
+an incidental interruption does not complete the review. After a blocker is
+resolved or an interrupted turn resumes, read feedback from the retained cursor
+and status before continuing; do not wait for the user to announce new feedback.
 
 1. Read feedback and status. Feedback returns `{events, cursor}` without
    consuming events. Process new events, then retain the returned cursor.
