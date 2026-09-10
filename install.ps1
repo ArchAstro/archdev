@@ -55,11 +55,9 @@ try {
     $ActualHash = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash
     if ($ActualHash.ToLowerInvariant() -ne $ExpectedHash.ToLowerInvariant()) { throw "Checksum mismatch for $AssetName" }
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractDir -Force
-    foreach ($Name in @("archdev.exe", "archdev-dashboard.exe")) {
-        $Source = Join-Path $ExtractDir $Name
-        if (-not (Test-Path $Source)) { throw "Archive is missing $Name" }
-        Copy-Item $Source (Join-Path $InstallDir $Name) -Force
-    }
+    $Source = Join-Path $ExtractDir "archdev.exe"
+    if (-not (Test-Path $Source)) { throw "Archive is missing archdev.exe" }
+    Copy-Item $Source (Join-Path $InstallDir "archdev.exe") -Force
     if (-not $SkipPathUpdate) {
         $CurrentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
         $Entries = if ($CurrentUserPath) { $CurrentUserPath -split ';' } else { @() }
@@ -69,7 +67,7 @@ try {
         }
     }
     if (-not $SkipVerify) { & (Join-Path $InstallDir "archdev.exe") --version }
-    Write-Host "Installed archdev and archdev-dashboard to $InstallDir"
+    Write-Host "Installed archdev to $InstallDir"
 } finally {
     Remove-Item $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

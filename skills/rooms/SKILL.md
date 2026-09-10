@@ -55,23 +55,43 @@ Inspect the returned `delivery` object. Pending posts are restarted during the
 connection. If `failed` is nonzero, tell the user how many posts were rejected
 and give them `failedPath`; do not report those posts as delivered.
 
-For a substantial session, immediately read the latest 15 messages with the
-connected Room ID. This is the lightweight Room brief and catches current work
-before planning begins.
+For a substantial session, read the latest 15 messages and existing approved
+records with the connected Room ID before planning:
+
+```sh
+"$archdev" --json rooms messages "<connected-room-id>" --limit 15
+"$archdev" --json rooms records list "<connected-room-id>" --status approved
+```
+
+Recent messages show current work; approved records preserve decisions beyond
+that window. If optional records are unavailable, continue with search and
+recent messages; do not create schemas or treat the missing records as proof
+that no decisions exist.
 
 ## Recall and answer
 
-Before planning substantial work, search once for the subsystem, symptom,
+Before planning substantial work, begin by searching for the subsystem, symptom,
 error, or behavior:
 
 ```sh
 "$archdev" --json rooms search "<question or sharp topic>"
 ```
 
-The installed coding agent answers directly from the returned messages; no
-resident agent is required. Cite supporting message IDs, senders, and
-timestamps. Separate inference from facts. Empty, malformed, or failed results
-are inconclusive, not proof that the team has no knowledge.
+The installed coding agent answers from server Knowledge results; no resident
+agent is required. Each hit's `content` contains indexed text. Read
+`raw_content` for the original message's `user_id`, `inserted_at`, and
+`metadata` (including `human`, `post_type`, and `refs` when present). Cite that
+attribution, date, and available reference links. Knowledge `raw_content.id`
+and `metadata.message_id` are internal provenance IDs, not public `msg_` IDs;
+do not fabricate a message URL or public lookup from them. Public message IDs
+come from message responses. Separate inference from facts and do not invent
+missing evidence.
+
+If a successful query is empty or insufficient, try a broader query using the
+subsystem, symptom, or exact error. New posts may not yet be indexed; use
+`"$archdev" --json rooms search "<topic>" --messages` to check recent messages
+directly. Empty, malformed, or failed results are inconclusive. Do not present
+an unsuccessful lookup as proof that the team has no knowledge.
 
 Read recent activity at session start and again before committing or opening a
 PR:
@@ -88,7 +108,10 @@ lesson or collision to the user, then verify locally.
 For substantial work, publish `start` after the scope is understood. Publish a
 `lesson` immediately for a reusable root cause or fix, and `abandoned` when an
 approach should not be repeated. Finish with `done` or a named `handoff`.
-Questions and handoffs must begin with `@firstname`.
+Questions and handoffs must begin with `@firstname`. State the symptom, cause,
+decision or rejected approach, and verification when known; avoid routine
+progress noise. Use full review URLs and repository file links in `-r` when
+available, so another agent can inspect the evidence without guessing a repo.
 
 ```sh
 "$archdev" --json rooms start "Plain-English headline" -b "One concrete fact" -r "path or PR"
@@ -116,9 +139,9 @@ For ordinary conversation only, use:
 "$archdev" --json rooms post "<connected-room-id>" "<message>"
 ```
 
-If the repository supplies a harness-owned PR evidence publisher, follow that
-repository's instructions before posting `done`; do not invent evidence or
-replace the publisher with Room prose. Always include the review reference in
-the structured `done` post.
+When work has a PR, include its review link plus the intent, useful findings,
+and actual verification in the structured `done` post. No separate evidence
+capture package is required for Rooms. Follow any additional evidence
+requirements of the repository without inventing evidence.
 
 Never post secrets, tokens, customer data, or unreviewed private content.

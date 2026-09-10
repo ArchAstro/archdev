@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-installer_revision="7c16002d66a004b13812cf675042cb1c50fbf6df"
+installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
-installer_sha256="3d2fbe9372a1e60188e2eb5ec3a96f25f73a4d5037b00f68d328cac58ca22f2f"
+installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
 
 absolute_path() {

@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-installer_revision="7c16002d66a004b13812cf675042cb1c50fbf6df"
+installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
-installer_sha256="3d2fbe9372a1e60188e2eb5ec3a96f25f73a4d5037b00f68d328cac58ca22f2f"
+installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
 
 absolute_path() {
@@ -66,8 +66,15 @@ else
   executable="$(absolute_path "$install_dir/archdev")"
 fi
 
-if ! "$executable" rooms start --help >/dev/null 2>&1; then
-  printf 'Updating ArchDev because this version lacks Rooms lifecycle commands.\n' >&2
+supports_rooms() {
+  local help_text
+  "$1" rooms start --help >/dev/null 2>&1 || return 1
+  help_text="$("$1" rooms search --help 2>/dev/null)" || return 1
+  grep -Fq -- '--messages' <<<"$help_text"
+}
+
+if ! supports_rooms "$executable"; then
+  printf 'Updating ArchDev because this version lacks Rooms lifecycle or Knowledge search commands.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -78,8 +85,8 @@ fi
 }
 
 "$executable" --version >&2
-"$executable" rooms start --help >/dev/null 2>&1 || {
-  printf 'Installed ArchDev does not provide Rooms lifecycle commands.\n' >&2
+supports_rooms "$executable" || {
+  printf 'Installed ArchDev does not provide Rooms lifecycle and Knowledge search commands.\n' >&2
   exit 1
 }
 printf '%s\n' "$executable"

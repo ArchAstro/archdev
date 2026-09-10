@@ -12,7 +12,7 @@ try {
 using System;
 public static class Program {
     public static void Main(string[] args) {
-        Console.WriteLine(args.Length == 1 && args[0] == "--version" ? "fixture" : "Usage: archdev " + string.Join(" ", args));
+        Console.WriteLine(args.Length == 1 && args[0] == "--version" ? "fixture" : "Usage: archdev " + string.Join(" ", args) + " --messages");
     }
 }
 '@
@@ -23,7 +23,7 @@ public static class Program {
         & $compiler /nologo /target:exe "/out:$fixtureCli" $source
         if ($LASTEXITCODE -ne 0) { throw 'Fixture compilation failed' }
     } else {
-        [IO.File]::WriteAllText($fixtureCli, "#!/bin/sh`nprintf 'Usage: archdev %s\n' `"`$*`"`n")
+        [IO.File]::WriteAllText($fixtureCli, "#!/bin/sh`nprintf 'Usage: archdev %s --messages\n' `"`$*`"`n")
         & chmod +x $fixtureCli
     }
     $env:ARCHDEV_TEST_FIXTURE_CLI = $fixtureCli
@@ -48,7 +48,7 @@ Copy-Item $env:ARCHDEV_TEST_FIXTURE_CLI (Join-Path $InstallDir 'archdev.exe')
     }
     function Invoke-WebRequest {
         param([string]$Uri, [string]$OutFile)
-        if ($Uri -ne 'https://raw.githubusercontent.com/ArchAstro/archdev/7c16002d66a004b13812cf675042cb1c50fbf6df/install.ps1') {
+        if ($Uri -ne 'https://raw.githubusercontent.com/ArchAstro/archdev/9d50e7ce1e64a731d88cca8ae15ec2c45b1375df/install.ps1') {
             throw "Unexpected installer URL: $Uri"
         }
         $state.downloads++

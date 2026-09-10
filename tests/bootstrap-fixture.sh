@@ -12,7 +12,7 @@ prepare_bootstrap_fixture() {
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$#" = 11 && "$1" = --fail && "$2" = --silent && "$3" = --show-error && "$4" = --location && "$5" = --proto && "$6" = '=https' && "$7" = --proto-redir && "$8" = '=https' && "$9" = --output ]]
-[[ "${11}" = https://raw.githubusercontent.com/ArchAstro/archdev/7c16002d66a004b13812cf675042cb1c50fbf6df/install.sh ]]
+[[ "${11}" = https://raw.githubusercontent.com/ArchAstro/archdev/9d50e7ce1e64a731d88cca8ae15ec2c45b1375df/install.sh ]]
 cp "$ARCHDEV_TEST_INSTALLER" "${10}"
 CURL
   chmod +x "$root/transport/curl"
