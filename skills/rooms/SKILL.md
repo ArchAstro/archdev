@@ -25,6 +25,16 @@ On Windows PowerShell:
 $archdev = & powershell -NoProfile -File 'C:\absolute\path\to\rooms\scripts\bootstrap.ps1'
 ```
 
+The bundled bootstrap scripts use a fixed GitHub commit and verify the downloaded
+installer against a SHA-256 digest stored in the skill before executing it. They
+do not accept an installer URL override. This verifies the installer bytes, not
+the behavior of the ArchDev runtime. The installer downloads the CLI release and
+checks its archive checksum. A compatible existing CLI on PATH is reused.
+
+ArchDev authenticates as the user and sends the messages you explicitly compose
+with `rooms post` to the connected Room. Review each post before sending; never
+send raw transcripts, credentials, or private content without authorization.
+
 If bootstrap fails, report its error and point to the official ArchDev
 installer. Check authentication with `"$archdev" auth status` (PowerShell:
 `& $archdev auth status`). On a nonzero result, run `auth login`, let the user

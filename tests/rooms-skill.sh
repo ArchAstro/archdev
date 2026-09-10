@@ -4,6 +4,7 @@ set -euo pipefail
 
 repo="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 root="$(mktemp -d)"
+root="$(cd -P "$root" && pwd)"
 trap 'rm -rf "$root"' EXIT
 
 mkdir -p "$root/home" "$root/project" "$root/installer"
@@ -33,6 +34,8 @@ fi
 cat >"$root/installer/install.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ -z "${ARCHDEV_RELEASE_BASE_URL:-}" ]] || exit 1
+[[ "${ARCHDEV_INSTALL_SKIP_VERIFY:-}" == false ]] || exit 1
 mkdir -p "$ARCHDEV_INSTALL_DIR"
 cat >"$ARCHDEV_INSTALL_DIR/archdev" <<'ARCHDEV'
 #!/usr/bin/env bash
@@ -79,13 +82,16 @@ ARCHDEV
 chmod 0755 "$ARCHDEV_INSTALL_DIR/archdev"
 INSTALLER
 chmod 0755 "$root/installer/install.sh"
+bootstrap="$root/project/.agents/skills/rooms/scripts/bootstrap.sh"
+source "$repo/tests/bootstrap-fixture.sh"
+prepare_bootstrap_fixture
+export ARCHDEV_INSTALL_DIR="$root/bin"
 
 binary="$(
   cd "$root/project"
   HOME="$root/home" \
-    PATH="/usr/bin:/bin" \
+    PATH="$root/transport:/usr/bin:/bin" \
     ARCHDEV_INSTALL_DIR="$root/bin" \
-    ARCHDEV_INSTALLER_URL="file://$root/installer/install.sh" \
     bash .agents/skills/rooms/scripts/bootstrap.sh
 )"
 
@@ -106,8 +112,7 @@ printf 'Usage: archdev rooms [options] [command]\n'
 exit 0
 OLD_ARCHDEV
 chmod 0755 "$root/old/archdev"
-upgraded="$(PATH="$root/old:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/upgraded" \
-  ARCHDEV_INSTALLER_URL="file://$root/installer/install.sh" \
+upgraded="$(PATH="$root/old:$root/transport:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/upgraded" \
   bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh")"
 test "$upgraded" = "$(cd -P "$root/upgraded" && pwd)/archdev" || {
   printf 'Bootstrap accepted a lifecycle-only CLI without Knowledge search.\n' >&2
@@ -117,7 +122,7 @@ test "$upgraded" = "$(cd -P "$root/upgraded" && pwd)/archdev" || {
 # A capable binary must not invoke the installer, even if another install
 # directory is configured. A failed upgrade must not return the old binary.
 existing="$(PATH="$root/bin:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/unused" \
-  ARCHDEV_INSTALLER_URL="file://$root/missing-installer" \
+  ARCHDEV_TEST_INSTALLER="$root/missing-installer" \
   bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh")"
 test "$existing" = "$expected"
 cat >"$root/installer/old.sh" <<'OLD_INSTALLER'
@@ -125,14 +130,21 @@ cat >"$root/installer/old.sh" <<'OLD_INSTALLER'
 mkdir -p "$ARCHDEV_INSTALL_DIR"
 cp "$OLD_ARCHDEV" "$ARCHDEV_INSTALL_DIR/archdev"
 OLD_INSTALLER
-if PATH="$root/old:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/rejected" \
-  OLD_ARCHDEV="$root/old/archdev" ARCHDEV_INSTALLER_URL="file://$root/installer/old.sh" \
+# This second fixture is trusted only by the installed test copy, so the
+# rejection exercises CLI compatibility after successful integrity verification.
+cp "$bootstrap" "$root/current-bootstrap"
+old_hash="$(shasum -a 256 "$root/installer/old.sh")"
+sed "s/^installer_sha256=.*/installer_sha256=\"${old_hash%% *}\"/" "$bootstrap" > "$root/old-bootstrap"
+cat "$root/old-bootstrap" > "$bootstrap"
+if PATH="$root/old:$root/transport:/usr/bin:/bin" ARCHDEV_INSTALL_DIR="$root/rejected" \
+  OLD_ARCHDEV="$root/old/archdev" ARCHDEV_TEST_INSTALLER="$root/installer/old.sh" \
   bash "$root/project/.agents/skills/rooms/scripts/bootstrap.sh" >"$root/rejected-output" 2>"$root/rejected-error"; then
   printf 'Bootstrap accepted an installer that still lacks Knowledge search.\n' >&2
   exit 1
 fi
 test ! -s "$root/rejected-output"
 grep -F 'Installed ArchDev does not provide' "$root/rejected-error" >/dev/null
+cat "$root/current-bootstrap" > "$bootstrap"
 
 # Command-contract fixture only: this is not live authentication, Knowledge,
 # or agent behavior. Those boundaries are verified separately.
@@ -152,4 +164,6 @@ printf '%s' "$answer_sources" | grep -F '"id":"11de9a9e-93ea-428a-9224-0a94f3ef5
 published="$(HOME="$root/home" "$binary" --json rooms lesson 'Retry evidence is durable' -b 'Keep one stable key')"
 printf '%s' "$published" | grep -F '"queued":true' >/dev/null
 
-printf 'Rooms packaging passes both install scopes, CLI compatibility, and fixture command contracts.\n'
+assert_bootstrap_rejects_untrusted_installer
+
+printf 'Rooms packaging passes both install scopes, CLI compatibility, installer integrity, and fixture command contracts.\n'

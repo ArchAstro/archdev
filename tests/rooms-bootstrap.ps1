@@ -1,9 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('rooms-bootstrap-' + [Guid]::NewGuid().ToString('N'))
-$bootstrap = Join-Path $PSScriptRoot '../skills/rooms/scripts/bootstrap.ps1'
+$sourceBootstrap = Join-Path $PSScriptRoot '../skills/rooms/scripts/bootstrap.ps1'
+$bootstrap = Join-Path $root 'bootstrap.ps1'
 $originalPath = $env:PATH
 $originalInstallDir = $env:ARCHDEV_INSTALL_DIR
-$originalInstallerUrl = $env:ARCHDEV_INSTALLER_URL
+$originalReleaseUrl = $env:ARCHDEV_RELEASE_BASE_URL
 New-Item -ItemType Directory $root | Out-Null
 
 try {
@@ -50,15 +51,29 @@ esac
     # Replace only the installer-download boundary; the actual bootstrap runs
     # the downloaded script and invokes the exact returned native executable.
     $fixture = @{ Binary = (Join-Path $root 'current/archdev.exe'); Downloads = 0 }
-    function Invoke-WebRequest($Uri, $OutFile) {
-        $fixture.Downloads++
-        Set-Content $OutFile @"
-param([switch]`$SkipPathUpdate)
-New-Item -ItemType Directory `$env:ARCHDEV_INSTALL_DIR -Force | Out-Null
-Copy-Item '$($fixture.Binary)' (Join-Path `$env:ARCHDEV_INSTALL_DIR 'archdev.exe') -Force
+    $payload = Join-Path $root 'installer.ps1'
+    function Set-InstallerFixture {
+        Set-Content $payload @"
+param([switch]`$SkipPathUpdate, [switch]`$SkipVerify, [string]`$InstallDir, [string]`$BaseUrl = `$env:ARCHDEV_RELEASE_BASE_URL)
+if (`$BaseUrl -or `$SkipVerify) { throw 'Bootstrap must use official releases with verification enabled' }
+New-Item -ItemType Directory `$InstallDir -Force | Out-Null
+Copy-Item '$($fixture.Binary)' (Join-Path `$InstallDir 'archdev.exe') -Force
 "@
+        $original = Get-Content $sourceBootstrap -Raw
+        if ($original -notmatch '\$installerSha256 = "([a-f0-9]{64})"') { throw 'Missing installer digest' }
+        $fixtureHash = (Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant()
+        # Only the test copy trusts this fixture; production has no URL/hash override.
+        [IO.File]::WriteAllText($bootstrap, $original.Replace($Matches[1], $fixtureHash))
     }
-    $env:ARCHDEV_INSTALLER_URL = 'https://fixture.invalid/install.ps1'
+    function Invoke-WebRequest($Uri, $OutFile) {
+        if ($Uri -ne 'https://raw.githubusercontent.com/ArchAstro/archdev/9d50e7ce1e64a731d88cca8ae15ec2c45b1375df/install.ps1') {
+            throw "Unexpected installer URL: $Uri"
+        }
+        $fixture.Downloads++
+        Copy-Item $payload $OutFile
+    }
+    Set-InstallerFixture
+    $env:ARCHDEV_RELEASE_BASE_URL = 'https://untrusted.invalid/releases'
     $env:ARCHDEV_INSTALL_DIR = Join-Path $root 'installed'
     $env:PATH = (Join-Path $root 'old') + [IO.Path]::PathSeparator + $originalPath
     $result = & $bootstrap
@@ -75,6 +90,7 @@ Copy-Item '$($fixture.Binary)' (Join-Path `$env:ARCHDEV_INSTALL_DIR 'archdev.exe
     if ($result -ne $existingPath -or $fixture.Downloads -ne 1) { throw 'Current CLI was unnecessarily installed' }
     $env:PATH = (Join-Path $root 'old') + [IO.Path]::PathSeparator + $originalPath
     $fixture.Binary = Join-Path $root 'old/archdev.exe'
+    Set-InstallerFixture
     $failure = $null
     try { $result = & $bootstrap } catch { $failure = $_ }
     if (-not $failure -or "$failure" -notmatch 'Installed ArchDev does not provide') {
@@ -84,6 +100,6 @@ Copy-Item '$($fixture.Binary)' (Join-Path `$env:ARCHDEV_INSTALL_DIR 'archdev.exe
 } finally {
     $env:PATH = $originalPath
     $env:ARCHDEV_INSTALL_DIR = $originalInstallDir
-    $env:ARCHDEV_INSTALLER_URL = $originalInstallerUrl
+    $env:ARCHDEV_RELEASE_BASE_URL = $originalReleaseUrl
     Remove-Item $root -Recurse -Force
 }
