@@ -42,6 +42,7 @@ Do not install/start Jobs simply to open a local review.
 | Intent | Command |
 | --- | --- |
 | Human review of local code | `reviews local --feedback-format jsonl --no-open` |
+| Author the review metadata yourself, no model or login | `reviews manifest`, then `reviews local --metadata <file>` |
 | Open the Needs review inbox | `reviews inbox` (or `reviews`) |
 | Open an existing PR | `reviews open <PR>` |
 | Discover/inspect AI review DAGs | `reviews workflows list` / `show <name>` |
@@ -49,9 +50,11 @@ Do not install/start Jobs simply to open a local review.
 | Generate publication JSON only | `reviews generate pull-request` / `metadata` |
 | Publish/update a branch PR | `reviews publish` |
 
-Read [workflows.md](references/workflows.md) for AI review DAG features and
+Read [workflows.md](references/workflows.md) for AI review DAG features,
 [site-and-publication.md](references/site-and-publication.md) for site/GitHub
-access, browser features, publication, and the Jobs handoff. Task-plan review
+access, browser features, publication, and the Jobs handoff, and
+[agent-metadata.md](references/agent-metadata.md) to write the risk/theme
+annotations yourself instead of generating them with a model. Task-plan review
 uses the separate Tasks workflow; do not use its session-file/revision commands
 for code review.
 
@@ -64,7 +67,11 @@ for code review.
 2. Run `"$archdev" auth status`; if signed out, run `auth login`, let the human
    finish browser sign-in, and verify it. Model metadata generation requires
    usable model access; use the Agents skill's provider setup when available.
-   `--model <selector-or-alias>` chooses the metadata model.
+   `--model <selector-or-alias>` chooses the metadata model. Without a
+   session or provider key, or when the human wants your judgment on the
+   diff, skip this step and follow [agent-metadata.md](references/agent-metadata.md):
+   `reviews manifest` plus `reviews local --metadata <file>` need neither.
+   The CLI refuses a model it cannot reach before freezing anything.
 3. Choose a valid local base ref. Default is `origin/main`; use `--base HEAD`
    for current working changes without the branch's earlier committed diff,
    or the requested branch base. Fetch a known remote ref when needed; do not

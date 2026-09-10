@@ -18,6 +18,7 @@ bootstrap="$root/project/.agents/skills/reviews/scripts/bootstrap.sh"
 test -x "$bootstrap"
 test -f "$root/project/.agents/skills/reviews/references/site-and-publication.md"
 test -f "$root/project/.agents/skills/reviews/references/workflows.md"
+test -f "$root/project/.agents/skills/reviews/references/agent-metadata.md"
 
 # Substitute only the release boundary: no real installation or account writes.
 cat > "$root/installer/install.sh" <<'INSTALLER'
@@ -31,6 +32,7 @@ cat > "$ARCHDEV_INSTALL_DIR/archdev" <<'CLI'
 if [[ "$*" == '--version' ]]; then echo fixture; exit 0; fi
 if [[ "$*" == 'reviews local --help' ]]; then echo 'Usage: archdev reviews local [options]'; exit 0; fi
 if [[ "$*" == 'reviews workflows run --help' ]]; then echo 'Usage: archdev reviews workflows run [options] <workflow>'; exit 0; fi
+if [[ "$*" == 'reviews manifest --help' ]]; then echo 'Usage: archdev reviews manifest [options]'; exit 0; fi
 exit 1
 CLI
 chmod +x "$ARCHDEV_INSTALL_DIR/archdev"
