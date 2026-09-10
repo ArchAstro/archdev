@@ -68,7 +68,8 @@ fi
 
 supports_reviews() {
   "$1" reviews local --help 2>/dev/null | grep -Fq "Usage: archdev reviews local " &&
-    "$1" reviews workflows run --help 2>/dev/null | grep -Fq "Usage: archdev reviews workflows run "
+    "$1" reviews workflows run --help 2>/dev/null | grep -Fq "Usage: archdev reviews workflows run " &&
+    "$1" reviews manifest --help 2>/dev/null | grep -Fq "Usage: archdev reviews manifest "
 }
 
 if ! supports_reviews "$executable"; then

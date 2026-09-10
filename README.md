@@ -120,7 +120,9 @@ npx skills add ArchAstro/archdev --skill reviews
 ```
 
 Ask your coding agent to open local review and iterate on your feedback. No
-Task, PR, or daemon is required for that local loop.
+Task, PR, or daemon is required for that local loop, and the agent can author
+the risk/theme annotations itself with `reviews manifest` and
+`reviews local --metadata`, with no model key or ArchDev login.
 
 ## Repository scope
 

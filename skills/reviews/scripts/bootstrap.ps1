@@ -37,7 +37,9 @@ function Test-Reviews([string]$Binary) {
     $helpText = & $Binary reviews local --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev reviews local ")) { return $false }
     $helpText = & $Binary reviews workflows run --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "(?m)^Usage: archdev reviews workflows run "))
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev reviews workflows run ")) { return $false }
+    $helpText = & $Binary reviews manifest --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "(?m)^Usage: archdev reviews manifest "))
 }
 
 if (-not (Test-Reviews $archdev)) {
