@@ -66,14 +66,14 @@ else
   executable="$(absolute_path "$install_dir/archdev")"
 fi
 
-supports_reviews() {
-  "$1" reviews local --help 2>/dev/null | grep -Fq "Usage: archdev reviews local " &&
-    "$1" reviews workflows run --help 2>/dev/null | grep -Fq "Usage: archdev reviews workflows run " &&
-    "$1" reviews manifest --help 2>/dev/null | grep -Fq "Usage: archdev reviews manifest "
+supports_inspect() {
+  "$1" inspect local --help 2>/dev/null | grep -Fq "Usage: archdev inspect local " &&
+    "$1" inspect workflows run --help 2>/dev/null | grep -Fq "Usage: archdev inspect workflows run " &&
+    "$1" inspect manifest --help 2>/dev/null | grep -Fq "Usage: archdev inspect manifest "
 }
 
-if ! supports_reviews "$executable"; then
-  printf 'Updating ArchDev because this version lacks Reviews commands.\n' >&2
+if ! supports_inspect "$executable"; then
+  printf 'Updating ArchDev because this version lacks Inspect commands.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -84,8 +84,8 @@ fi
 }
 
 "$executable" --version >&2
-supports_reviews "$executable" || {
-  printf 'Installed ArchDev does not provide Reviews commands.\n' >&2
+supports_inspect "$executable" || {
+  printf 'Installed ArchDev does not provide Inspect commands.\n' >&2
   exit 1
 }
 printf '%s\n' "$executable"

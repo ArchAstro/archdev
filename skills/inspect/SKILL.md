@@ -1,5 +1,5 @@
 ---
-name: reviews
+name: inspect
 description: Use to run ArchDev local code review in the browser, collect inline feedback and iterate on fixes, open an ArchCode PR or inbox, connect GitHub repository access through the site, configure/run AI review workflows, publish reviewed branches, or hand PR automation to Jobs.
 ---
 
@@ -20,19 +20,19 @@ its absolute executable path on stdout.
 Bash/Zsh:
 
 ```sh
-archdev="$(bash /absolute/path/to/reviews/scripts/bootstrap.sh)"
+archdev="$(bash /absolute/path/to/inspect/scripts/bootstrap.sh)"
 ```
 
 Fish:
 
 ```fish
-set archdev (bash /absolute/path/to/reviews/scripts/bootstrap.sh)
+set archdev (bash /absolute/path/to/inspect/scripts/bootstrap.sh)
 ```
 
 PowerShell:
 
 ```powershell
-$archdev = & powershell -NoProfile -File 'C:\absolute\path\to\reviews\scripts\bootstrap.ps1'
+$archdev = & powershell -NoProfile -File 'C:\absolute\path\to\inspect\scripts\bootstrap.ps1'
 ```
 
 Commands below use `"$archdev"`; PowerShell uses `& $archdev`. If bootstrap
@@ -41,14 +41,14 @@ Do not install/start Jobs simply to open a local review.
 
 | Intent | Command |
 | --- | --- |
-| Human review of local code | `reviews local --feedback-format jsonl --no-open` |
-| Author the review metadata yourself, no model or login | `reviews manifest`, then `reviews local --metadata <file>` |
-| Open the Needs review inbox | `reviews inbox` (or `reviews`) |
-| Open an existing PR | `reviews open <PR>` |
-| Discover/inspect AI review DAGs | `reviews workflows list` / `show <name>` |
-| Run an AI review DAG | `reviews workflows run <name> --target <target>` |
-| Generate publication JSON only | `reviews generate pull-request` / `metadata` |
-| Publish/update a branch PR | `reviews publish` |
+| Human review of local code | `inspect local --feedback-format jsonl --no-open` |
+| Author the review metadata yourself, no model or login | `inspect manifest`, then `inspect local --metadata <file>` |
+| Open the Needs review inbox | `inspect inbox` (or `inspect`) |
+| Open an existing PR | `inspect open <PR>` |
+| Discover/inspect AI review DAGs | `inspect workflows list` / `show <name>` |
+| Run an AI review DAG | `inspect workflows run <name> --target <target>` |
+| Generate publication JSON only | `inspect generate pull-request` / `metadata` |
+| Publish/update a branch PR | `inspect publish` |
 
 Read [workflows.md](references/workflows.md) for AI review DAG features,
 [site-and-publication.md](references/site-and-publication.md) for site/GitHub
@@ -70,13 +70,13 @@ for code review.
    `--model <selector-or-alias>` chooses the metadata model. Without a
    session or provider key, or when the human wants your judgment on the
    diff, skip this step and follow [agent-metadata.md](references/agent-metadata.md):
-   `reviews manifest` plus `reviews local --metadata <file>` need neither.
+   `inspect manifest` plus `inspect local --metadata <file>` need neither.
    The CLI refuses a model it cannot reach before freezing anything.
 3. Choose a valid local base ref. Default is `origin/main`; use `--base HEAD`
    for current working changes without the branch's earlier committed diff,
    or the requested branch base. Fetch a known remote ref when needed; do not
    assume its local tracking ref is fresh. Review does not rebase the checkout.
-4. `reviews local` captures final working-tree contents against the merge base
+4. `inspect local` captures final working-tree contents against the merge base
    of the chosen ref and HEAD: branch commits plus staged/unstaged and
    non-ignored untracked changes. It uses a private temporary index/object
    store and a synthetic snapshot SHA; it does not commit to the user's branch
@@ -91,7 +91,7 @@ selected model provider for semantic metadata; it is not an offline-only mode.
 ## 3. Launch and open the exact URL
 
 ```sh
-"$archdev" reviews local --base origin/main --feedback-format jsonl --no-open
+"$archdev" inspect local --base origin/main --feedback-format jsonl --no-open
 ```
 
 1. Start this command in the harness's persistent process/PTY facility. Keep
@@ -144,7 +144,7 @@ paths, LEFT/RIGHT side, line or line-range coordinates, and body text.
 5. Run focused verification for the changed behavior. Explain any finding you
    decline with concrete evidence. Preserve useful feedback in the session's
    work record so a terminated server does not become the only copy.
-6. Launch `reviews local` again after edits, using the intended base. It captures
+6. Launch `inspect local` again after edits, using the intended base. It captures
    a new snapshot and returns a new URL/session. Open that new URL for another
    review pass; the old tab remains an old snapshot. Repeat until the user
    accepts the result, pauses/cancels, or an unresolved decision needs input.
@@ -161,12 +161,12 @@ comments. Use JSONL for reliable draft edits/removals and session attribution;
 
 ## 5. Separate local review, publication, and automation
 
-For an existing GitHub PR, use `reviews open`/`inbox` and connect GitHub on the
+For an existing GitHub PR, use `inspect open`/`inbox` and connect GitHub on the
 site as described in the reference. Local review cannot submit a GitHub review
 or post its draft comments to a remote PR. If that is the user's intent, review
 the actual remote PR revision and use its authorized web actions.
 
-After local review, publish only when requested with `reviews publish`, then
+After local review, publish only when requested with `inspect publish`, then
 verify the actual PR/head and hand back the ArchCode URL. The reviewed snapshot
 is not an implicit publish approval. Tasks remain optional for publication.
 

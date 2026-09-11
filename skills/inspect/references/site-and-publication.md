@@ -39,12 +39,12 @@ capability server. Do not block local-only review on granting repository access.
 ## 2. Open the inbox or PR
 
 ```sh
-archdev reviews inbox
-archdev reviews open <owner/repo#123>
-archdev --json reviews open <PR-number-or-URL>
+archdev inspect inbox
+archdev inspect open <owner/repo#123>
+archdev --json inspect open <PR-number-or-URL>
 ```
 
-`reviews` alone opens the Needs review inbox. `open` accepts a positive PR
+`inspect` alone opens the Needs review inbox. `open` accepts a positive PR
 number (resolved through the checkout's GitHub `origin`), `owner/repo#123`, or
 a GitHub/ArchCode PR URL. Pass a full identity when outside its repository.
 The CLI hands off to ArchCode; it does not download/review the PR itself.
@@ -117,8 +117,8 @@ than bypassing a disabled finish/merge action through another endpoint.
 ## 4. Generate metadata without publishing
 
 ```sh
-archdev reviews generate pull-request --base main --remote origin
-archdev reviews generate metadata --base main --remote origin
+archdev inspect generate pull-request --base main --remote origin
+archdev inspect generate metadata --base main --remote origin
 ```
 
 These produce validated JSON without publishing. `pull-request` generates
@@ -139,14 +139,14 @@ condition rather than describing deterministic fallback prose as an AI review.
 ## 5. Publish when authorized
 
 ```sh
-archdev reviews publish --base main --remote origin
+archdev inspect publish --base main --remote origin
 ```
 
 1. Inspect the intended committed branch, current head, remote/base, and working
    state. Preserve the user's branch/commit policy; commit only when authorized.
    Check ArchDev/model access and `gh auth status`, logging in at the missing
    boundary. Review-only operations do not require Jobs setup.
-2. `reviews publish` publishes/updates the branch PR and its sparse source
+2. `inspect publish` publishes/updates the branch PR and its sparse source
    annotations. Use `--pull <number>` to explicitly identify an existing PR
    when needed. Tasks are optional; `--task <id>` links one and `--task none`
    explicitly skips inferred Task association.
