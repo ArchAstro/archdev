@@ -57,7 +57,7 @@ Copy-Item $env:ARCHDEV_TEST_FIXTURE_CLI (Join-Path $InstallDir 'archdev.exe')
         Copy-Item $payload $OutFile
     }
 
-    foreach ($skill in @('agents', 'jobs', 'reviews', 'rooms', 'tasks')) {
+    foreach ($skill in @('agents', 'inspect', 'jobs', 'rooms', 'tasks')) {
         $source = Join-Path $repo "skills/$skill/scripts/bootstrap.ps1"
         $copy = Join-Path $root "$skill.ps1"
         $original = Get-Content $source -Raw
