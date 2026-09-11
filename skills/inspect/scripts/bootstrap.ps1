@@ -34,16 +34,16 @@ $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
 function Test-Reviews([string]$Binary) {
-    $helpText = & $Binary reviews local --help 2>$null
-    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev reviews local ")) { return $false }
-    $helpText = & $Binary reviews workflows run --help 2>$null
-    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev reviews workflows run ")) { return $false }
-    $helpText = & $Binary reviews manifest --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "(?m)^Usage: archdev reviews manifest "))
+    $helpText = & $Binary inspect local --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev inspect local ")) { return $false }
+    $helpText = & $Binary inspect workflows run --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev inspect workflows run ")) { return $false }
+    $helpText = & $Binary inspect manifest --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "(?m)^Usage: archdev inspect manifest "))
 }
 
 if (-not (Test-Reviews $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Reviews commands.")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Inspect commands.")
     $archdev = Install-ArchDev
 }
 
@@ -52,5 +52,5 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Reviews $archdev)) { throw "Installed ArchDev does not provide Reviews commands" }
+if (-not (Test-Reviews $archdev)) { throw "Installed ArchDev does not provide Inspect commands" }
 Write-Output $archdev

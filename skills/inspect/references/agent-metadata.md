@@ -3,19 +3,19 @@
 Use this path when no model access or ArchDev session is available, or when
 the human wants your judgment on the diff rather than a model's. You freeze
 the change set, write sparse risk, theme, and note annotations against it, and
-serve them through the same `reviews local` browser flow. The CLI validates
+serve them through the same `inspect local` browser flow. The CLI validates
 every annotation against the frozen diff; you supply what a reviewer must look
 at. Only publishing the same file to a pull request needs a login.
 
 ## 1. Freeze and read the change set
 
 ```sh
-"$archdev" reviews manifest --base origin/main > manifest.json
+"$archdev" inspect manifest --base origin/main > manifest.json
 ```
 
 The manifest captures committed, staged, unstaged, and non-ignored untracked
 changes against the merge base of `--base` and HEAD, the same snapshot rules
-as `reviews local`. It prints `files[]` and `changes[]`: the annotatable text
+as `inspect local`. It prints `files[]` and `changes[]`: the annotatable text
 ranges with `path`, `side`, 1-based `start_line` and `end_line`, and their
 `patch`. Binary, rename-only, and mode-only changes appear in `files[]`
 without a range and cannot carry annotations. Keep `diff_sha256`; it fences your
@@ -29,7 +29,7 @@ and do not edit any file between this step and step 3.
 
 Write one UTF-8 JSON file outside the repository, for example in the harness
 scratch directory, with schema `archdev.review-metadata.v1`. Read
-`"$archdev" reviews guide` for the installed CLI's exact contract; it wins
+`"$archdev" inspect guide` for the installed CLI's exact contract; it wins
 when this page and the CLI disagree.
 
 ```json
@@ -79,7 +79,7 @@ Rules the CLI enforces, and how to satisfy them:
 ## 3. Serve it
 
 ```sh
-"$archdev" reviews local --base origin/main --metadata metadata.json --feedback-format jsonl --no-open
+"$archdev" inspect local --base origin/main --metadata metadata.json --feedback-format jsonl --no-open
 ```
 
 `--metadata` replaces model generation: no `auth status`, no provider, no
@@ -90,7 +90,7 @@ unchanged. Rerun steps 1 to 3 for another pass after edits.
 
 If the CLI reports that the working tree changed since the manifest ran,
 regenerate the manifest and the metadata; do not edit the fence by hand.
-`reviews local --no-metadata` serves the diff with no annotations when the
+`inspect local --no-metadata` serves the diff with no annotations when the
 human only wants to read the change.
 
 ## 4. Publish the same file to a pull request
@@ -100,7 +100,7 @@ Publishing writes GitHub and ArchDev's hosted review store, so it needs
 present in the file:
 
 ```sh
-"$archdev" reviews publish --base main --metadata metadata.json
+"$archdev" inspect publish --base main --metadata metadata.json
 ```
 
 Publish validates the annotations against the exact PR head, sets the PR

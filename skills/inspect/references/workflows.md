@@ -1,17 +1,17 @@
 # AI review workflows
 
 Use review workflows for repeatable model-driven inspection of a Git snapshot.
-They are separate from the human `reviews local` browser session: running a
+They are separate from the human `inspect local` browser session: running a
 workflow does not open that browser or collect its comments, and opening local
 review does not automatically execute a chosen review DAG.
 
 ## 1. Discover and run
 
 ```sh
-archdev --json reviews workflows list
-archdev --json reviews workflows show default
-archdev reviews workflows run default --target current-files --output-format json
-archdev reviews workflows run default --target branch-commits --output-format json
+archdev --json inspect workflows list
+archdev --json inspect workflows show default
+archdev inspect workflows run default --target current-files --output-format json
+archdev inspect workflows run default --target branch-commits --output-format json
 ```
 
 1. Effective definitions come from project `.archdev/reviews/*.json`, user
@@ -193,7 +193,7 @@ findings or claiming it passed. An AI review result is evidence, not human
 approval. In an ordinary parent TUI, the configured presentation is appended
 to the conversation; the parent can then address accepted findings through its
 normal edit/test flow. After fixes, rerun the relevant workflow and, when human
-review was requested, open a new `reviews local` snapshot.
+review was requested, open a new `inspect local` snapshot.
 
 Run `archdev --json check` before executing a new/changed definition. This
 validates/compiles effective workflows and model selectors; it does not prove

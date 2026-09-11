@@ -108,7 +108,7 @@ npx skills add ArchAstro/archdev --skill agents
 Ask your agent to connect your provider, run a coding session, resume existing
 work, or set up Factory.
 
-## Install Reviews independently
+## Install Inspect independently
 
 Reviews drives local browser code review: capture changes, stream inline
 feedback to the coding agent, fix and verify, then open a fresh snapshot.
@@ -116,13 +116,13 @@ It also covers GitHub access through the site, AI review workflows,
 publication, and the Jobs handoff for automated PR remediation.
 
 ```bash
-npx skills add ArchAstro/archdev --skill reviews
+npx skills add ArchAstro/archdev --skill inspect
 ```
 
 Ask your coding agent to open local review and iterate on your feedback. No
 Task, PR, or daemon is required for that local loop, and the agent can author
-the risk/theme annotations itself with `reviews manifest` and
-`reviews local --metadata`, with no model key or ArchDev login.
+the risk/theme annotations itself with `inspect manifest` and
+`inspect local --metadata`, with no model key or ArchDev login.
 
 ## Repository scope
 
@@ -146,7 +146,7 @@ installer or CLI is harmless: the installer remains trusted code, and release
 archives are checked against checksums published with the release. Existing
 compatible CLI executables on PATH are reused without reinstalling them.
 
-`tests/agents-skill.sh`, `tests/jobs-skill.sh`, `tests/reviews-skill.sh`,
+`tests/agents-skill.sh`, `tests/jobs-skill.sh`, `tests/inspect-skill.sh`,
 `tests/rooms-skill.sh`, and `tests/tasks-skill.sh` exercise packaged Unix skills.
 `tests/skill-bootstrap.ps1` checks all five PowerShell bootstraps, including
 rejection of untrusted installer bytes before execution. `tests/bootstrap-pins.py`
