@@ -1,0 +1,22 @@
+name: Skill Acceptance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  skill-acceptance:
+    name: Public skill acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify skill test discovery
+        run: tests/skill-test-runner.sh
+      - name: Run every skill acceptance test
+        run: scripts/run-skill-tests.sh
