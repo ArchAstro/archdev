@@ -39,11 +39,13 @@ function Test-Reviews([string]$Binary) {
     $helpText = & $Binary inspect workflows run --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev inspect workflows run ")) { return $false }
     $helpText = & $Binary inspect manifest --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "(?m)^Usage: archdev inspect manifest "))
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev inspect manifest ")) { return $false }
+    $guideText = & $Binary inspect guide 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($guideText -join "`n") -like "*summary.focus*"))
 }
 
 if (-not (Test-Reviews $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Inspect commands.")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks the current Inspect contract.")
     $archdev = Install-ArchDev
 }
 
@@ -52,5 +54,5 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Reviews $archdev)) { throw "Installed ArchDev does not provide Inspect commands" }
+if (-not (Test-Reviews $archdev)) { throw "Installed ArchDev does not provide the current Inspect contract" }
 Write-Output $archdev

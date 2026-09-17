@@ -38,7 +38,10 @@ when this page and the CLI disagree.
   "diff_sha256": "<copied from manifest.json>",
   "summary": {
     "intent": "One paragraph: what the change does and why.",
-    "overall_risk": "medium"
+    "overall_risk": "medium",
+    "focus": [
+      { "path": "src/auth.ts", "side": "modified", "start_line": 10, "end_line": 22, "why": "Audience is compared before the issuer is verified; this is the only check on the token." }
+    ]
   },
   "pull_request": {
     "title": "Short title",
@@ -75,6 +78,13 @@ Rules the CLI enforces, and how to satisfy them:
 6. `summary` and `pull_request` are optional for a local review.
    `pull_request` is required for publishing. `overall_risk` defaults to the
    highest annotation risk when `summary` is absent.
+7. `summary.focus` is the reading order: at most five ranges, first to read
+   first, each with a `why` of one sentence (1 to 512 characters). Every entry
+   must overlap a `changes[]` entry on its side, like an annotation, and no
+   two entries may name the same path, side, and lines; a rejected file names
+   the failing index. An entry does not need a matching annotation, and a high risk label
+   does not put a range in focus. List the ranges you would tell the human to
+   read first, and omit `focus` when nothing stands out.
 
 ## 3. Serve it
 
@@ -87,6 +97,14 @@ Rules the CLI enforces, and how to satisfy them:
 shows your summary banner, the risk labels, and the themes. From the `ready`
 record onward, follow the main skill's launch, listen, and iterate steps
 unchanged. Rerun steps 1 to 3 for another pass after edits.
+
+When the file carries a non-empty `summary.focus`, the `ready` record echoes
+the validated list as `focus`, in order, and the browser opens on the first
+entry, lists them under **Start here**, and counts them in the header. Tell
+the human where to start with that same list, one line per entry with
+`path:start_line` and your `why`; do not describe ranges you did not put in
+focus. Human-readable mode prints the list itself as a `Start here:` block
+before it waits for comments.
 
 If the CLI reports that the working tree changed since the manifest ran,
 regenerate the manifest and the metadata; do not edit the fence by hand.
@@ -105,14 +123,16 @@ present in the file:
 
 Publish validates the annotations against the exact PR head, sets the PR
 title and body from `pull_request`, and stores the annotations for the hosted
-reviewer. The `diff_sha256` fence is checked here too: publish rejects the
-file before pushing when the committed diff differs from the diff you
-reviewed. Committing identical content keeps the digest valid. If content
-changed, regenerate the annotations and the digest together; copying a new
-digest onto old annotations defeats the fence. Publish sets the title and
-body only for a PR it creates, and does not replace annotations already
-stored for the same head. Tell the human before running it that it pushes
-the branch, and follow the repository's own commit and push rules.
+reviewer. It accepts a file with `summary.focus` and ignores the list, so one
+file serves local review and publication. The `diff_sha256` fence is checked
+here too: publish rejects the file before pushing when the committed diff
+differs from the diff you reviewed. Committing identical content keeps the
+digest valid. If content changed, regenerate the annotations and the digest
+together; copying a new digest onto old annotations defeats the fence.
+Publish sets the title and body only for a PR it creates, and does not
+replace annotations already stored for the same head. Tell the human before
+running it that it pushes the branch, and follow the repository's own commit
+and push rules.
 
 Never put secrets, tokens, or customer data in annotations, summaries, or PR
 bodies.
