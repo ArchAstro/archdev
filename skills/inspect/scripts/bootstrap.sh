@@ -69,11 +69,12 @@ fi
 supports_inspect() {
   "$1" inspect local --help 2>/dev/null | grep -Fq "Usage: archdev inspect local " &&
     "$1" inspect workflows run --help 2>/dev/null | grep -Fq "Usage: archdev inspect workflows run " &&
-    "$1" inspect manifest --help 2>/dev/null | grep -Fq "Usage: archdev inspect manifest "
+    "$1" inspect manifest --help 2>/dev/null | grep -Fq "Usage: archdev inspect manifest " &&
+    "$1" inspect guide 2>/dev/null | grep -Fq "summary.focus"
 }
 
 if ! supports_inspect "$executable"; then
-  printf 'Updating ArchDev because this version lacks Inspect commands.\n' >&2
+  printf 'Updating ArchDev because this version lacks the current Inspect contract.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -85,7 +86,7 @@ fi
 
 "$executable" --version >&2
 supports_inspect "$executable" || {
-  printf 'Installed ArchDev does not provide Inspect commands.\n' >&2
+  printf 'Installed ArchDev does not provide the current Inspect contract.\n' >&2
   exit 1
 }
 printf '%s\n' "$executable"

@@ -100,11 +100,15 @@ selected model provider for semantic metadata; it is not an offline-only mode.
 2. Read the JSONL `event: "ready"` record and retain `session_id` and `url`.
    `--no-open` makes the URL available in this record so you can open it in
    the human's main browser profile. Open it once. Without `--no-open`, the
-   CLI attempts the default browser and omits the ready record's URL.
+   CLI attempts the default browser and omits the ready record's URL. With
+   `--metadata` and a non-empty `summary.focus`, the record also carries
+   `focus`: the validated list, in reading order.
 3. Tell the human the review is open and to use inline comments and **Send
-   feedback** when ready. Ordinary comments return to the agent; private
-   browser notes do not. Keep reading the process output in this turn while
-   they review; do not launch a review and abandon the feedback stream.
+   feedback** when ready. When the ready record carries `focus`, tell them
+   where to start with that same list, in order; the browser opens on its
+   first entry. Ordinary comments return to the agent; private browser notes
+   do not. Keep reading the process output in this turn while they review;
+   do not launch a review and abandon the feedback stream.
 4. The URL contains a capability token and loopback endpoint. Treat it as a
    private handoff: do not commit it, publish it, or post it in a team room.
    The browser must reach the machine running the CLI. A remote sandbox's

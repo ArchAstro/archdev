@@ -121,8 +121,9 @@ npx skills add ArchAstro/archdev --skill inspect
 
 Ask your coding agent to open local review and iterate on your feedback. No
 Task, PR, or daemon is required for that local loop, and the agent can author
-the risk/theme annotations itself with `inspect manifest` and
-`inspect local --metadata`, with no model key or ArchDev login.
+the risk/theme annotations and a short focus list itself with
+`inspect manifest` and `inspect local --metadata`, with no model key or
+ArchDev login; the browser opens on the first focus entry.
 
 ## Repository scope
 

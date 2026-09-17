@@ -33,6 +33,7 @@ if [[ "$*" == '--version' ]]; then echo fixture; exit 0; fi
 if [[ "$*" == 'inspect local --help' ]]; then echo 'Usage: archdev inspect local [options]'; exit 0; fi
 if [[ "$*" == 'inspect workflows run --help' ]]; then echo 'Usage: archdev inspect workflows run [options] <workflow>'; exit 0; fi
 if [[ "$*" == 'inspect manifest --help' ]]; then echo 'Usage: archdev inspect manifest [options]'; exit 0; fi
+if [[ "$*" == 'inspect guide' ]]; then echo '   - summary.focus lists at most five ranges, in the order a reviewer should read them'; exit 0; fi
 exit 1
 CLI
 chmod +x "$ARCHDEV_INSTALL_DIR/archdev"
@@ -53,12 +54,21 @@ reused="$(PATH="$root/bin:$root/transport:/usr/bin:/bin" bash "$bootstrap")"
 test "$reused" = "$binary"
 test "$(wc -l < "$root/installs" | tr -d ' ')" = 1
 
-# An older CLI is upgraded once; its replacement must satisfy the Reviews/provider probes.
-printf '#!/usr/bin/env bash\necho "Usage: archdev [options]"\nexit 0\n' > "$binary"
+# A CLI from before the focus-list contract answers every Inspect help probe but
+# prints a guide without summary.focus; it is upgraded once, and the replacement
+# must satisfy every probe including the guide.
+cat > "$binary" <<'CLI'
+#!/usr/bin/env bash
+if [[ "$*" == '--version' ]]; then echo outdated; exit 0; fi
+if [[ "$*" == *' --help' ]]; then echo "Usage: archdev ${*% --help} [options]"; exit 0; fi
+if [[ "$*" == 'inspect guide' ]]; then echo '# ArchDev review metadata for agents'; exit 0; fi
+exit 1
+CLI
 updated="$(PATH="$root/bin:$root/transport:/usr/bin:/bin" bash "$bootstrap")"
 test "$updated" = "$binary"
 test "$(wc -l < "$root/installs" | tr -d ' ')" = 2
 "$updated" inspect local --help
+"$updated" inspect guide | grep -Fq 'summary.focus'
 
 assert_bootstrap_rejects_untrusted_installer
 printf 'Inspect skill packages in both scopes; bootstrap handles cold, current, outdated, and failed installs.\n'
