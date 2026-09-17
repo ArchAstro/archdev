@@ -17,7 +17,9 @@ The manifest captures committed, staged, unstaged, and non-ignored untracked
 changes against the merge base of `--base` and HEAD, the same snapshot rules
 as `inspect local`. It prints `files[]` and `changes[]`: the annotatable text
 ranges with `path`, `side`, 1-based `start_line` and `end_line`, and their
-`patch`. Binary, rename-only, and mode-only changes appear in `files[]`
+`patch`. A range on a path the browser reviews on its own (tests, docs,
+lockfiles, snapshots, generated code) also carries `auto_reviewed` with the
+reason; annotate it if you like, but never put it in `summary.focus`. Binary, rename-only, and mode-only changes appear in `files[]`
 without a range and cannot carry annotations. Keep `diff_sha256`; it fences your
 metadata to this exact tree.
 
@@ -84,7 +86,12 @@ Rules the CLI enforces, and how to satisfy them:
    two entries may name the same path, side, and lines; a rejected file names
    the failing index. An entry does not need a matching annotation, and a high risk label
    does not put a range in focus. List the ranges you would tell the human to
-   read first, and omit `focus` when nothing stands out.
+   read first, and omit `focus` when nothing stands out. Pick only what a
+   reviewer must read: the risky, load-bearing hunks. Never pick a range the
+   manifest marks `auto_reviewed` (tests, docs, lockfiles, snapshots,
+   generated code): the browser marks those reviewed on its own, so they
+   would open already done, and the CLI rejects the entry naming the index,
+   the path, and the reason.
 
 ## 3. Serve it
 
