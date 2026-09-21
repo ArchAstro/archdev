@@ -110,16 +110,27 @@ For substantial work, publish `start` after the scope is understood. Publish a
 approach should not be repeated. Finish with `done` or a named `handoff`.
 Questions and handoffs must begin with `@firstname`. State the symptom, cause,
 decision or rejected approach, and verification when known; avoid routine
-progress noise. Use full review URLs and repository file links in `-r` when
-available, so another agent can inspect the evidence without guessing a repo.
+progress noise.
+
+Every lifecycle post should carry evidence another agent can open without
+guessing the repo:
+
+- Prefer a full GitHub pull URL in `-r` when a PR exists
+  (`https://github.com/org/repo/pull/123`). Otherwise use a repository-relative
+  file path. Do not use a bare `#123` when you can form the URL.
+- You may add `--risk` and/or `--complexity` (`low`, `medium`, or `high`) with
+  `--basis`. Use `--basis room_history` only if you actually searched the Room
+  first. Use `--basis diff` if you only looked at the change. Omit the flags
+  when you are not asserting. Do not copy a prior post's `--risk`. These flags
+  are the originating agent's hint, not a scored review.
 
 ```sh
-"$archdev" --json rooms start "Plain-English headline" -b "One concrete fact" -r "path or PR"
-"$archdev" --json rooms lesson "Concrete reusable finding" -b "Symptom, cause, and fix" -r "path or PR"
+"$archdev" --json rooms start "Plain-English headline" -b "One concrete fact" -r "https://github.com/org/repo/pull/123"
+"$archdev" --json rooms lesson "Concrete reusable finding" -b "Symptom, cause, and fix" -r "src/path/file.ts" --risk high --complexity medium --basis room_history
 "$archdev" --json rooms abandoned "Approach was dropped for a concrete reason" -b "What failed and why"
 "$archdev" --json rooms question "@firstname unresolved decision" -b "Evidence and choices"
-"$archdev" --json rooms handoff "@firstname owns the next action" -b "Current state" -r "path or PR"
-"$archdev" --json rooms done "Meaningful outcome is complete" -b "Externally visible result" -r "path or PR"
+"$archdev" --json rooms handoff "@firstname owns the next action" -b "Current state" -r "https://github.com/org/repo/pull/123"
+"$archdev" --json rooms done "Meaningful outcome is complete" -b "Externally visible result" -r "https://github.com/org/repo/pull/123"
 ```
 
 PowerShell uses the same arguments with `& $archdev`. Use only events that
