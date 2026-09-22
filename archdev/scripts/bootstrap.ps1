@@ -33,7 +33,19 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
+$minVersion = [Version]"0.45.1"
+
+function Test-Version([string]$Binary) {
+    $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
+    try {
+        return ([Version]$raw -ge $minVersion)
+    } catch {
+        return $false
+    }
+}
+
 function Test-Skill([string]$Binary) {
+    if (-not (Test-Version $Binary)) { return $false }
     $helpText = & $Binary agents run --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev agents run ")) { return $false }
     $helpText = & $Binary settings provider models --help 2>$null
