@@ -18,7 +18,9 @@ At every stopping point, ask:
 2. Was a plan created, started, or updated? (plan `detection`: …)
 3. Was a task created, started, updated, or closed? (task `detection`: …)
 4. Was a commit created or pushed? (commit `detection`: …)
-5. Was a PR created, updated, or closed? (pr `detection`: …)
+5. Was a PR created, updated, or closed? (pr `detection`: …) → on
+   created, or updated with a new head, store its hunk metadata first
+   (see Report).
 6. Otherwise, is this worth a free-text note? → `agent.message`. When in
    doubt, log the note — ambiguous observations beat silent ones, but
    never invent a structured event.
@@ -56,6 +58,27 @@ At every stopping point, ask:
   a fresh random key. Attachments cap at 64 KB encoded: cite less, or
   move bodies to `missingInputs`, when finalize succeeds but log
   reports oversize.
+- PR hunk metadata: on `pr.created`, and on `pr.updated` when the head
+  moved, store review annotations for the PR's current head *before*
+  logging the event, so ArchDev opens the PR with its risk, theme, and
+  note labels per hunk. `archdev publish` already does this; a PR opened
+  any other way (`gh pr create`, the web UI) has none until you do:
+  1. `"$archdev" extract context pr.review-annotations <num> --json` —
+     copy identity from `key`; read `authoring` for the `auto_reviewed`
+     paths a focus entry may not name.
+  2. Author the value from the patches: sparse `risk` / `semantic_group`
+     / `note` ranges covering every changed path, plus an optional
+     `summary` (`intent`, `overall_risk`, up to five `focus` ranges).
+  3. `"$archdev" extract run pr.review-annotations <num> --runner
+     file:<answer.json> --json` — the default sink writes the
+     `github_pr_review_annotations` object for that head. `cached` means
+     that head already has annotations; do not `--force` over rows you did
+     not write.
+  4. Confirm with `"$archdev" extract show pr.review-annotations <num>
+     --json`, then log the `pr.*` event.
+  If step 3 fails (signed out, no GitHub origin, validation error), fix
+  what it names or say so in the event's `--message`; never skip
+  silently.
 - Closed vocabulary: `agent.message`, `plan.created|started|updated`,
   `task.created|started|updated|closed`, `agent.session_started|
   session_stopped|steered`, `commit.created|pushed`,
