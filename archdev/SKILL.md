@@ -66,6 +66,8 @@ immediately.
 Read [monitor.md](references/monitor.md). Goal: the agent self-checks at
 stopping points against the mapped taxonomy and reports hits with
 `archdev log` — free text (`agent.message`) or schema-validated
-payloads (`log --event`). No daemon, no log tailing: the model is the
+payloads (`log --event`). Every post carries human-readable text: structured
+posts add `--message "<one-line summary>"` as the headline over the
+CLI-rendered payload summary. No daemon, no log tailing: the model is the
 sensor until an event proves reliable enough to promote into the stop
 hook.
