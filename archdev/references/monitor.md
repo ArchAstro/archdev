@@ -45,7 +45,12 @@ At every stopping point, ask:
      ./sealed/` — validates the schemas, derives the combined grade,
      prints the digest. Fix what the named stage reports.
   4. `"$archdev" log --event <type> --payload-file <fact> --assessment
-     ./sealed/result.json [--message <one-line summary>]`.
+     ./sealed/result.json --message "<one-line summary>"`.
+  Every structured post must read well to a human in the room, whatever
+  its schema. The CLI renders the payload as text (`▶ Task tsk_1
+  started: …`, then `- Risk: medium`), and `--message` becomes the
+  headline above it. Always pass `--message`: a full sentence saying what
+  happened and why it matters, not the event name or a JSON fragment.
   Retries of the same logical event pass `--idempotency-key` (hook
   start derives `activity:<event>:<session>`); otherwise each call gets
   a fresh random key. Attachments cap at 64 KB encoded: cite less, or
