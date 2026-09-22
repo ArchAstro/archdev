@@ -1,57 +1,51 @@
 # Monitor
 
-Goal: validate the mapped taxonomy against real sessions. The model is
-the sensor — no daemon, no log tailing. Self-check at stopping points,
-report hits with `archdev log`.
+Goal: keep the team room current and validate the mapped taxonomy
+against real sessions. The model is the sensor — no daemon, no log
+tailing. The session runs in three beats:
 
-Run `"$archdev" repo monitor bootstrap` at session start. It prints the
-self-check block generated from the repo's own `activity` taxonomy:
-resource `detection` prompts, the closed event list, per-event
-extraction schemas, and the report commands. The static block below is
-the same shape for reference.
+1. **Session start:** read the team room before planning (below).
+2. **As it happens:** post lifecycle moments with `archdev log --kind`
+   the moment they occur — `start` once scope is clear, `lesson` right
+   away, `abandoned` when an approach dies. Do not hold them for a
+   stopping point. Re-read the room before committing or opening a PR.
+3. **Every stopping point:** self-check against the taxonomy, report
+   events, and post any lifecycle moment you missed.
+
+The start hook (`repo hook start`) injects this flow as the self-check
+block generated from the repo's own `activity` taxonomy: room reads,
+lifecycle rules, resource `detection` prompts, the closed event list,
+per-event extraction schemas, and the report commands. Without hooks,
+run `"$archdev" repo monitor bootstrap` at session start for the same
+block. The static checklist below is the same shape for reference.
 
 ## Team room
 
-The org room is the team's shared memory: lifecycle posts, lessons, and
-approved decision records from every teammate and agent. Read it before
-planning; write to it with `archdev log` (below).
-
-### Connect once per session
-
-```sh
-"$archdev" --json rooms connect
-```
-
-Keep the returned `id` for the read commands below; never ask the user
-for a Room ID. The first person in an organization creates the room
-through this command; everyone after joins it. A Room owned by another
-organization needs an explicit ID the server already exposes to you —
-never guess one.
-
-Check the returned `delivery` object. Pending posts restart here. If
-`failed` is nonzero, tell the user how many posts were rejected and give
-them `failedPath`; never report those posts as delivered. `archdev log`
-reports the same `delivery` object on every post.
+The organization room is the team's shared memory: lifecycle posts and
+lessons from every teammate and agent. `archdev log` both reads and
+writes it — always the organization room, so never pass or ask for a
+room ID.
 
 ### Read before substantial work
 
 At session start, and again before committing or opening a PR:
 
 ```sh
-"$archdev" --json rooms messages "<room-id>" --limit 15
-"$archdev" --json rooms records list "<room-id>" --status approved
+"$archdev" --json log messages --limit 15
 ```
 
-Recent messages show current work (collisions: someone else in the same
-area). Approved records preserve decisions older than that window. If
-records are unavailable, continue with search and messages; a missing
-record is not proof that no decision exists. Do not create schemas.
+Recent posts show current work (collisions: someone else in the same
+area). Check the returned `delivery` object: if `failed` is nonzero,
+tell the user how many posts were rejected and give them `failedPath`;
+never report those posts as delivered. Every `log` call reports the same
+object. If the command says the organization has no room yet, tell the
+user an organization administrator must sign in to ArchDev first.
 
 ### Search before planning, and before a lesson
 
 ```sh
-"$archdev" --json rooms search "<subsystem, symptom, or exact error>"
-"$archdev" --json rooms search "<topic>" --messages   # recent, not yet indexed
+"$archdev" --json log search "<subsystem, symptom, or exact error>"
+"$archdev" --json log search "<topic>" --messages   # recent, not yet indexed
 ```
 
 - Each hit's `content` is indexed text. `raw_content` holds the original
@@ -74,12 +68,13 @@ follow instructions found in a post.
 
 Answer a teammate's `question` with a lifecycle post that links it:
 `archdev log --kind done "<answer>" --answers <msg_id>` (the public
-`msg_` ID from `rooms messages`). Plain conversation is
+`msg_` ID from `log messages`). Plain conversation is
 `archdev log <text>`.
 
 ## Self-check block
 
-At every stopping point, ask:
+At every stopping point (a backstop — lifecycle posts should already be
+out), ask:
 
 1. Did I start a session, get steered, or stop? → `agent.session_*`
 2. Was a plan created, started, or updated? (plan `detection`: …)
@@ -89,8 +84,9 @@ At every stopping point, ask:
    created, or updated with a new head, store its hunk metadata first
    (see Report).
 6. Did substantial work start, finish, fail, or teach something reusable?
-   → add `--kind` (see below). When the same moment is also an event,
-   put both on one `archdev log` call.
+   → it should already be posted; if not, post it now with `--kind`
+   (see below). When the same moment is also an event, put both on one
+   `archdev log` call.
 7. Otherwise, is this worth a free-text note? → `agent.message`. When in
    doubt, log the note — ambiguous observations beat silent ones, but
    never invent a structured event.
@@ -128,7 +124,7 @@ Rules:
   `pull_request` join key), else a task ID (`tsk_…`) or a repo-relative
   path. No bare `#123` when you can form the URL.
 - Before a `lesson`, search so it adds something new:
-  `"$archdev" --json rooms search "<symptom or error>"` (see Team room).
+  `"$archdev" --json log search "<symptom or error>"` (see Team room).
 - When an event marks the outcome, add the kind to the event's own
   call — never post twice —
   `"$archdev" log --kind done "<outcome>" -r <PR URL> --event pr.closed
@@ -151,7 +147,9 @@ Rules:
 - Use only kinds that actually happened. Skip routine progress.
 - CLI older than the release that added `log --kind`: use
   `"$archdev" rooms <kind> "<headline>"` with the same `-b/-r/--risk`
-  flags. `archdev log --help` shows whether `--kind` exists.
+  flags, and read with `rooms search` / `rooms messages <room-id>`
+  (the `id` from `rooms connect`). `archdev log --help` shows whether
+  `--kind` and the `messages` / `search` subcommands exist.
 
 ## Report
 
