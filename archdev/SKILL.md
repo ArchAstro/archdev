@@ -5,9 +5,10 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.45.1 or newer (the `repo` namespace, `log --event`, and
-harness hooks). The bootstrap script below upgrades older installs
-automatically.
+Requires CLI 0.45.3 or newer (the `repo` namespace, `log --event`,
+harness hooks, plus `extract brief`, `extract finalize`, and
+`log --assessment` for sealed risk assessments on plan/task/pr events).
+The bootstrap script below upgrades older installs automatically.
 
 Three phases, in order: Bootstrap → Map → Monitor. Each phase has a
 reference file with the concrete commands.
