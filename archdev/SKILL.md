@@ -70,6 +70,9 @@ payloads (`log --event`). Every post carries human-readable text: structured
 posts add `--message "<one-line summary>"` as the headline over the
 CLI-rendered payload summary. A PR created (or updated to a new head)
 outside `archdev publish` gets its hunk review annotations stored with
-`extract run pr.review-annotations` before the `pr.*` post. No daemon,
-no log tailing: the model is the sensor until an event proves reliable enough to promote into the stop
+`extract run pr.review-annotations` before the `pr.*` post — except in a
+Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`, `ARCHDEV_JOB_ID`,
+or `ARCHDEV_STEP_ID` set), where the host's publish step writes them and
+the agent only logs. No daemon, no log tailing: the model is the sensor
+until an event proves reliable enough to promote into the stop
 hook.
