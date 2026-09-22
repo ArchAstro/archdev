@@ -78,7 +78,24 @@ At every stopping point, ask:
      --json`, then log the `pr.*` event.
   If step 3 fails (signed out, no GitHub origin, validation error), fix
   what it names or say so in the event's `--message`; never skip
-  silently.
+  silently. In a Factory session, skip this whole bullet (see below).
+
+## Factory sessions
+
+Check the environment once at session start. Any of
+`ARCHDEV_FACTORY_AGENT_ROLE`, `ARCHDEV_JOB_ID`, or `ARCHDEV_STEP_ID` set
+means you are running inside Factory or a daemon pipeline step, and the
+host already automates part of this workflow:
+
+- Do not run `extract context|run pr.review-annotations`. The host's
+  publish step (`archdev publish`) writes the PR's hunk annotations for
+  the exact head it pushes; a second writer races it on the same row.
+- Do not push, open PRs, or run `archdev publish` yourself when the step
+  prompt says a later host-owned step owns publication — follow the
+  prompt.
+- Still self-check and still `archdev log` every event you observe,
+  structured ones with their sealed risk assessment and `--message`.
+  Factory automates publication, not the activity record.
 - Closed vocabulary: `agent.message`, `plan.created|started|updated`,
   `task.created|started|updated|closed`, `agent.session_started|
   session_stopped|steered`, `commit.created|pushed`,
