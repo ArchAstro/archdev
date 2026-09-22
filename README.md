@@ -36,11 +36,25 @@ irm https://raw.githubusercontent.com/ArchAstro/archdev/main/install.ps1 | iex
 The release archive installs `archdev`. The Unix installer also configures
 Bash, Zsh, or Fish completions for the active shell.
 
+## Install Tasks
+
+Tasks turns a conversation or an existing coding-agent plan into a dependency
+graph for browser review. The agent opens the review, reads your feedback,
+revises the same plan, and verifies that **Approve & save** saved the Tasks.
+The skill installs or updates ArchDev on first use; no Factory or daemon is
+required.
+
+```bash
+npx skills add ArchAstro/archdev --skill tasks
+```
+
+Then ask your agent:
+“Turn our plan into Tasks, open the web review, and iterate on my feedback.”
+
 ## Skills (deprecated)
 
-The five skills (agents, inspect, jobs, rooms, tasks) have moved to
-`deprecated/` and are no longer published. `npx skills` discovers nothing
-from this repository.
+The agents, inspect, jobs, and rooms skills have moved to `deprecated/` and
+are no longer published.
 
 ## Repository scope
 
