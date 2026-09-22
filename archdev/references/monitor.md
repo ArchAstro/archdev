@@ -27,13 +27,30 @@ At every stopping point, ask:
 
 - Free text: `"$archdev" log <text>` — posts to the org room as event
   `agent.message`.
-- Structured: author the payload via `archdev extract context
-  <extractor> <ref>` → write JSON → `archdev extract run <extractor>
-  <ref> --runner file:<path>` → `archdev log --event <type>
-  --payload-file <path> [--message <one-line summary>]`.
+- Structured: plan/task/pr events carry a sealed risk assessment;
+  commit/agent events do not. Four steps:
+  1. `"$archdev" extract brief risk.<type> --out ./brief/` — rubric for
+     this session (instructions, input/output schemas, worked example).
+     Fetch once per definition; reuse via the digest in `brief.json`.
+  2. Author `{input, assessment}` JSON. The subject source must name the
+     event subject exactly: `archdev:task:<id>`, `archdev:plan:<path>`,
+     `archdev:pr:<owner/repo>#<num>` (`archdev:pr:local#<num>` with no
+     repository). Every evidence item carries its body and an honest
+     kind — `source` means you inspected it; second-hand material is
+     `attributed-claim`; guesses are `inference`. Record
+     producer/exposure including "unfrozen, agent-supplied input" in
+     ambientContext. Name gaps in `missingInputs` and
+     `coverage.unassessed` — unassessed is not low.
+  3. `"$archdev" extract finalize risk.<type> ./judgment.json --out
+     ./sealed/` — validates the schemas, derives the combined grade,
+     prints the digest. Fix what the named stage reports.
+  4. `"$archdev" log --event <type> --payload-file <fact> --assessment
+     ./sealed/result.json [--message <one-line summary>]`.
   Retries of the same logical event pass `--idempotency-key` (hook
   start derives `activity:<event>:<session>`); otherwise each call gets
-  a fresh random key.
+  a fresh random key. Attachments cap at 64 KB encoded: cite less, or
+  move bodies to `missingInputs`, when finalize succeeds but log
+  reports oversize.
 - Closed vocabulary: `agent.message`, `plan.created|started|updated`,
   `task.created|started|updated|closed`, `agent.session_started|
   session_stopped|steered`, `commit.created|pushed`,
