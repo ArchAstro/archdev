@@ -31,7 +31,13 @@ under the `activity` key, then install start + stop hooks.
    - **Instruction style:** tasks, chat prompts, or session pulls?
      Record every tracker, not just `tasks.backend`. Confirm live
      backends with `"$archdev" tasks list|show`; confirm remote
-     trackers (Linear, Jira, …) from IDs/links in trajectories.
+     trackers (Linear, Jira, …) from links or integrations in
+     trajectories.
+   - **Record what is really there.** A tracker counts only where its
+     records live. An ID prefix or title tag (`linear: LIN-12`,
+     `tickets/ENT-7.md`) with no workspace link, API, or integration is
+     not that tracker: record the real store (`github` issues,
+     `markdown` files) and note the naming in `style`.
 
 ## 3. The taxonomy
 
