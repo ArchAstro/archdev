@@ -7,7 +7,7 @@ and how to clear it.
 
 ## 1. Version and login
 
-1. `"$archdev" --version` (need 0.45.1+), then `"$archdev" auth status`.
+1. `"$archdev" --version` (need 0.45.3+), then `"$archdev" auth status`.
 2. If unauthenticated: `"$archdev" auth login [email]` (browser,
    copy/paste, or personal access token). Keep a persistent interactive
    process running while the human signs in; do not proceed headless.

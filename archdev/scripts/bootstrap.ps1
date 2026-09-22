@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.45.1"
+$minVersion = [Version]"0.45.3"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -55,7 +55,7 @@ function Test-Skill([string]$Binary) {
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, or repo commands (need 0.45.1+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, or risk-assessment commands (need 0.45.3+).")
     $archdev = Install-ArchDev
 }
 
