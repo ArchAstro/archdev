@@ -6,6 +6,7 @@ installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
 installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
+min_version="0.45.1"
 
 absolute_path() {
   local candidate="$1"
@@ -66,8 +67,17 @@ else
   executable="$(absolute_path "$install_dir/archdev")"
 fi
 
+version_ok() {
+  local raw version
+  raw="$("$1" --version 2>/dev/null | head -n 1)"
+  version="$(printf '%s' "$raw" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+  [[ -n "$version" ]] || return 1
+  [[ "$(printf '%s\n%s\n' "$min_version" "$version" | sort -V | head -n 1)" == "$min_version" ]]
+}
+
 supports_skill() {
-  "$1" agents run --help 2>/dev/null | grep -Fq "Usage: archdev agents run " &&
+  version_ok "$1" &&
+    "$1" agents run --help 2>/dev/null | grep -Fq "Usage: archdev agents run " &&
     "$1" settings provider models --help 2>/dev/null | grep -Fq "Usage: archdev settings provider models " &&
     "$1" repo status --help 2>/dev/null | grep -Fq "Probe CLI, login, model access"
 }
