@@ -254,24 +254,29 @@ Rules:
 
 - Free text: `"$archdev" log post --project <id> "<text>"` — posts to the org room as event
   `agent.message`.
-- Structured: plan/task/pr events carry a sealed risk assessment;
-  commit/agent events do not. Five steps:
-  1. `"$archdev" extract brief risk.<type> --out ./brief/` — rubric for
-     this session (instructions, input/output schemas, worked example).
-     Fetch once per definition; reuse via the digest in `brief.json`.
-  2. Author `{input, assessment}` JSON. The subject source must name the
-     event subject exactly: `archdev:task:<id>`, `archdev:plan:<path>`,
-     `archdev:pr:<owner/repo>#<num>` (`archdev:pr:local#<num>` with no
-     repository). Every evidence item carries its body and an honest
-     kind — `source` means you inspected it; second-hand material is
-     `attributed-claim`; guesses are `inference`. Record
-     producer/exposure including "unfrozen, agent-supplied input" in
-     ambientContext. Name gaps in `missingInputs` and
+- Structured: `plan.*`, `task.*`, and `pr.*` events carry a sealed risk
+  assessment under the CLI's pinned risk definitions; `commit.*` and
+  `agent.*` events carry none, and the CLI rejects either mistake. The
+  fact payload and the assessment are authored separately. Six steps,
+  spelled out field by field under Risk assessments below:
+  1. `"$archdev" extract brief risk.<type> --out ./brief/<type>/` — the
+     rubric for this session (DEFINITION.md, input/output schemas, a
+     worked example, `brief.json`). Fetch once per definition; reuse it
+     while `brief.json`'s digest is unchanged.
+  2. Fact payload: `"$archdev" extract context <extractor> <ref> --json`
+     prints the value schema; author the value object into its own file.
+  3. Judgment: author `{input, assessment}`. The subject source names the
+     event subject exactly (`archdev:task:<id>`, `archdev:plan:<path>`,
+     `archdev:pr:<owner/repo>#<num>`). For a PR, collect the evidence
+     packet with `"$archdev" extract context pr.risk <owner/repo>#<num>
+     --json` and build `input` from it. Every evidence item carries its
+     body and an honest kind; record producer and exposure, including
+     "unfrozen, agent-supplied input"; name gaps in `missingInputs` and
      `coverage.unassessed` — unassessed is not low.
-  3. `"$archdev" extract finalize risk.<type> ./judgment.json --out
-     ./sealed/` — validates the schemas, derives the combined grade,
-     prints the digest. Fix what the named stage reports.
-  4. Mitigate, then recompute. For each medium or high risk driver the
+  4. `"$archdev" extract finalize risk.<type> ./judgment.json --out
+     ./sealed/<subject>/` — validates the schemas, derives the combined
+     grade, prints the digest. Fix what the named stage reports.
+  5. Mitigate, then recompute. For each medium or high risk driver the
      assessment names, reduce the risk in the subject itself: fix the
      code, add the missing test or guard, split the unverifiable step,
      tighten the plan. Then re-author `{input, assessment}` from the
@@ -282,8 +287,9 @@ Rules:
      scope (new features, other components, unrelated refactors), do not
      make it; record it as residual risk and move forward. Name the
      residual risks and what you mitigated in `--message`.
-  5. `"$archdev" log post --project <id> --event <type> --payload-file <fact> --assessment
-     ./sealed/result.json --message "<one-line summary>"`.
+  6. `"$archdev" log post --project <id> --event <type> --payload-file
+     <value.json> --assessment ./sealed/<subject>/result.json --message
+     "<one-line summary>"`.
   Every structured post must read well to a human in the room, whatever
   its schema. The CLI renders the payload as text (`▶ Task tsk_1
   started: …`, then `- Risk: medium`), and `--message` becomes the
@@ -298,7 +304,176 @@ Rules:
   `missingInputs`, when finalize succeeds but log reports oversize.
 - PR events: on `pr.created`, and on `pr.updated` when the head moved,
   store the head's review annotations *before* logging the event (see
-  PR review annotations, next).
+  PR review annotations, below).
+
+## Risk assessments
+
+Every `plan.*`, `task.*`, and `pr.*` event you post carries a risk
+assessment of that subject, graded under the versioned definitions that
+ship inside the CLI (`risk.plan`, `risk.task`, `risk.pr`, pinned at
+1.0.0; source `src/ts/cli-foundations/src/risk/`, readable catalogue
+`src/ts/archdev/docs/risk-resource-catalogue.md` in firstlanding). You
+are the producer: you collect the evidence and grade it; the CLI
+supplies the rubric, validates every schema, derives the combined
+grade, and seals the result. Brief, finalize, and the plan and task
+`extract context` calls run offline without login; the PR calls
+(`pr.lifecycle`, `pr.risk`) need Git and a `gh` session, and `log
+post` needs your ArchDev session. Do not paraphrase the rubric from memory and do
+not grade from a different one: the brief is the definition.
+
+Two components, graded separately, each `low`, `medium`, or `high`, or
+left `unassessed` with the missing fact named:
+
+- **Uncertainty**: how much remains unproven about whether the change or
+  proposal works. Established pattern plus strong, relevant passing tests
+  points low; a new approach or a coverage gap on important behavior
+  points medium; essential behavior that is unproven and hard to test
+  points high. Passing tests you did not run and see are claims.
+- **Consequence**: what a supported failure would do to people or assets.
+  Internal-only tooling and documentation default low. User-perceptible
+  degradation, or a disrupted fundamental development capability with a
+  practical recovery path (a broken shared build, CI blocking work, a
+  recoverable deployment failure), is medium. Loss of product access,
+  damaged authoritative customer data, wrong charges, or unauthorized
+  disclosure is high even when few people are affected and recovery is
+  easy; infrastructure damage is high when diagnosis or recovery is
+  difficult.
+
+The CLI derives the combined grade from its own table. Never author a
+combined grade, and never let `unassessed` stand in for low.
+
+The flow, per event:
+
+1. **Brief, once per definition per session.**
+   `"$archdev" extract brief risk.<type> --out ./brief/<type>/` writes
+   `DEFINITION.md` (shared and resource-specific instructions, the
+   combination table), `INPUT_SCHEMA.json`, `OUTPUT_SCHEMA.json`,
+   `example.json`, and `brief.json` (definition id, version, digest).
+   Read `DEFINITION.md` before your first assessment of that type; reuse
+   it for the rest of the session while `brief.json`'s digest is
+   unchanged. `<type>` is `plan`, `task`, or `pr` (`code-region` exists
+   for a single changed range and carries no activity event).
+2. **Fact payload.** `"$archdev" extract context <extractor> <ref> --json`
+   prints the event value's `jsonSchema` and the frozen subject:
+   `plan.created <plan path>`, `task.lifecycle <task id>`,
+   `pr.lifecycle <owner/repo>#<num>`. Spell the PR ref with its
+   repository: a bare number resolves through the checkout's GitHub
+   origin, and a checkout without one yields `local#<num>` with no
+   repository, which the seal in step 3 then has to match. Author the
+   value from that schema
+   into its own file — for a PR, `repository`, `number`, `lifecycle`
+   (`created` / `updated` / `closed`), and a one-sentence `summary`.
+   The file you pass to `log post` is this value object, not an
+   extraction envelope.
+3. **Judgment.** Author one JSON file with `input` and `assessment`
+   matching the two schemas in the brief.
+   - `input.subject.source.source` names the event subject exactly:
+     `archdev:plan:<path>`, `archdev:task:<id>`,
+     `archdev:pr:<owner/repo>#<num>` (`archdev:pr:local#<num>` with no
+     repository). `log post` binds the seal to the fact payload's
+     `repository` and `number`, so set `repository` in the payload and
+     make the seal's subject match it. For a PR, collect the packet
+     first: `"$archdev" extract context pr.risk <owner/repo>#<num>
+     --json` prints, inside the `user` string, a JSON object whose
+     `input` is a complete frozen packet — `subject` (`base`, `head`,
+     `reportedBase`, `diffIdentity`), `checkpoint`, `evidence[]` (the
+     diff at the head, edited symbols and their callers, checks) with
+     ids and kinds already set, and the collector's `missingInputs`.
+     Copy `subject` from it (set `source.source` to the `archdev:pr:`
+     form) and build `evidence[]` from its items, keeping their ids,
+     kinds, and sources; add what you observed yourself (a test run, a
+     review pass) as your own items. The whole collected packet is far
+     larger than the 64 KB the post can attach, so keep the items your
+     reasons cite, trim `content` to what each establishes, and carry
+     the collector's `missingInputs` forward. Say in
+     `exposure.ambientContext` whether `input` is the collected packet
+     trimmed or was hand-built, and why. Do not author `subject` from
+     memory: when the collector cannot run (no GitHub session), take
+     `base_sha`, `head_sha`, and `diff_sha256` from the stored
+     annotation row (`extract show pr.review-annotations <num> --json`,
+     under `value.git`) and say so. `localContentIdentity` is `null`
+     unless you have it. `intent` and `diff` are what the subject says,
+     in your words, or `null`.
+   - `evidence[]`: each item has an `id` you cite later, a versioned
+     `source`, a `kind`, a `content` body saying what it establishes,
+     and `attribution`. Kinds are honest: `source` for code you read at
+     the assessed revision, `test-source` for test code you read,
+     `execution-result` for an execution you observed (a command you
+     ran in this session, or a check result you fetched, with its
+     limitations stated), `attributed-claim` for what someone told you
+     or wrote (a PR description, a teammate's post, a remembered pass),
+     `inference` for your own reasoning, `later-history` for facts from
+     after the checkpoint.
+   - `producer`: `role` is `author` when you wrote the change under
+     assessment (the usual case), with `implementation` your harness
+     and `model` your model id, or `null` when unknown.
+   - `exposure`: `priorAnswers` (`none-reported`, `unknown`, or `seen`
+     with ids), `ambientContext` listing what shaped you — the repo
+     instructions, memory, and "unfrozen, agent-supplied input" — and
+     `limitations` such as "author-produced; independence not
+     established".
+   - `missingInputs`: what you did not have. `assessment.coverage.
+     unassessed`: what you did not judge. Both are honest gaps, not
+     low grades.
+   - `assessment`: `objective`, `scope`, `uncertainty`, `consequence`
+     (assessed: `{state: "assessed", grade, reason, evidence}`;
+     unassessed: `{state: "unassessed", reason, evidence}` with no
+     `grade` key at all; `evidence` cites only ids from your
+     `evidence[]`), `coverage` (`wholeResource`, `assessed`,
+     `unassessed`, `contextRead`), and `limitations`. A habit the
+     rubric does not require but that keeps grades honest: before
+     settling one, write the strongest supported reason it could be
+     higher and say why you kept or moved it.
+4. **Seal.** `"$archdev" extract finalize risk.<type> ./judgment.json
+   --out ./sealed/<subject>/` validates input, output, and derived
+   result against the pinned definition, runs the derivation, writes
+   `result.json` and `digest.txt`, and prints `combinedRisk`. A failure
+   names its stage (`input-validation`, `output-validation`,
+   `derivation`, `result-validation`) followed by the schema errors or
+   the rule that failed (duplicate evidence ids, a citation of an
+   unknown id); fix the judgment file and rerun. Never edit
+   `result.json` by hand: `log post` re-validates it.
+5. **Mitigate, then recompute.** For each medium or high risk driver
+   the assessment names, reduce the risk in the subject itself: fix the
+   code, add the missing test or guard, split the unverifiable step,
+   tighten the plan. Then re-author `{input, assessment}` from the
+   changed subject and finalize again; the grade must follow the work,
+   never an edit to the assessment alone. At most two rounds, then post
+   what remains. Mitigate only within the work's existing scope; a fix
+   that would expand scope stays a residual risk, stated plainly. Name
+   what you mitigated and what remains in `--message`.
+6. **Post.** `"$archdev" log post --project <id> --event <type>
+   --payload-file <value.json> --assessment ./sealed/<subject>/result.json
+   --message "<full sentence: what happened and why it matters>"`, adding
+   `--kind done` on the same call when the event is the outcome. The
+   room post renders the payload and the derived grade; the sealed
+   evidence rides along as an attachment capped at 64 KB encoded, so
+   keep evidence bodies to what they establish and move the rest to
+   `missingInputs`.
+
+Optional local check between steps 4 and 6: `"$archdev" extract run
+<extractor> <ref> --runner file:<value-with-risk.json> --sink
+file:<dir>/` validates the same value with the sealed result embedded
+under `risk`. The extractor's default deterministic runner produces no
+value for plan, task, or PR events; pass `--runner file:` or skip this
+step. `log post` performs the same validation.
+
+When to assess: on every `plan.*`, `task.*`, and `pr.*` event, at the
+moment you post it. A `pr.updated` after a push gets a fresh assessment
+of the new head; the CLI checks only that the seal names the same PR,
+not which head it graded, so re-assessing is on you. For a PR, store
+its review annotations first (next section), then assess, then post.
+
+Not yours to run:
+
+- `session.risk` grades a coding-agent session from a complete packet
+  the harness assembles (`packet:<path>`); an agent cannot certify its
+  own capture, so do not build one.
+- `"$archdev" extract run pr.risk <ref>` asks a platform model for an
+  independent assessment and saves it under `~/.archdev/extract`
+  (`extract show pr.risk <ref>` reads it). Run it when the user wants a
+  second opinion; it is a different producer and cannot be attached to
+  a `log post`.
 
 ## PR review annotations
 
