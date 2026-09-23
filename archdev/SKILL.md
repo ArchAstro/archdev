@@ -97,7 +97,11 @@ Three beats, one command
 3. **Every stopping point:** self-check against the mapped taxonomy and
    report hits — free text (`agent.message`) or schema-validated
    payloads (`log post --event`), with `--kind` on the same call when the
-   event is also a lifecycle moment. Outside Factory sessions, for every
+   event is also a lifecycle moment. Every `plan.*`, `task.*`, and
+   `pr.*` event carries a sealed risk assessment you author under the
+   CLI's pinned risk definitions (`extract brief` → judgment →
+   `extract finalize` → `log post --assessment`; see "Risk assessments"
+   in monitor.md). Outside Factory sessions, for every
    PR you pushed to this session, confirm its current head has
    annotations (`extract show pr.review-annotations <num> --json`) and
    store them if it does not.
