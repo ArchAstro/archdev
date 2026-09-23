@@ -93,12 +93,11 @@ Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
 payload summary.
 
-ArchDev shows a PR's AI summary, Start here list, and per-hunk risk and
-theme labels only for a head that has a `github_pr_review_annotations`
-row. Rows are keyed by the exact head SHA, so every push leaves the
-Overview without a summary or labels until a row for the new head
-exists. `archdev publish` writes one; `gh pr create` and `git push` do
-not. The exception is a Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`,
+ArchDev reads a PR's review annotations from the
+`github_pr_review_annotations` row for its exact head SHA. Nothing
+carries over between heads, so every push leaves the PR unannotated
+until a row for the new head exists. `archdev publish` writes one;
+`gh pr create` and `git push` do not. The exception is a Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`,
 `ARCHDEV_JOB_ID`, or `ARCHDEV_STEP_ID` set), where the host's publish
 step writes the row and the agent only logs. Computing risk (a sealed
 assessment or hunk `risk` annotations) is a loop, not a label: mitigate

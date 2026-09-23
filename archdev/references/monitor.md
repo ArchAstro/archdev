@@ -220,13 +220,12 @@ Rules:
 
 ## PR review annotations
 
-ArchDev opens a pull request on its Overview with the AI summary, the
-Start here list, and per-hunk risk and theme labels only when the PR's
-current head has a `github_pr_review_annotations` row. Rows are keyed by
-the exact head SHA and never carry over: a push, a force-push, or a
-rebase leaves the new head with no row, and the Overview shows no
-summary or labels until one is stored. `archdev publish` writes the row
-for the head it pushes; `gh pr create` and a plain `git push` do not.
+ArchDev reads a pull request's review annotations from the
+`github_pr_review_annotations` row for its exact head SHA. Rows never
+carry over: a push, a force-push, or a rebase leaves the new head with
+no row, and the PR opens unannotated until one is stored. `archdev
+publish` writes the row for the head it pushes; `gh pr create` and a
+plain `git push` do not.
 
 Store the row at these moments:
 
@@ -234,8 +233,8 @@ Store the row at these moments:
 - right after every push that moves an open PR's head, including a
   format fixup, a review-fix commit, and the last push before you stop.
   A session that annotated four heads and skipped the fifth leaves the
-  PR without labels for its reviewers, because the fifth is the head
-  they open.
+  PR unannotated for its reviewers, because the fifth is the head they
+  open.
 
 Skip this section only in a Factory or daemon session (see below).
 
