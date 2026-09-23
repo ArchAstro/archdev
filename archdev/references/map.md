@@ -5,11 +5,16 @@ under the `activity` key, then install the monitor hooks.
 
 ## 1. Init
 
-1. If `archdev.json` exists in the repo root, keep it.
-2. If absent: `"$archdev" repo init [--name <unique-private-repo-name>]`
-   (same as `init` / `jobs repo enable`). This creates `archdev.json`
-   with `local.project_id` / `local.repo_name`.
-3. Personal/model overrides (`modelAliases`, `factory.model`, provider
+1. If `archdev.json` exists in the repo root, keep it. It opts the repo
+   in; the local daemon is not involved.
+2. If absent: `"$archdev" repo map init` (§2) creates `archdev.json`
+   along with the activity skeleton. A CLI that refuses here predates
+   this; re-run the bootstrap script to upgrade.
+3. Do not run `repo init` (`jobs repo enable`) for onboarding. It
+   clones a private repository and registers it with the local daemon,
+   which only jobs, Factory, and PR watching need. `repo status` does
+   not check it.
+4. Personal/model overrides (`modelAliases`, `factory.model`, provider
    accounts) belong in gitignored `archdev.local.json`, never in the
    checked-in file. Re-run `"$archdev" check` after editing.
 
