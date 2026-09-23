@@ -98,4 +98,13 @@ supports_skill "$executable" || {
   printf 'Installed ArchDev does not provide Agents, provider, and repo commands.\n' >&2
   exit 1
 }
+
+# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
+# harnesses that already have archdev hooks change, and a failure (for example
+# an older archdev earlier on PATH) is reported without blocking the skill.
+hook_help="$("$executable" repo hook setup --help 2>/dev/null || true)"
+if [[ "$hook_help" == *"--refresh"* ]]; then
+  "$executable" repo hook setup --refresh >&2 ||
+    printf 'Could not refresh ArchDev hooks; see above, then run: archdev repo hook setup\n' >&2
+fi
 printf '%s\n' "$executable"

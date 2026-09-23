@@ -1,7 +1,7 @@
 # Map
 
 Goal: opt the repo into ArchDev and record how it works in `archdev.json`
-under the `activity` key, then install start + stop hooks.
+under the `activity` key, then install the monitor hooks.
 
 ## 1. Init
 
@@ -79,14 +79,24 @@ after editing.
 
 ## 4. Install hooks (final map step)
 
-Both hooks, now — session coverage starts immediately:
+Install now — session coverage starts immediately:
 
 ```sh
-"$archdev" repo hook setup [--harness claude|codex|grok] [--force]
+"$archdev" repo hook setup [--harness claude|codex|grok|archdev] [--force]
 ```
 
-Without `--harness`, covers every installed harness (config-dir presence
-= installed); warns when none is found — pass `--harness <name>` to
-install anyway. `--uninstall` removes them. Harnesses outside
-`claude|codex|grok`: hand-author start/stop entries invoking `repo hook
-start|stop`. Verify both hooks per harness (`repo status` checks this).
+Installs SessionStart, UserPromptSubmit, PostToolUse and Stop (Grok: no
+UserPromptSubmit). Without `--harness`, covers every installed harness
+(config-dir presence = installed); warns when none is found — pass
+`--harness <name>` to install anyway. `--uninstall` removes them.
+Harnesses outside that list: hand-author entries invoking `repo hook
+start|prompt|post-tool|stop --spec <N>` (copy `N` from `repo hook setup
+--help`). Verify with `repo status`: it reports missing hooks and hooks
+from an older `--spec` as stale.
+
+Each installed command carries `--spec N`, the hook wiring version of the
+CLI that wrote it. This skill's bootstrap runs `repo hook setup --refresh`
+after checking the CLI, which updates only harnesses that already have
+archdev hooks. Setup refuses when the `archdev` on PATH (what hooks run)
+is older than the CLI running setup; upgrade or fix PATH rather than
+passing `--force`.
