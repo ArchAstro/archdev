@@ -9,8 +9,12 @@ tailing. The session runs in three beats:
    the moment they occur — `start` once scope is clear, `lesson` right
    away, `abandoned` when an approach dies. Do not hold them for a
    stopping point. Re-read the room before committing or opening a PR.
+   After `gh pr create` and after every push that moves a PR head,
+   store that head's review annotations first (see PR review
+   annotations).
 3. **Every stopping point:** self-check against the taxonomy, report
-   events, and post any lifecycle moment you missed.
+   events, post any lifecycle moment you missed, and confirm every PR
+   head you pushed has its annotations.
 
 The start hook (`repo hook start`) injects this flow as the self-check
 block generated from the repo's own `activity` taxonomy: room reads,
@@ -88,8 +92,14 @@ out), ask:
 3. Was a task created, started, updated, or closed? (task `detection`: …)
 4. Was a commit created or pushed? (commit `detection`: …)
 5. Was a PR created, updated, or closed? (pr `detection`: …) → on
-   created, or updated with a new head, store its hunk metadata first
-   (see Report).
+   created, or updated with a new head, store its review annotations
+   first (see PR review annotations; not in Factory sessions). Then, for
+   every PR you pushed to this session, run `"$archdev" extract show
+   pr.review-annotations <num> --json` from that PR's checkout at its
+   head: an `ExtractionNotFoundError` means the current head has no
+   row, so store it now, before any `done` or `handoff` post and before
+   you stop. Any other error means the checkout is not at the PR head,
+   not that the row is missing.
 6. Did substantial work start, finish, fail, or teach something reusable?
    → it should already be posted; if not, post it now with `--kind`
    (see below). When the same moment is also an event, put both on one
@@ -109,7 +119,7 @@ works on its own or on top of any `--event`.
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
 | `lesson` | right away, on a reusable root cause, failure, or fix | symptom, cause, fix; the exact command, error, or file |
 | `abandoned` | an approach failed and should not be repeated | what was tried, why it failed |
-| `done` | a meaningful outcome is finished | intent, externally visible result, useful findings, actual verification; `-r` PR URL |
+| `done` | a meaningful outcome is finished, and the PR's current head already has its review annotations | intent, externally visible result, useful findings, actual verification; `-r` PR URL |
 | `handoff` | someone else owns the next action | headline starts `@firstname`; current state |
 | `question` | a decision only a teammate can make | headline starts `@firstname`; evidence and options |
 
@@ -204,33 +214,69 @@ Rules:
   background worker delivers it with the same key — do not re-send.
   Attachments cap at 64 KB encoded: cite less, or move bodies to
   `missingInputs`, when finalize succeeds but log reports oversize.
-- PR hunk metadata: on `pr.created`, and on `pr.updated` when the head
-  moved, store review annotations for the PR's current head *before*
-  logging the event, so ArchDev opens the PR with its risk, theme, and
-  note labels per hunk. `archdev publish` already does this; a PR opened
-  any other way (`gh pr create`, the web UI) has none until you do:
-  1. `"$archdev" extract context pr.review-annotations <num> --json` —
-     copy identity from `key`; read `authoring` for the `auto_reviewed`
-     paths a focus entry may not name.
-  2. Author the value from the patches: sparse `risk` / `semantic_group`
-     / `note` ranges covering every changed path, plus an optional
-     `summary` (`intent`, `overall_risk`, up to five `focus` ranges).
-  3. Mitigate, then recompute. For each medium or high `risk` range that
-     is a real defect or gap, fix it in the branch with a test that would
-     have caught it, and push. The push is a new head, so go back to
-     step 1 and author annotations for that head. At most two rounds.
-     Fix only within the PR's scope; a risk whose fix would expand scope
-     stays annotated, stated plainly, and you move forward.
-  4. `"$archdev" extract run pr.review-annotations <num> --runner
-     file:<answer.json> --json` — the default sink writes the
-     `github_pr_review_annotations` object for that head. `cached` means
-     that head already has annotations; do not `--force` over rows you did
-     not write.
-  5. Confirm with `"$archdev" extract show pr.review-annotations <num>
-     --json`, then log the `pr.*` event.
-  If step 4 fails (signed out, no GitHub origin, validation error), fix
-  what it names or say so in the event's `--message`; never skip
-  silently. In a Factory session, skip this whole bullet (see below).
+- PR events: on `pr.created`, and on `pr.updated` when the head moved,
+  store the head's review annotations *before* logging the event (see
+  PR review annotations, next).
+
+## PR review annotations
+
+ArchDev opens a pull request on its Overview with the AI summary, the
+Start here list, and per-hunk risk and theme labels only when the PR's
+current head has a `github_pr_review_annotations` row. Rows are keyed by
+the exact head SHA and never carry over: a push, a force-push, or a
+rebase leaves the new head with no row, and the Overview shows no
+summary or labels until one is stored. `archdev publish` writes the row
+for the head it pushes; `gh pr create` and a plain `git push` do not.
+
+Store the row at these moments:
+
+- right after `gh pr create`;
+- right after every push that moves an open PR's head, including a
+  format fixup, a review-fix commit, and the last push before you stop.
+  A session that annotated four heads and skipped the fifth leaves the
+  PR without labels for its reviewers, because the fifth is the head
+  they open.
+
+Skip this section only in a Factory or daemon session (see below).
+
+From the checkout at the PR's head (`HEAD` must equal the PR head, on
+its branch):
+
+1. `"$archdev" extract context pr.review-annotations <num> --json` —
+   copy identity from `key`; read `authoring` for the `auto_reviewed`
+   paths a focus entry may not name.
+2. Author the value from the patches: sparse `risk` / `semantic_group`
+   / `note` ranges covering every changed path, plus an optional
+   `summary` (`intent`, `overall_risk`, up to five `focus` ranges with a
+   `why`). Every focus range must overlap a medium-or-higher risk
+   annotation on the same path and side.
+3. Mitigate, then recompute. For each medium or high `risk` range that
+   is a real defect or gap, fix it in the branch with a test that would
+   have caught it, and push. The push is a new head, so go back to
+   step 1 and author annotations for that head. At most two rounds.
+   Fix only within the PR's scope; a risk whose fix would expand scope
+   stays annotated, stated plainly, and you move forward.
+4. `"$archdev" extract run pr.review-annotations <num> --runner
+   file:<answer.json> --json` — the default sink writes the
+   `github_pr_review_annotations` object for that head. `status:
+   "cached"` means that head already has annotations; do not `--force`
+   over rows you did not write. A validation error names the failing
+   entry: fix the file and rerun.
+5. Confirm with `"$archdev" extract show pr.review-annotations <num>
+   --json`: it prints the stored row; `ExtractionNotFoundError` means
+   nothing is stored for this head; any other error means the checkout
+   is not at the PR head. Then log the `pr.*` event.
+
+Verify before you stop: at every stopping point, and before any `done`
+or `handoff` post, run step 5 for each PR you pushed to this session.
+From any checkout, `"$archdev" inspect metadata <num> --sha "$(git
+rev-parse HEAD)"` reads the same row and reports "No review annotations
+are published" when it is missing.
+
+If step 4 fails (signed out: `"$archdev" auth status` shows no session;
+no GitHub origin; a validation error), fix what it names or say so in
+the event's `--message` and in your reply to the user; never skip
+silently.
 
 ## Factory sessions
 
