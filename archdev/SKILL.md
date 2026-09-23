@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status, repo init); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the team room for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); and observing agent activity (repo monitor). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the team room for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); and observing agent activity (repo monitor). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -57,7 +57,8 @@ current, user logged in (`auth status`), model access configured
 ## 2. Map
 
 Read [map.md](references/map.md). Goal: repo opted in via `archdev.json`
-(`repo init` when missing; personal overrides stay in gitignored
+(`repo map init` creates it when missing — never `repo init`, which is
+jobs daemon registration; personal overrides stay in gitignored
 `archdev.local.json`), plus the `activity` taxonomy describing how this
 repo plans, codes, reviews, and takes instruction. End by installing
 the monitor hooks (`repo hook setup`) so session coverage starts
