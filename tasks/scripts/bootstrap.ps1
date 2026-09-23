@@ -46,4 +46,21 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
 & $archdev tasks review update --help *> $null
 if ($LASTEXITCODE -ne 0) { throw "Installed ArchDev does not provide Tasks web review commands" }
+
+# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
+# harnesses that already have archdev hooks change, and a failure (for example
+# an older archdev earlier on PATH) is reported without blocking the skill.
+# Its stderr goes straight to the console; only stdout is relayed, because
+# merging stderr into the pipeline under ErrorActionPreference=Stop throws.
+try {
+    $hookHelp = (& $archdev repo hook setup --help 2>$null) -join "`n"
+    if ($hookHelp -match "--refresh") {
+        & $archdev repo hook setup --refresh | ForEach-Object { [Console]::Error.WriteLine($_) }
+        if ($LASTEXITCODE -ne 0) {
+            [Console]::Error.WriteLine("Could not refresh ArchDev hooks; see above, then run: archdev repo hook setup")
+        }
+    }
+} catch {
+    [Console]::Error.WriteLine("Could not refresh ArchDev hooks: $_")
+}
 Write-Output $archdev

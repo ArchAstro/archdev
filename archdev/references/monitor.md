@@ -19,6 +19,13 @@ per-event extraction schemas, and the report commands. Without hooks,
 run `"$archdev" repo monitor bootstrap` at session start for the same
 block. The static checklist below is the same shape for reference.
 
+With hooks installed, a tool call that looks like a watched event (commit,
+push, `gh pr …`, `archdev tasks …`, a plan edit) is followed by an
+`ArchDev monitor:` note naming the likely event and extractor. Report it
+if it is a real hit; `archdev log post --event <type>` clears it. A note
+left unreported is repeated once at your next prompt. The hooks never
+block a stop.
+
 ## Team room
 
 The organization room is the team's shared memory: lifecycle posts and
@@ -236,7 +243,7 @@ host already automates part of this workflow:
 
 When an event fires reliably across sessions, say so in your report:
 high-signal events (`commit.*`, `pr.*`) graduate from model attention
-into the stop hook, and leave the self-check block. The block shrinks as
+into hooks that post them directly, and leave the self-check block. The block shrinks as
 the taxonomy proves itself.
 
 ## Coexistence (invariants)
