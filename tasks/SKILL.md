@@ -128,14 +128,17 @@ The drafter has the whole conversation, so its tasks read as complete to it
 even when they lean on context a worker will never see. Before opening review,
 test each node with a reader that has only that node. Run exactly one round.
 
-1. For every node, start a fresh subagent with no conversation history, using
-   the harness's cheaper model tier (for example, Claude Code's Agent tool with
-   `model: "haiku"` or `"sonnet"`). If the harness cannot choose a subagent
-   model, use its default. Prefer a read-only agent type or tool set (for
-   example, Claude Code's `Explore`). Run the checks in parallel, batching if
-   the harness limits concurrency. If the harness has no subagent facility,
-   say so and skip this step; do not self-review in the main context as a
-   substitute.
+1. For every node, start a fresh subagent with no conversation history. Use
+   a smaller, cheaper model than the one drafting the plan: the check needs
+   careful reading, not deep reasoning. The harness knows its own model
+   lineup, so pick its cheaper tier yourself rather than naming a fixed
+   model. For example, Claude Code's Agent tool takes `model: "haiku"` or
+   `"sonnet"`; other harnesses expose a mini or flash tier, or a per-agent
+   model setting. If the harness cannot choose a subagent model, use its
+   default. Prefer a read-only agent type or tool set (for example, Claude
+   Code's `Explore`). Run the checks in parallel, batching if the harness
+   limits concurrency. If the harness has no subagent facility, say so and
+   skip this step; do not self-review in the main context as a substitute.
 2. Give each subagent only that node's JSON object, copied verbatim from the
    draft, and the prompt below. Do not pass the plan file path, the epic, other
    nodes, the conversation, or your own summary.
@@ -306,9 +309,11 @@ other lifecycle operations.
 
 ## 7. Audit and unblock paused or failed work
 
-Use this when a backlog has many paused, failed, or stalled Tasks — often
-after a Factory overseer paused them — and the goal is unblocking the graph
-safely rather than rubber-stamping status changes.
+Run this only when the user asks for an audit of paused, failed, or stalled
+Tasks. Do not start one on your own because you noticed paused work; mention
+it and let the user decide. The goal is unblocking the graph safely, not
+rubber-stamping status changes, and every change below still follows the
+user's direction on decisions and scope.
 
 1. **Inventory.** Page through work needing attention:
    ```sh
