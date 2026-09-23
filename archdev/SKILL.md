@@ -77,21 +77,32 @@ Read [monitor.md](references/monitor.md). Three beats, one command
    `log post --kind` — `start` once scope is clear, `lesson` on a reusable
    root cause or fix, `abandoned` for a failed approach, `done` (with
    the PR URL) or an `@name` `handoff` at the end. Re-read the room
-   before committing or opening a PR.
+   before committing or opening a PR. After `gh pr create` and after
+   every push that moves a PR head, store that head's review
+   annotations before doing anything else (see "PR review annotations"
+   in monitor.md).
 3. **Every stopping point:** self-check against the mapped taxonomy and
    report hits — free text (`agent.message`) or schema-validated
    payloads (`log post --event`), with `--kind` on the same call when the
-   event is also a lifecycle moment.
+   event is also a lifecycle moment. Outside Factory sessions, for every
+   PR you pushed to this session, confirm its current head has
+   annotations (`extract show pr.review-annotations <num> --json`) and
+   store them if it does not.
 
 Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
-payload summary. A PR created (or updated to a new head)
-outside `archdev publish` gets its hunk review annotations stored with
-`extract run pr.review-annotations` before the `pr.*` post — except in a
-Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`, `ARCHDEV_JOB_ID`,
-or `ARCHDEV_STEP_ID` set), where the host's publish step writes them and
-the agent only logs. Computing risk (a sealed assessment or hunk `risk`
-annotations) is a loop, not a label: mitigate the risks you find within
-scope, then recompute, at most twice, before you post (monitor.md,
-Report). No daemon, no log tailing: the model is the sensor until an
-event proves reliable enough to promote into the stop hook.
+payload summary.
+
+ArchDev shows a PR's AI summary, Start here list, and per-hunk risk and
+theme labels only for a head that has a `github_pr_review_annotations`
+row. Rows are keyed by the exact head SHA, so every push leaves the
+Overview without a summary or labels until a row for the new head
+exists. `archdev publish` writes one; `gh pr create` and `git push` do
+not. The exception is a Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`,
+`ARCHDEV_JOB_ID`, or `ARCHDEV_STEP_ID` set), where the host's publish
+step writes the row and the agent only logs. Computing risk (a sealed
+assessment or hunk `risk` annotations) is a loop, not a label: mitigate
+the risks you find within scope, then recompute, at most twice, before
+you post (monitor.md, Report and PR review annotations). No daemon, no
+log tailing: the model is the sensor until an event proves reliable
+enough to promote into the stop hook.
