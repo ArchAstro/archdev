@@ -163,7 +163,7 @@ Rules:
 - Free text: `"$archdev" log post "<text>"` — posts to the org room as event
   `agent.message`.
 - Structured: plan/task/pr events carry a sealed risk assessment;
-  commit/agent events do not. Four steps:
+  commit/agent events do not. Five steps:
   1. `"$archdev" extract brief risk.<type> --out ./brief/` — rubric for
      this session (instructions, input/output schemas, worked example).
      Fetch once per definition; reuse via the digest in `brief.json`.
@@ -179,7 +179,17 @@ Rules:
   3. `"$archdev" extract finalize risk.<type> ./judgment.json --out
      ./sealed/` — validates the schemas, derives the combined grade,
      prints the digest. Fix what the named stage reports.
-  4. `"$archdev" log post --event <type> --payload-file <fact> --assessment
+  4. Mitigate, then recompute. For each medium or high risk driver the
+     assessment names, reduce the risk in the subject itself: fix the
+     code, add the missing test or guard, split the unverifiable step,
+     tighten the plan. Then re-author `{input, assessment}` from the
+     changed subject and finalize again. Never lower a grade by editing
+     the assessment alone; the grade must follow the work. Run one
+     mitigation round, then post what remains. A mitigation that would
+     change scope or needs a decision is not yours to make: ask the human
+     and record it as residual risk. Name the residual risks and what you
+     mitigated in `--message`.
+  5. `"$archdev" log post --event <type> --payload-file <fact> --assessment
      ./sealed/result.json --message "<one-line summary>"`.
   Every structured post must read well to a human in the room, whatever
   its schema. The CLI renders the payload as text (`▶ Task tsk_1
@@ -204,14 +214,20 @@ Rules:
   2. Author the value from the patches: sparse `risk` / `semantic_group`
      / `note` ranges covering every changed path, plus an optional
      `summary` (`intent`, `overall_risk`, up to five `focus` ranges).
-  3. `"$archdev" extract run pr.review-annotations <num> --runner
+  3. Mitigate, then recompute. For each medium or high `risk` range that
+     is a real defect or gap, fix it in the branch with a test that would
+     have caught it, and push. The push is a new head, so go back to
+     step 1 and author annotations for that head. Keep annotating the
+     risks you could not mitigate, stated plainly. One round, then
+     continue; scope-changing mitigations go to the human.
+  4. `"$archdev" extract run pr.review-annotations <num> --runner
      file:<answer.json> --json` — the default sink writes the
      `github_pr_review_annotations` object for that head. `cached` means
      that head already has annotations; do not `--force` over rows you did
      not write.
-  4. Confirm with `"$archdev" extract show pr.review-annotations <num>
+  5. Confirm with `"$archdev" extract show pr.review-annotations <num>
      --json`, then log the `pr.*` event.
-  If step 3 fails (signed out, no GitHub origin, validation error), fix
+  If step 4 fails (signed out, no GitHub origin, validation error), fix
   what it names or say so in the event's `--message`; never skip
   silently. In a Factory session, skip this whole bullet (see below).
 

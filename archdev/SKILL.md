@@ -89,6 +89,8 @@ outside `archdev publish` gets its hunk review annotations stored with
 `extract run pr.review-annotations` before the `pr.*` post — except in a
 Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`, `ARCHDEV_JOB_ID`,
 or `ARCHDEV_STEP_ID` set), where the host's publish step writes them and
-the agent only logs. No daemon, no log tailing: the model is the sensor
-until an event proves reliable enough to promote into the stop
-hook.
+the agent only logs. Computing risk (a sealed assessment or hunk `risk`
+annotations) is a loop, not a label: mitigate the risks you find, then
+recompute before you post (monitor.md, Report). No daemon, no log
+tailing: the model is the sensor until an event proves reliable enough
+to promote into the stop hook.
