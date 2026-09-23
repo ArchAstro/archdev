@@ -184,11 +184,12 @@ Rules:
      code, add the missing test or guard, split the unverifiable step,
      tighten the plan. Then re-author `{input, assessment}` from the
      changed subject and finalize again. Never lower a grade by editing
-     the assessment alone; the grade must follow the work. Run one
-     mitigation round, then post what remains. A mitigation that would
-     change scope or needs a decision is not yours to make: ask the human
-     and record it as residual risk. Name the residual risks and what you
-     mitigated in `--message`.
+     the assessment alone; the grade must follow the work. Run at most
+     two mitigate-and-recompute rounds, then post what remains. Only
+     mitigate within the work's existing scope: if a fix would expand
+     scope (new features, other components, unrelated refactors), do not
+     make it; record it as residual risk and move forward. Name the
+     residual risks and what you mitigated in `--message`.
   5. `"$archdev" log post --event <type> --payload-file <fact> --assessment
      ./sealed/result.json --message "<one-line summary>"`.
   Every structured post must read well to a human in the room, whatever
@@ -217,9 +218,9 @@ Rules:
   3. Mitigate, then recompute. For each medium or high `risk` range that
      is a real defect or gap, fix it in the branch with a test that would
      have caught it, and push. The push is a new head, so go back to
-     step 1 and author annotations for that head. Keep annotating the
-     risks you could not mitigate, stated plainly. One round, then
-     continue; scope-changing mitigations go to the human.
+     step 1 and author annotations for that head. At most two rounds.
+     Fix only within the PR's scope; a risk whose fix would expand scope
+     stays annotated, stated plainly, and you move forward.
   4. `"$archdev" extract run pr.review-annotations <num> --runner
      file:<answer.json> --json` — the default sink writes the
      `github_pr_review_annotations` object for that head. `cached` means
