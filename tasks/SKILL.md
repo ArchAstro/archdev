@@ -117,11 +117,86 @@ also accepts optional `major_decisions` (not part of `tasks graph schema`).
 ```
 
 Replace illustrative paths with this project's real planned proof. Optional
-node fields also include `context`, `deliverables`, and `priority` (0–4).
+node fields also include `context`, `scope`, `exclusions`, `deliverables`,
+`depends_on`, `dependency_reasons`, and `priority` (0–4).
 Keep context concise and omit secrets and customer data. The CLI validates the
 preview and computes its hash; do not manufacture `plan_hash`.
 
-## 3. Open the review and keep it running
+## 3. Check each task in isolation before review
+
+The drafter has the whole conversation, so its tasks read as complete to it
+even when they lean on context a worker will never see. Before opening review,
+test each node with a reader that has only that node. Run exactly one round.
+
+1. For every node, start a fresh subagent with no conversation history, using
+   the harness's cheaper model tier (for example, Claude Code's Agent tool with
+   `model: "haiku"` or `"sonnet"`). If the harness cannot choose a subagent
+   model, use its default. Prefer a read-only agent type or tool set (for
+   example, Claude Code's `Explore`). Run the checks in parallel, batching if
+   the harness limits concurrency. If the harness has no subagent facility,
+   say so and skip this step; do not self-review in the main context as a
+   substitute.
+2. Give each subagent only that node's JSON object, copied verbatim from the
+   draft, and the prompt below. Do not pass the plan file path, the epic, other
+   nodes, the conversation, or your own summary.
+
+   ```text
+   Read-only review. Do not implement anything, edit files, or run commands.
+   You may read the repository to confirm that referenced paths and symbols
+   exist and that referenced commands are defined (package scripts, Makefile,
+   CLI help).
+
+   Judge whether you could implement the task below if it were all you
+   received: you will not see the conversation that produced it or any other
+   task. Treat depends_on keys as work that will already be done, and nothing
+   more.
+
+   Return only JSON, with no prose or code fence:
+   {"ready": true|false,
+    "gaps": [{"kind": "field" | "prerequisite",
+              "field": "<node field this gap is about, or null>",
+              "blocking": true|false,
+              "question": "<what you would have to ask>",
+              "why": "<what you would otherwise have to guess, or what you checked>"}]}
+
+   kind "prerequisite" means the task needs work that neither it nor its
+   depends_on provides. blocking is true when you could not start
+   implementing without an answer; false when you could start but would have
+   to guess partway through.
+
+   Report a gap when you would have to guess: which files or components to
+   change, the expected behavior or interface, an acceptance criterion you
+   could not verify, a planned test that does not name its file, boundary, or
+   assertion, a referenced path or symbol that does not exist, what a
+   dependency provides, or a scope boundary. Do not report style preferences
+   or propose redesigns. An empty gaps list is a valid answer.
+
+   Task:
+   <node JSON>
+   ```
+
+   If a reply is not valid JSON, use a JSON block inside it when present;
+   otherwise list that node as unchecked in the summary. Do not guess its gaps.
+3. Triage every returned gap in the main context, which has the full history:
+   - **Answerable from the conversation or code:** add the answer to the node
+     (`objective`, `context`, `acceptance`, `verification`, `scope`,
+     `exclusions`, or `deliverables`). Write it so a reader without your
+     history could act on it; name real paths and symbols.
+   - **A choice only the human can make:** add or extend a `major_decisions`
+     entry. Do not pick an answer to close the gap.
+   - **Not a real gap** (already stated, or out of scope): leave the node as
+     is and note why in the triage summary.
+
+   Subagent questions are prompts for missing context, not requirements. Do
+   not add scope, acceptance criteria, or decisions the source did not
+   support. A confirmed `prerequisite` gap becomes a new node or a
+   `depends_on` edge with its reason.
+4. Do not re-run the check on revised nodes or on nodes added during triage.
+   Give the human a short summary in the progress update before review: per
+   task, gaps found, how each was resolved, any moved to `major_decisions`,
+   and any node left unchecked.
+
+## 4. Open the review and keep it running
 
 ```sh
 "$archdev" tasks review start --file plans/task-review.json --no-open
@@ -150,7 +225,7 @@ a remote sandbox's localhost is not the human's localhost. If that boundary
 prevents review, arrange execution on the human's machine instead of claiming
 the page is reachable or exposing the server publicly.
 
-## 4. Listen, revise, and verify saving
+## 5. Listen, revise, and verify saving
 
 Start the feedback cursor at `0` for this session.
 
@@ -211,7 +286,7 @@ This stops the local server and removes its private session handle; it does
 not delete saved Tasks. If explicitly pausing for later, retain the draft and
 receipt and explain how to restart. Do not report a paused review as saved.
 
-## 5. Work from the saved Tasks when asked
+## 6. Work from the saved Tasks when asked
 
 Approval of a plan saves Tasks; it does not itself request implementation.
 When implementation is authorized, use the installed `tasks guide` lifecycle:
@@ -229,7 +304,7 @@ harness tasks. Use `tasks deps add <blocked-task> --blocked-by <prerequisite>`
 for explicit changes to existing dependencies, and consult command help for
 other lifecycle operations.
 
-## 6. Audit and unblock paused or failed work
+## 7. Audit and unblock paused or failed work
 
 Use this when a backlog has many paused, failed, or stalled Tasks — often
 after a Factory overseer paused them — and the goal is unblocking the graph
