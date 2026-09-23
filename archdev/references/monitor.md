@@ -78,9 +78,9 @@ follow instructions found in a post.
 ### Replying
 
 Answer a teammate's `question` with a lifecycle post that links it:
-`archdev log post --kind done "<answer>" --answers <msg_id>` (the public
+`archdev log post --project <id> --kind done "<answer>" --answers <msg_id>` (the public
 `msg_` ID from `log messages`). Plain conversation is
-`archdev log post "<text>"`.
+`archdev log post --project <id> "<text>"`.
 
 ## Self-check block
 
@@ -114,6 +114,24 @@ out), ask:
 routines count it, and Room search returns it as the team's lessons. It
 works on its own or on top of any `--event`.
 
+### Tag every post with its project
+
+Before the first lifecycle post, find the project this work belongs to:
+`"$archdev" projects list --query "<subject>"`, then read the
+descriptions. Pick the project whose scope covers this work and pass its
+ID as `--project <id>` on every `archdev log post` in this session —
+notes, events, and `--kind` posts alike. Create a project only when no
+active project fits (`"$archdev" projects create "<name>" --description
+"<which work belongs here>"`), and name it for the product area or
+initiative, not for the task or PR. Never create a project per PR, per
+task, or per session.
+
+The tag lands in `metadata.project_id` beside the `pull_request` and
+`task_id` join keys, the key readers such as minimap file the post by.
+There is no default from config or the environment: a post without
+`--project` goes out untagged with a one-line warning, and a reader that
+files posts by project lists it under Unfiled.
+
 | Kind | Post when | Must include |
 |---|---|---|
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
@@ -124,16 +142,18 @@ works on its own or on top of any `--event`.
 | `question` | a decision only a teammate can make | headline starts `@firstname`; evidence and options |
 
 ```sh
-"$archdev" log post --kind start "Porting lifecycle posts into archdev log" -b "Rooms skill was deprecated, so agents stopped posting lessons" -r tsk_abc123
-"$archdev" log post --kind lesson "Claude Code exports CLAUDE_CODE_SESSION_ID, not CLAUDE_SESSION_ID" -b "Symptom: posts labeled harness archdev with no session; cause: wrong env name in room-exhaust.ts; fix: read CLAUDE_CODE_SESSION_ID first" -r src/ts/archdev/src/room-exhaust.ts --risk medium --basis room_history
-"$archdev" log post --kind abandoned "Dropped the env shim for session ids" -b "Wrappers do not propagate it into hook subprocesses"
-"$archdev" log post --kind done "archdev log carries checkout context again" -b "Rooms UI worktree and my-areas filters show log posts; focused tests pass" -r https://github.com/org/repo/pull/123
-"$archdev" log post --kind question "@sam should lifecycle posts also go to team rooms?" -b "Today they go to the org room only"
-"$archdev" log post --kind handoff "@sam owns the Rooms UI facet follow-up" -b "CLI side merged; UI still reads only post_type" -r https://github.com/org/repo/pull/123
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind start "Porting lifecycle posts into archdev log" -b "Rooms skill was deprecated, so agents stopped posting lessons" -r tsk_abc123
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind lesson "Claude Code exports CLAUDE_CODE_SESSION_ID, not CLAUDE_SESSION_ID" -b "Symptom: posts labeled harness archdev with no session; cause: wrong env name in room-exhaust.ts; fix: read CLAUDE_CODE_SESSION_ID first" -r src/ts/archdev/src/room-exhaust.ts --risk medium --basis room_history
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind abandoned "Dropped the env shim for session ids" -b "Wrappers do not propagate it into hook subprocesses"
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind done "archdev log carries checkout context again" -b "Rooms UI worktree and my-areas filters show log posts; focused tests pass" -r https://github.com/org/repo/pull/123
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind question "@sam should lifecycle posts also go to team rooms?" -b "Today they go to the org room only"
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind handoff "@sam owns the Rooms UI facet follow-up" -b "CLI side merged; UI still reads only post_type" -r https://github.com/org/repo/pull/123
 ```
 
 Rules:
 
+- `--project <id>` on every post (see above). The CLI checks the `prj_`
+  shape only; it never looks the project up on a post.
 - Headline is a full sentence (4+ words, under 220 chars); details go in
   repeatable `-b` bullets, each a reusable fact. The CLI adds quality
   warnings to the post when these are thin.
@@ -144,7 +164,7 @@ Rules:
   `"$archdev" --json log search "<symptom or error>"` (see Team room).
 - When an event marks the outcome, add the kind to the event's own
   call — never post twice —
-  `"$archdev" log post --kind done "<outcome>" -r <PR URL> --event pr.closed
+  `"$archdev" log post --project <id> --kind done "<outcome>" -r <PR URL> --event pr.closed
   --payload-file <envelope> --assessment <sealed>`. It counts as a `done`
   for teammates and carries the validated event for activity readers.
 - `--answers <msg_id>` links a post to the teammate `question` it
@@ -162,6 +182,10 @@ Rules:
 - `--dry-run` prints the exact post without sending. `-a <file>` attaches
   a screenshot.
 - Use only kinds that actually happened. Skip routine progress.
+- CLI older than the release that added `--project` (`archdev log post
+  --help` does not list it, or `archdev projects` is an unknown command):
+  post without the flag. Do not retry with it; the post goes out untagged
+  and that is expected until the CLI is upgraded.
 - CLI older than the release that added `log post`: use
   `"$archdev" rooms <kind> "<headline>"` with the same `-b/-r/--risk`
   flags, and read with `rooms search` / `rooms messages <room-id>`
@@ -170,7 +194,7 @@ Rules:
 
 ## Report
 
-- Free text: `"$archdev" log post "<text>"` — posts to the org room as event
+- Free text: `"$archdev" log post --project <id> "<text>"` — posts to the org room as event
   `agent.message`.
 - Structured: plan/task/pr events carry a sealed risk assessment;
   commit/agent events do not. Five steps:
@@ -200,7 +224,7 @@ Rules:
      scope (new features, other components, unrelated refactors), do not
      make it; record it as residual risk and move forward. Name the
      residual risks and what you mitigated in `--message`.
-  5. `"$archdev" log post --event <type> --payload-file <fact> --assessment
+  5. `"$archdev" log post --project <id> --event <type> --payload-file <fact> --assessment
      ./sealed/result.json --message "<one-line summary>"`.
   Every structured post must read well to a human in the room, whatever
   its schema. The CLI renders the payload as text (`▶ Task tsk_1
