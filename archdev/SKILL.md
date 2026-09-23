@@ -76,9 +76,12 @@ Read [monitor.md](references/monitor.md). Three beats, one command
 2. **As it happens:** post lifecycle moments immediately with
    `log post --kind` — `start` once scope is clear, `lesson` on a reusable
    root cause or fix, `abandoned` for a failed approach, `done` (with
-   the PR URL) or an `@name` `handoff` at the end. Re-read the room
-   before committing or opening a PR. After `gh pr create` and after
-   every push that moves a PR head, store that head's review
+   the PR URL) or an `@name` `handoff` at the end. Before the first
+   post, find the project the work belongs to
+   (`archdev projects list --query "<subject>"`) and pass its ID as
+   `--project <id>` on every `archdev log post` in the session. Re-read
+   the room before committing or opening a PR. After `gh pr create` and
+   after every push that moves a PR head, store that head's review
    annotations before doing anything else (see "PR review annotations"
    in monitor.md).
 3. **Every stopping point:** self-check against the mapped taxonomy and
