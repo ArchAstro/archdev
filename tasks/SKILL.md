@@ -228,3 +228,91 @@ Keep shared progress on these saved Tasks rather than creating duplicate
 harness tasks. Use `tasks deps add <blocked-task> --blocked-by <prerequisite>`
 for explicit changes to existing dependencies, and consult command help for
 other lifecycle operations.
+
+## 6. Audit and unblock paused or failed work
+
+Use this when a backlog has many paused, failed, or stalled Tasks — often
+after a Factory overseer paused them — and the goal is unblocking the graph
+safely rather than rubber-stamping status changes.
+
+1. **Inventory.** Page through work needing attention:
+   ```sh
+   "$archdev" tasks list --status paused --limit 100 --after-cursor <cursor>
+   ```
+   Repeat for `failed`, `open`, `in_review` (100 is the max page size).
+   Group results by `epic`. `tasks list --epic "<epic>"` filters to one
+   epic; `tasks list --status done` shows what already shipped there.
+
+2. **Find why before changing anything.** The pause reason is rarely in
+   the description. Read, in order: the Task's activity feed (status
+   changes, lease claims/releases, who and when), then comments, then
+   description progress notes. If the installed CLI lacks `tasks
+   comments`/`tasks activity`, get the same data from `GET
+   /api/v1/tasks/{id}/comments` and `GET /api/v1/tasks/{id}/activity`
+   (cursor-paginated) via the ArchDev web app at `archdev.ai/tasks/<id>` —
+   never by reading credential files to call the API directly. Prefer the
+   CLI, then the web UI, then a human. A pause with no comment usually
+   means a Factory overseer paused it via `factory_tasks`; ask the
+   overseer or its human rather than guessing.
+
+3. **Check for a live Factory before touching status.** `tasks update
+   --status open` changes only the native status — it does not clear a
+   Factory's local state, and the overseer re-pauses the Task within
+   minutes. Look for recent lease claims by `factory:worker-N` in the
+   activity feed. If a Factory owns the work: fix the spec or
+   dependencies, then ask the overseer (or its human) to `resume` through
+   `factory_tasks`. Do not fight an active overseer with native status
+   flips.
+
+4. **Classify each paused/failed Task, then act:**
+   - **Spec underspecified or self-contradictory** (acceptance vs.
+     deliverables disagree, objective vs. plan drifted, a recorded
+     decision contradicted by later plan steps) → rewrite the
+     description, record the decision with date and decider, comment
+     what changed and why.
+   - **Needs a human decision** → ask; record the decision in the
+     description once made. Don't decide scope silently. Check for
+     prior direction first — a decision made without knowing an earlier
+     direction was reverted just repeats the mistake.
+   - **Blocked on another Task** → `tasks deps add <task> --blocked-by
+     <prereq>` instead of leaving it hand-parked with no edge.
+   - **Factory/tooling bug surfaced by a worker** → file it as its own
+     Task and add the dependency edge back to the blocked work.
+   - **Acceptance a worker can't meet before merge** (production
+     observation, human visual review, numeric approvals, real
+     credentials) → split off a separate Task tagged `human` (add
+     `needs-access` if applicable), blocked-by the implementation Task.
+     The implementation Task closes on local proof only.
+   - **Needs access/credentials** → leave paused, tag `needs-access`,
+     comment the exact human action required.
+   - **Duplicate or superseded** → cancel with a comment pointing at the
+     replacement Task.
+   - **A "done" prerequisite never actually shipped** (no commit/PR/
+     result on the default branch) → reopen it; dependents re-block
+     automatically. Verify against git on the default branch, not the
+     Task's status field.
+   - **Churn** (hundreds of versions, the same failure repeating,
+     "workspace preparation failed" on retry) → stop retrying. Reset the
+     spec, or ask for `restart_clean`. Destructive cleanup of retained
+     work needs human authorization first.
+
+5. **Batch per epic.** `tasks review` only safely edits an existing graph
+   when you hold that plan's receipt/state file — a Factory-created plan
+   keeps its receipt locally, so a new `tasks review` on it creates
+   duplicates instead of updating it. Otherwise batch manually: write
+   each task's new description to a file and run `tasks update` per task,
+   keeping the same task IDs.
+
+6. **Mechanics gotchas:**
+   - `--tag` replaces the full tag set — re-pass existing tags (including
+     `archdev-plan`, `plan:<id>`, `plan-key:<key>`) whenever adding one.
+   - Build multi-flag commands as an argument array; zsh does not
+     word-split a flags string.
+   - Pass long descriptions from a file (`--description "$(cat
+     file.md)"`) to avoid shell-quoting bugs.
+   - Create new human-only Tasks paused and tagged `human` so Factory
+     workers don't claim them.
+
+7. **Comment every status change** with why and what it unblocks. A
+   status change with no comment is as opaque to the next person as the
+   pause it resolved.
