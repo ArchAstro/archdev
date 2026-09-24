@@ -302,6 +302,25 @@ When implementation is authorized, use the installed `tasks guide` lifecycle:
    `--session-id` on fenced updates, close, and release. Close only after
    verification; re-read ready Tasks when a prerequisite finishes.
 
+When beginning an accessible team-owned task, set current attention with
+`"$archdev" presence update --task <task-id>`. Check `presence --help` lists
+`update` and `clear` first; if unavailable after the normal CLI upgrade,
+report the limitation and continue the task lifecycle. Personal tasks remain
+private: do not publish their IDs or change their ownership for presence.
+
+When attention shifts to its PR or job, use
+`"$archdev" presence update --pr 'owner/repo#123' --job <job-id>` with only the
+references currently relevant. Each update replaces all previous references;
+include `--task <task-id>` again only while it still describes your attention.
+On finishing or handing off, use `"$archdev" presence clear` to remain idle.
+This neither closes the task nor releases its lease. Run these commands in
+the existing harness session; never substitute the task lease's `session_id`
+for `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`. The CLI owns authentication,
+expiry, and concurrency; do not build snapshots or emit room presence posts.
+If an update is rejected, earlier attention remains: clear it if it no longer
+applies, and report any failure. `--json` is supported; `superseded` means a
+newer observation won and should not be overwritten by retrying older work.
+
 Keep shared progress on these saved Tasks rather than creating duplicate
 harness tasks. Use `tasks deps add <blocked-task> --blocked-by <prerequisite>`
 for explicit changes to existing dependencies, and consult command help for

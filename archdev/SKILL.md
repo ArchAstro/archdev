@@ -67,7 +67,12 @@ immediately. Bootstrap keeps installed hooks on the CLI's wiring
 
 ## 3. Monitor
 
-Read [monitor.md](references/monitor.md). Three beats, one command
+Read [monitor.md](references/monitor.md), including **Current attention**.
+Use `presence update` when taking up or switching a task, PR, or job, and
+`presence clear` when that attention ends. Presence keeps one mutable
+snapshot for the current harness session; lifecycle posts remain history.
+
+Three beats, one command
 (`archdev log`: `post` to write, `messages` / `search` to read):
 
 1. **Session start:** read the team room before substantial work
