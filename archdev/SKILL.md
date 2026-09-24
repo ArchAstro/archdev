@@ -68,6 +68,7 @@ immediately. Bootstrap keeps installed hooks on the CLI's wiring
 ## 3. Monitor
 
 Read [monitor.md](references/monitor.md), including **Current attention**.
+Presence commands require CLI **0.46.3 or newer**.
 Use `presence update` when taking up or switching a task, PR, or job, and
 `presence clear` when that attention ends. Presence keeps one mutable
 snapshot for the current harness session; lifecycle posts remain history.

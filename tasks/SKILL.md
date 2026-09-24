@@ -302,6 +302,7 @@ When implementation is authorized, use the installed `tasks guide` lifecycle:
    `--session-id` on fenced updates, close, and release. Close only after
    verification; re-read ready Tasks when a prerequisite finishes.
 
+Presence commands require CLI **0.46.3 or newer**.
 When beginning an accessible team-owned task, set current attention with
 `"$archdev" presence update --task <task-id>`. Check `presence --help` lists
 `update` and `clear` first; if unavailable after the normal CLI upgrade,
