@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.45.3"
+$minVersion = [Version]"0.46.0"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -51,11 +51,15 @@ function Test-Skill([string]$Binary) {
     $helpText = & $Binary settings provider models --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev settings provider models ")) { return $false }
     $helpText = & $Binary repo status --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "Probe CLI, login, model access"))
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "Probe CLI, login, model access")) { return $false }
+    $helpText = & $Binary projects list --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev projects list ")) { return $false }
+    $helpText = & $Binary log post --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--project <id>"))
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, or risk-assessment commands (need 0.45.3+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, or log --project commands (need 0.46.0+).")
     $archdev = Install-ArchDev
 }
 
@@ -64,7 +68,7 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, and repo commands" }
+if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, repo, and projects commands" }
 
 # Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
 # harnesses that already have archdev hooks change, and a failure (for example

@@ -5,12 +5,12 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.45.3 or newer (the `repo` namespace, `log --event`,
-harness hooks, plus `extract brief`, `extract finalize`, and
-`log --assessment` for sealed risk assessments on plan/task/pr events).
-`log post`, `log messages`, and `log search` need the next CLI release;
-on older CLIs follow the fallback in monitor.md.
-The bootstrap script below upgrades older installs automatically.
+Requires CLI 0.46.0 or newer (the `repo` namespace, `log post` /
+`messages` / `search`, harness hooks, `extract brief`, `extract finalize`,
+and `log --assessment` for sealed risk assessments on plan/task/pr
+events, plus `projects` and `log post --project`). The bootstrap script
+below upgrades older installs automatically; on a CLI it could not
+upgrade, follow the fallbacks in monitor.md.
 
 Three phases, in order: Bootstrap → Map → Monitor. Each phase has a
 reference file with the concrete commands.
@@ -79,7 +79,9 @@ Read [monitor.md](references/monitor.md). Three beats, one command
    the PR URL) or an `@name` `handoff` at the end. Before the first
    post, find the project the work belongs to
    (`archdev projects list --query "<subject>"`) and pass its ID as
-   `--project <id>` on every `archdev log post` in the session. Re-read
+   `--project <id>` on every `archdev log post` for that work; look it
+   up again when a steer moves the session to a different initiative.
+   Re-read
    the room before committing or opening a PR. After `gh pr create` and
    after every push that moves a PR head, store that head's review
    annotations before doing anything else (see "PR review annotations"
