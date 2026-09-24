@@ -79,13 +79,15 @@ Read [monitor.md](references/monitor.md). Three beats, one command
    the PR URL) or an `@name` `handoff` at the end. Before the first
    post, find the project the work belongs to
    (`archdev projects list --query "<subject>"`) and pass its ID as
-   `--project <id>` on every `archdev log post` for that work; look it
-   up again when a steer moves the session to a different initiative.
-   Re-read
-   the room before committing or opening a PR. After `gh pr create` and
-   after every push that moves a PR head, store that head's review
-   annotations before doing anything else (see "PR review annotations"
-   in monitor.md).
+   `--project <id>` on every `archdev log post` for that work. If no
+   active project covers it, create one
+   (`archdev projects create "<name>" --description "<scope>"`), named
+   for the product area or initiative, never for the PR, task, or
+   session. Look the project up again when a steer moves the session
+   to a different initiative. Re-read the room before committing or
+   opening a PR. After `gh pr create` and after every push that moves
+   a PR head, store that head's review annotations before doing
+   anything else (see "PR review annotations" in monitor.md).
 3. **Every stopping point:** self-check against the mapped taxonomy and
    report hits — free text (`agent.message`) or schema-validated
    payloads (`log post --event`), with `--kind` on the same call when the
