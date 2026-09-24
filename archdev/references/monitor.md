@@ -119,8 +119,11 @@ works on its own or on top of any `--event`.
 Before the first lifecycle post, find the project this work belongs to:
 `"$archdev" projects list --query "<subject>"`, then read the
 descriptions. Pick the project whose scope covers this work and pass its
-ID as `--project <id>` on every `archdev log post` in this session —
-notes, events, and `--kind` posts alike. Create a project only when no
+ID as `--project <id>` on every `archdev log post` for that work —
+notes, events, and `--kind` posts alike. The project belongs to the
+work, not the session: when a steer moves you to a different initiative
+(`agent.steered`), or a task turns out to sit elsewhere, look it up
+again before the next post. Create a project only when no
 active project fits (`"$archdev" projects create "<name>" --description
 "<which work belongs here>"`), and name it for the product area or
 initiative, not for the task or PR. Never create a project per PR, per
@@ -182,10 +185,11 @@ Rules:
 - `--dry-run` prints the exact post without sending. `-a <file>` attaches
   a screenshot.
 - Use only kinds that actually happened. Skip routine progress.
-- CLI older than the release that added `--project` (`archdev log post
-  --help` does not list it, or `archdev projects` is an unknown command):
-  post without the flag. Do not retry with it; the post goes out untagged
-  and that is expected until the CLI is upgraded.
+- CLI older than 0.46.0 (`archdev log post --help` does not list
+  `--project`, or `archdev projects` is an unknown command): the
+  bootstrap script upgrades it; if bootstrap was skipped or could not
+  install, post without the flag and do not retry with it. The post goes
+  out untagged, and the untagged warning is expected until the upgrade.
 - CLI older than the release that added `log post`: use
   `"$archdev" rooms <kind> "<headline>"` with the same `-b/-r/--risk`
   flags, and read with `rooms search` / `rooms messages <room-id>`
