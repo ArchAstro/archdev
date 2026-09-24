@@ -30,6 +30,59 @@ if it is a real hit; `archdev log post --event <type>` clears it. A note
 left unreported is repeated once at your next prompt. The hooks never
 block a stop.
 
+## Current attention
+
+Use presence when you begin or switch work on a known task, PR, or job.
+It stores current attention in one mutable custom object per agent/session;
+it is not an activity history or an independent work record.
+
+Check `"$archdev" presence --help` once for `update` and `clear`. Older CLIs
+may print parent help even for an unknown subcommand, so a successful exit
+alone is not a capability check. If either command is absent, update through the
+[official installer](https://github.com/ArchAstro/archdev#install), then check
+again. If the installed release
+still lacks them, report that presence updates are unavailable and continue
+the work; do not manufacture snapshots or substitute minimap room posts.
+
+```sh
+"$archdev" presence update --task tsk_123
+# Switch to PR/job attention: the earlier task reference disappears.
+"$archdev" presence update --pr 'owner/repo#15016' --job job_123
+# Attention ended; the session remains present and idle.
+"$archdev" presence clear
+```
+
+- Pass all references that describe the current attention in each update.
+  Omitted references are removed, not merged with the previous snapshot.
+  Use actual IDs from the work, never the example placeholders. PR references
+  require `owner/repo#number`, including when the PR belongs to another repo.
+- Clear when finishing, handing off, or leaving referenced work for unrelated
+  work without a task, PR, or job reference. Replace directly when switching
+  to another known reference; no intermediate clear is needed. A progress
+  reply while still working does not end attention. Clear is idle presence,
+  not a session-stop signal, and does not close a task or release its lease.
+- Run in the current harness environment. The CLI uses the same identity as
+  session hooks (`CLAUDE_CODE_SESSION_ID`, its legacy alias `CLAUDE_SESSION_ID`, then
+  `CODEX_THREAD_ID`) across
+  invocations. Do not invent IDs, copy another session's ID, or use a task
+  lease's `session_id` as the harness identity. If identity is missing, report
+  the limitation and continue without a presence write.
+- Authentication, timestamps, expiry, and concurrent-write ordering belong to
+  the CLI's shared presence writer. Do not construct a `presence publish`
+  envelope or add a heartbeat loop. Hooks own session lifecycle observations.
+- Presence is organization-visible. `--task` accepts only an accessible
+  team-owned task. Never move or expose a personal/private task to satisfy
+  presence, and never bypass a rejected lookup with `publish`. A failed
+  update leaves earlier attention intact: if it no longer applies, clear it.
+  If clear also fails, report the error instead of claiming it succeeded.
+- Prefer `"$archdev" --json presence update ...` or `--json presence clear`
+  when parsing results. `status: "superseded"` means a newer observation won;
+  do not retry to force the older attention back into place. Use
+  `"$archdev" --json presence list --mine` to inspect visible current state.
+
+Keep lessons and lifecycle history in `log post`; a presence command writes
+no room message. Do not create independent work objects to mirror attention.
+
 ## Team room
 
 The organization room is the team's shared memory: lifecycle posts and
@@ -338,10 +391,10 @@ the taxonomy proves itself.
 
 ## Coexistence (invariants)
 
-- Presence belongs to minimap (`minimap ping` and its publisher). Never
-  fabricate presence, never set minimap fields or its `exhaust` type on
-  activity posts, and never skip the real presence path.
-- `archdev log post` is the one write path: notes, events, and `--kind`
+- Current attention uses `presence update` / `presence clear` and the shared
+  presence writer (see Current attention). Never encode presence in room
+  posts or create separate work objects; hooks own session lifecycle.
+- `archdev log post` is the activity-history write path: notes, events, and `--kind`
   lifecycle posts (it replaces `rooms <kind>`). `agent.session_started`
   is not `--kind start`.
 - Verify every post: a `message` id means delivered; `queued` means
