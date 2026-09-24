@@ -36,6 +36,7 @@ Use presence when you begin or switch work on a known task, PR, or job.
 It stores current attention in one mutable custom object per agent/session;
 it is not an activity history or an independent work record.
 
+`presence update` and `presence clear` require CLI **0.46.3 or newer**.
 Check `"$archdev" presence --help` once for `update` and `clear`. Older CLIs
 may print parent help even for an unknown subcommand, so a successful exit
 alone is not a capability check. If either command is absent, update through the
