@@ -134,16 +134,28 @@ has_archdev_hooks() {
 }
 
 # The archdev Claude Code plugin ships the same hooks; settings.json hooks on
-# top of it would run every hook twice. Counts a user-scope install that the
-# user settings have not disabled.
+# top of it would run every hook twice. Same rule as the CLI's
+# claudePluginInstall: an `archdev@<any marketplace>` install at user or
+# managed scope (or unscoped) whose key `enabledPlugins` sets to true.
 claude_plugin_installed() {
   local config="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-  local root="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$config/plugins}"
-  [[ -f "$root/installed_plugins.json" ]] || return 1
-  tr -d ' \t\r\n' <"$root/installed_plugins.json" |
-    grep -Eq '"archdev@archastro":\[[^]]*"scope":"user"' || return 1
-  ! { [[ -f "$config/settings.json" ]] &&
-    tr -d ' \t\r\n' <"$config/settings.json" | grep -Fq '"archdev@archastro":false'; }
+  local records="$config/plugins/installed_plugins.json" settings="$config/settings.json"
+  [[ -f "$records" && -f "$settings" ]] || return 1
+  local installed enabled key rest value
+  installed="$(tr -d ' \t\r\n' <"$records")"
+  enabled="$(tr -d ' \t\r\n' <"$settings")"
+  while IFS= read -r key; do
+    [[ -n "$key" ]] || continue
+    [[ "$enabled" == *"${key}true"* ]] || continue
+    # The key's value: a list of installs (version 2) or one install.
+    rest="${installed#*"$key"}"
+    if [[ "$rest" == "["* ]]; then value="${rest%%]*}"; else value="${rest%%\}*}"; fi
+    if [[ "$value" != *'"scope":'* || "$value" == *'"scope":"user"'* ||
+      "$value" == *'"scope":"managed"'* ]]; then
+      return 0
+    fi
+  done < <(grep -o '"archdev@[^"]*":' <<<"$installed" | sort -u)
+  return 1
 }
 
 # `repo hook setup --uninstall` records an opt-out only on CLIs that also

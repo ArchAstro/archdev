@@ -116,21 +116,27 @@ function Test-ArchDevHooks([string]$Harness) {
 }
 
 # The archdev Claude Code plugin ships the same hooks; settings.json hooks on
-# top of it would run every hook twice. Counts a user-scope install that the
-# user settings have not disabled.
+# top of it would run every hook twice. Same rule as the CLI's
+# claudePluginInstall: an `archdev@<any marketplace>` install at user or
+# managed scope (or unscoped) whose key `enabledPlugins` sets to true.
 function Test-ClaudePlugin {
     $config = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path (Get-HomeDirectory) ".claude" }
-    $root = if ($env:CLAUDE_CODE_PLUGIN_CACHE_DIR) { $env:CLAUDE_CODE_PLUGIN_CACHE_DIR } else { Join-Path $config "plugins" }
-    $file = Join-Path $root "installed_plugins.json"
-    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
-    $installs = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).plugins.'archdev@archastro'
-    if (-not (@($installs) | Where-Object { $_.scope -eq "user" })) { return $false }
+    $records = Join-Path (Join-Path $config "plugins") "installed_plugins.json"
     $settings = Join-Path $config "settings.json"
-    if (Test-Path -LiteralPath $settings -PathType Leaf) {
-        $enabled = (Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).enabledPlugins
-        if ($enabled -and $enabled.'archdev@archastro' -eq $false) { return $false }
+    if (-not (Test-Path -LiteralPath $records -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $settings -PathType Leaf)) { return $false }
+    $plugins = (Get-Content -LiteralPath $records -Raw | ConvertFrom-Json).plugins
+    $enabled = (Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).enabledPlugins
+    if (-not $plugins -or -not $enabled) { return $false }
+    foreach ($entry in $plugins.PSObject.Properties) {
+        if ($entry.Name.Split("@")[0] -ne "archdev") { continue }
+        if ($enabled.($entry.Name) -ne $true) { continue }
+        foreach ($install in @($entry.Value)) {
+            $scope = $install.scope
+            if ($null -eq $scope -or $scope -eq "user" -or $scope -eq "managed") { return $true }
+        }
     }
-    return $true
+    return $false
 }
 
 # `repo hook setup --uninstall` records an opt-out only on CLIs that also

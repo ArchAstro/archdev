@@ -99,22 +99,25 @@ $claudeHooksElsewhere = {
     & $claudeHooks $homeDir
     Move-Item (Join-Path $homeDir ".claude") (Join-Path $homeDir "claude-config")
 }
-$claudePlugin = {
-    param($homeDir)
-    $dir = Join-Path $homeDir ".claude/plugins"
-    New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    Set-Content (Join-Path $dir "installed_plugins.json") '{"version": 2, "plugins": {"archdev@archastro": [{"scope": "user"}]}}'
+function New-PluginRecords([string]$Plugins, [string]$Enabled, [int]$Version = 2) {
+    return {
+        param($homeDir)
+        $dir = Join-Path $homeDir ".claude/plugins"
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content (Join-Path $dir "installed_plugins.json") "{`"version`": $Version, `"plugins`": $Plugins}"
+        Set-Content (Join-Path $homeDir ".claude/settings.json") "{`"enabledPlugins`": $Enabled}"
+    }.GetNewClosure()
 }
-$claudePluginDisabled = {
-    param($homeDir)
-    & $claudePlugin $homeDir
-    Set-Content (Join-Path $homeDir ".claude/settings.json") '{"enabledPlugins": {"archdev@archastro": false}}'
+$pluginApplies = [ordered]@{
+    "claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": true}'
+    "mirror-claude-plugin" = New-PluginRecords '{"archdev@team-mirror": [{"scope": "managed"}]}' '{"archdev@team-mirror": true}'
+    "unscoped-claude-plugin" = New-PluginRecords '{"archdev@archastro": {"version": "1"}}' '{"archdev@archastro": true}' 1
 }
-$claudePluginProject = {
-    param($homeDir)
-    $dir = Join-Path $homeDir ".claude/plugins"
-    New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    Set-Content (Join-Path $dir "installed_plugins.json") '{"version": 2, "plugins": {"archdev@archastro": [{"scope": "project", "projectPath": "/elsewhere"}]}}'
+$pluginDoesNotApply = [ordered]@{
+    "disabled-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": false}'
+    "unlisted-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{}'
+    "project-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "project", "projectPath": "/elsewhere"}]}' '{"archdev@archastro": true}'
+    "other-named-plugin" = New-PluginRecords '{"archdev-extras@archastro": [{"scope": "user"}]}' '{"archdev-extras@archastro": true}'
 }
 $foreignHooks = {
     param($homeDir)
@@ -131,9 +134,12 @@ try {
         CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1"
         CLAUDE_CONFIG_DIR = (Join-Path $work "claude-config-dir/home/claude-config")
     } $claudeHooksElsewhere
-    Invoke-Case "claude-plugin" "repo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $claudePlugin
-    Invoke-Case "claude-plugin-disabled" "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $claudePluginDisabled
-    Invoke-Case "claude-plugin-other-project" "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $claudePluginProject
+    foreach ($case in $pluginApplies.Keys) {
+        Invoke-Case $case "repo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginApplies[$case]
+    }
+    foreach ($case in $pluginDoesNotApply.Keys) {
+        Invoke-Case $case "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginDoesNotApply[$case]
+    }
     Invoke-Case "claude-opted-out-old-cli" "repo hook setup --refresh" @{ CLAUDECODE = "1" }
     Invoke-Case "codex-no-hooks" "repo hook setup --harness codex`nrepo hook setup --refresh" @{ CODEX_THREAD_ID = "019a-thread"; ARCHDEV_FAKE_TRACK1 = "1" }
     Invoke-Case "grok-no-hooks" "repo hook setup --harness grok`nrepo hook setup --refresh" @{ GROK_SESSION_ID = "grok-session"; ARCHDEV_FAKE_TRACK1 = "1" }

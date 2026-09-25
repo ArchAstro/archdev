@@ -42,8 +42,11 @@ in_home /nonexistent claude plugin install archdev@archastro --scope user >/dev/
 details="$(in_home /nonexistent claude plugin details archdev@archastro)"
 grep -Eq 'Skills \(2\) +archdev, tasks' <<<"$details" ||
   fail "installed plugin does not list the archdev and tasks skills: $details"
-grep -Eq 'Hooks \(6\) +SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop, SubagentStop' <<<"$details" ||
-  fail "installed plugin does not list the six hook events: $details"
+hook_line="$(grep -E 'Hooks \(6\) ' <<<"$details" || true)"
+for event in SessionStart SubagentStart UserPromptSubmit PostToolUse Stop SubagentStop; do
+  grep -Eq "[ ,]$event(,| |\$)" <<<"$hook_line" ||
+    fail "installed plugin does not list the $event hook among six: $details"
+done
 install_path="$(in_home /nonexistent claude plugin list --json | jq -r '.[] | select(.id == "archdev@archastro") | .installPath')"
 cmp -s "$repo/archdev/SKILL.md" "$install_path/archdev/SKILL.md" ||
   fail "installed plugin does not carry archdev/SKILL.md from this checkout"
@@ -61,9 +64,9 @@ chmod +x "$work/bin/archdev"
 # Claude wiring. The prompt itself fails because the session is not logged in.
 in_home "$work/bin" claude -p "hello" >/dev/null 2>&1 || true
 calls="$(cat "$work/hook-calls.log" 2>/dev/null || true)"
-grep -Eq '^repo hook start --harness claude --spec [0-9]+$' <<<"$calls" ||
+grep -Eq '^repo hook start --harness claude --spec 4$' <<<"$calls" ||
   fail "SessionStart did not call archdev repo hook start: $calls"
-grep -Eq '^repo hook prompt --harness claude --spec [0-9]+$' <<<"$calls" ||
+grep -Eq '^repo hook prompt --harness claude --spec 4$' <<<"$calls" ||
   fail "UserPromptSubmit did not call archdev repo hook prompt: $calls"
 
 # Session without archdev on PATH: the hooks succeed with no output, so a

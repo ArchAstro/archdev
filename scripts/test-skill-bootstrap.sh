@@ -61,22 +61,35 @@ write_claude_hooks() {
 EOF
 }
 
+# Record a Claude plugin install: installed_plugins.json plugins value, and
+# the settings.json enabledPlugins value.
+write_plugin_records() {
+  mkdir -p "$home/.claude/plugins"
+  printf '{"version": 2, "plugins": %s}\n' "$1" >"$home/.claude/plugins/installed_plugins.json"
+  printf '{"enabledPlugins": %s}\n' "$2" >"$home/.claude/settings.json"
+}
 write_claude_plugin() {
-  mkdir -p "$home/.claude/plugins"
-  cat >"$home/.claude/plugins/installed_plugins.json" <<'EOF'
-{"version": 2, "plugins": {"archdev@archastro": [{"scope": "user", "version": "f1f606d1df2c"}]}}
-EOF
+  write_plugin_records '{"archdev@archastro": [{"scope": "user", "version": "f1f606d1df2c"}]}' '{"archdev@archastro": true}'
 }
-
+write_mirror_claude_plugin() {
+  write_plugin_records '{"archdev@team-mirror": [{"scope": "managed"}]}' '{"archdev@team-mirror": true}'
+}
+write_unscoped_claude_plugin() {
+  mkdir -p "$home/.claude/plugins"
+  printf '%s\n' '{"version": 1, "plugins": {"archdev@archastro": {"version": "1"}}}' >"$home/.claude/plugins/installed_plugins.json"
+  printf '%s\n' '{"enabledPlugins": {"archdev@archastro": true}}' >"$home/.claude/settings.json"
+}
 write_disabled_claude_plugin() {
-  write_claude_plugin
-  printf '%s\n' '{"enabledPlugins": {"archdev@archastro": false}}' >"$home/.claude/settings.json"
+  write_plugin_records '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": false}'
 }
-
+write_unlisted_claude_plugin() {
+  write_plugin_records '{"archdev@archastro": [{"scope": "user"}]}' '{}'
+}
 write_project_claude_plugin() {
-  mkdir -p "$home/.claude/plugins"
-  printf '%s\n' '{"version": 2, "plugins": {"archdev@archastro": [{"scope": "project", "projectPath": "/elsewhere"}]}}' \
-    >"$home/.claude/plugins/installed_plugins.json"
+  write_plugin_records '{"archdev@archastro": [{"scope": "project", "projectPath": "/elsewhere"}]}' '{"archdev@archastro": true}'
+}
+write_other_named_plugin() {
+  write_plugin_records '{"archdev-extras@archastro": [{"scope": "user"}]}' '{"archdev-extras@archastro": true}'
 }
 
 write_other_claude_hooks() {
@@ -106,18 +119,21 @@ prepare=move_claude_config run_bootstrap claude-config-dir CLAUDECODE=1 ARCHDEV_
   CLAUDE_CONFIG_DIR="$work/claude-config-dir/home/claude-config" &&
   expect_calls "Claude hooks under CLAUDE_CONFIG_DIR refresh" "repo hook setup --refresh"
 
-# The archdev Claude plugin already provides the hooks: no settings.json hooks.
-prepare=write_claude_plugin run_bootstrap claude-plugin CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 &&
-  expect_calls "Claude with the archdev plugin does not install settings hooks" "repo hook setup --refresh"
+# An enabled user, managed, or unscoped install of the archdev plugin from
+# any marketplace already provides the hooks: no settings.json hooks.
+for plugin_case in claude_plugin mirror_claude_plugin unscoped_claude_plugin; do
+  prepare="write_$plugin_case" run_bootstrap "$plugin_case" CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 &&
+    expect_calls "Enabled plugin ($plugin_case) does not install settings hooks" "repo hook setup --refresh"
+done
 
-# A disabled plugin, or one installed only for another project, gives this
-# session no hooks, so settings.json hooks are still installed.
-prepare=write_disabled_claude_plugin run_bootstrap claude-plugin-disabled CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 &&
-  expect_calls "Claude with the plugin disabled installs settings hooks" "repo hook setup --harness claude
+# A plugin that is disabled, not enabled, installed only for another
+# project, or merely named like archdev gives this session no hooks, so
+# settings.json hooks are still installed.
+for plugin_case in disabled_claude_plugin unlisted_claude_plugin project_claude_plugin other_named_plugin; do
+  prepare="write_$plugin_case" run_bootstrap "$plugin_case" CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 &&
+    expect_calls "Plugin that does not apply ($plugin_case) installs settings hooks" "repo hook setup --harness claude
 repo hook setup --refresh"
-prepare=write_project_claude_plugin run_bootstrap claude-plugin-other-project CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 &&
-  expect_calls "Claude with a project-scope plugin elsewhere installs settings hooks" "repo hook setup --harness claude
-repo hook setup --refresh"
+done
 
 # A CLI that cannot record an uninstall opt-out never installs, so a user who
 # ran `repo hook setup --uninstall` keeps no hooks.

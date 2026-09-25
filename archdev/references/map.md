@@ -90,8 +90,8 @@ Install now — session coverage starts immediately:
 "$archdev" repo hook setup [--harness claude|codex|grok|archdev] [--force]
 ```
 
-Installs SessionStart, UserPromptSubmit, PostToolUse and Stop (Grok: no
-UserPromptSubmit). Without `--harness`, covers every installed harness
+Installs SessionStart, UserPromptSubmit, PostToolUse and Stop, plus
+SubagentStart and SubagentStop for Claude (Grok: no UserPromptSubmit). Without `--harness`, covers every installed harness
 (config-dir presence = installed); warns when none is found — pass
 `--harness <name>` to install anyway. `--uninstall` removes them.
 Harnesses outside that list: hand-author entries invoking `repo hook

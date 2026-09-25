@@ -16,7 +16,10 @@ tailing. The session runs in three beats:
    events, post any lifecycle moment you missed, and confirm every PR
    head you pushed has its annotations.
 
-The start hook (`repo hook start`) injects this flow as the self-check
+In any Git checkout, the hooks deliver the ArchDev contract at session
+start and, in Claude Code, at subagent start (`repo hook
+subagent-start`). In a mapped repo, the start hook (`repo hook start`)
+also injects this flow as the self-check
 block generated from the repo's own `activity` taxonomy: room reads,
 lifecycle rules, resource `detection` prompts, the closed event list,
 per-event extraction schemas, and the report commands. Without hooks,
@@ -27,8 +30,11 @@ With hooks installed, a tool call that looks like a watched event (commit,
 push, `gh pr …`, `archdev tasks …`, a plan edit) is followed by an
 `ArchDev monitor:` note naming the likely event and extractor. Report it
 if it is a real hit; `archdev log post --event <type>` clears it. A note
-left unreported is repeated once at your next prompt. The hooks never
-block a stop.
+left unreported is repeated once at your next prompt. In Claude Code the
+stop and subagent-stop hooks hold the stop once for each pull request head
+you pushed that has no review annotations, naming the commands to store
+them. Other harnesses never block a stop, and Factory and daemon sessions
+are exempt.
 
 ## Current attention
 
