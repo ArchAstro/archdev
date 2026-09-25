@@ -10,19 +10,21 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/archdev-bootstrap-test.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 failures=0
 
-# Run the bootstrap in a fresh HOME with only the given environment. Sets
-# $home, $log (the recorded setup calls), and $out (the bootstrap's stdout).
+# Run the bootstrap in a fresh HOME with only the given environment, from the
+# case's own working directory. Sets $home, $cwd, $log (the recorded setup
+# calls), and $out (the bootstrap's stdout).
 run_bootstrap() {
   local case_dir="$work/$1"
   shift
   home="$case_dir/home"
+  cwd="$case_dir/cwd"
   log="$case_dir/setup.log"
-  mkdir -p "$home" "$case_dir/bin"
+  mkdir -p "$home" "$cwd" "$case_dir/bin"
   cp "$repo/scripts/fake-archdev" "$case_dir/bin/archdev"
   chmod +x "$case_dir/bin/archdev"
   : >"$log"
   if [[ -n "${prepare:-}" ]]; then "$prepare"; fi
-  if ! out="$(env -i HOME="$home" PATH="$case_dir/bin:/usr/bin:/bin" \
+  if ! out="$(cd "$cwd" && env -i HOME="$home" PATH="$case_dir/bin:/usr/bin:/bin" \
     ARCHDEV_FAKE_LOG="$log" "$@" \
     bash "$repo/archdev/scripts/bootstrap.sh" 2>"$case_dir/stderr")"; then
     printf 'FAIL %s: bootstrap exited nonzero\n' "$(basename "$case_dir")" >&2
@@ -61,13 +63,24 @@ write_claude_hooks() {
 EOF
 }
 
-# Record a Claude plugin install: installed_plugins.json plugins value, and
-# the settings.json enabledPlugins value.
+# Record a Claude plugin install: installed_plugins.json plugins value, the
+# settings.json enabledPlugins value, and optionally the plugins root that
+# holds installed_plugins.json (default <config dir>/plugins).
 write_plugin_records() {
-  mkdir -p "$home/.claude/plugins"
-  printf '{"version": 2, "plugins": %s}\n' "$1" >"$home/.claude/plugins/installed_plugins.json"
+  local root="${3:-$home/.claude/plugins}"
+  mkdir -p "$root" "$home/.claude"
+  printf '{"version": 2, "plugins": %s}\n' "$1" >"$root/installed_plugins.json"
   printf '{"enabledPlugins": %s}\n' "$2" >"$home/.claude/settings.json"
 }
+write_enabled_plugin_at() {
+  write_plugin_records '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": true}' "$1"
+}
+write_relocated_absolute() { write_enabled_plugin_at "$home/plugin-cache"; }
+write_relocated_tilde() { write_enabled_plugin_at "$home/plugin-cache"; }
+write_relocated_relative() { write_enabled_plugin_at "$cwd/rel-cache"; }
+write_relocated_tilde_user() { write_enabled_plugin_at "$cwd/~nobody/cache"; }
+write_default_root() { write_enabled_plugin_at "$home/.claude/plugins"; }
+write_default_root_only() { write_enabled_plugin_at "$home/.claude/plugins" && mkdir -p "$home/empty-cache"; }
 write_claude_plugin() {
   write_plugin_records '{"archdev@archastro": [{"scope": "user", "version": "f1f606d1df2c"}]}' '{"archdev@archastro": true}'
 }
@@ -134,6 +147,27 @@ for plugin_case in disabled_claude_plugin unlisted_claude_plugin project_claude_
     expect_calls "Plugin that does not apply ($plugin_case) installs settings hooks" "repo hook setup --harness claude
 repo hook setup --refresh"
 done
+
+# CLAUDE_CODE_PLUGIN_CACHE_DIR moves the plugins root, install records
+# included; enabledPlugins stays in <config dir>/settings.json. An absolute,
+# `~/`, relative, or `~user/` (not expanded, so relative) root with the
+# record is found; an empty value falls back to <config dir>/plugins.
+run_relocated() {
+  local name="$1" expected="$2"
+  shift 2
+  prepare="write_$name" run_bootstrap "$name" CLAUDECODE=1 ARCHDEV_FAKE_TRACK1=1 "$@" &&
+    expect_calls "Plugin root $name" "$expected"
+}
+run_relocated relocated_absolute "repo hook setup --refresh" \
+  CLAUDE_CODE_PLUGIN_CACHE_DIR="$work/relocated_absolute/home/plugin-cache"
+run_relocated relocated_tilde "repo hook setup --refresh" CLAUDE_CODE_PLUGIN_CACHE_DIR="~/plugin-cache"
+run_relocated relocated_relative "repo hook setup --refresh" CLAUDE_CODE_PLUGIN_CACHE_DIR="rel-cache"
+run_relocated relocated_tilde_user "repo hook setup --refresh" CLAUDE_CODE_PLUGIN_CACHE_DIR="~nobody/cache"
+run_relocated default_root "repo hook setup --refresh" CLAUDE_CODE_PLUGIN_CACHE_DIR=
+# The variable points at a root with no record: the record under the default
+# root does not count, so settings hooks are installed.
+run_relocated default_root_only "repo hook setup --harness claude
+repo hook setup --refresh" CLAUDE_CODE_PLUGIN_CACHE_DIR="$work/default_root_only/home/empty-cache"
 
 # A CLI that cannot record an uninstall opt-out never installs, so a user who
 # ran `repo hook setup --uninstall` keeps no hooks.

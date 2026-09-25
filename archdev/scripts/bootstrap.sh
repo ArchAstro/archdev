@@ -133,13 +133,33 @@ has_archdev_hooks() {
     grep -Eq '"command"[[:space:]]*:[[:space:]]*"[[:space:]]*archdev (repo|inspect) hook ' "$file"
 }
 
+# Claude Code's plugins root, which holds installed_plugins.json; same rule as
+# the CLI's claudePluginsRoot. CLAUDE_CODE_PLUGIN_CACHE_DIR moves it when set
+# and non-empty: `~` alone or a leading `~/` becomes the home directory, a
+# relative value resolves against the working directory, and `~user/` stays
+# as given, so it is relative too. Otherwise it is <config dir>/plugins.
+claude_plugins_root() {
+  local relocated="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-}"
+  if [[ -z "$relocated" ]]; then
+    printf '%s/plugins\n' "$1"
+  elif [[ "$relocated" == "~" || "$relocated" == "~/"* ]]; then
+    printf '%s%s\n' "$HOME" "${relocated:1}"
+  elif [[ "$relocated" == /* ]]; then
+    printf '%s\n' "$relocated"
+  else
+    printf '%s/%s\n' "$PWD" "$relocated"
+  fi
+}
+
 # The archdev Claude Code plugin ships the same hooks; settings.json hooks on
 # top of it would run every hook twice. Same rule as the CLI's
 # claudePluginInstall: an `archdev@<any marketplace>` install at user or
-# managed scope (or unscoped) whose key `enabledPlugins` sets to true.
+# managed scope (or unscoped) in <plugins root>/installed_plugins.json whose
+# key `enabledPlugins` in <config dir>/settings.json sets to true.
 claude_plugin_installed() {
   local config="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-  local records="$config/plugins/installed_plugins.json" settings="$config/settings.json"
+  local records settings="$config/settings.json"
+  records="$(claude_plugins_root "$config")/installed_plugins.json"
   [[ -f "$records" && -f "$settings" ]] || return 1
   local installed enabled key rest value
   installed="$(tr -d ' \t\r\n' <"$records")"

@@ -115,13 +115,30 @@ function Test-ArchDevHooks([string]$Harness) {
     return ($text -match '"command"\s*:\s*"\s*archdev (repo|inspect) hook ')
 }
 
+# Claude Code's plugins root, which holds installed_plugins.json; same rule as
+# the CLI's claudePluginsRoot. CLAUDE_CODE_PLUGIN_CACHE_DIR moves it when set
+# and non-empty: `~` alone or a leading `~/` becomes the home directory, a
+# relative value resolves against the working directory, and `~user/` stays
+# as given, so it is relative too. Otherwise it is <config dir>/plugins.
+function Get-ClaudePluginsRoot([string]$Config) {
+    $relocated = $env:CLAUDE_CODE_PLUGIN_CACHE_DIR
+    if (-not $relocated) { return (Join-Path $Config "plugins") }
+    if ($relocated -eq "~" -or $relocated.StartsWith("~/")) {
+        return (Get-HomeDirectory) + $relocated.Substring(1)
+    }
+    # Combine keeps a rooted value and prefixes a relative one; neither step
+    # expands `~`, unlike PowerShell's own path handling.
+    return [IO.Path]::GetFullPath([IO.Path]::Combine([Environment]::CurrentDirectory, $relocated))
+}
+
 # The archdev Claude Code plugin ships the same hooks; settings.json hooks on
 # top of it would run every hook twice. Same rule as the CLI's
 # claudePluginInstall: an `archdev@<any marketplace>` install at user or
-# managed scope (or unscoped) whose key `enabledPlugins` sets to true.
+# managed scope (or unscoped) in <plugins root>/installed_plugins.json whose
+# key `enabledPlugins` in <config dir>/settings.json sets to true.
 function Test-ClaudePlugin {
     $config = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path (Get-HomeDirectory) ".claude" }
-    $records = Join-Path (Join-Path $config "plugins") "installed_plugins.json"
+    $records = Join-Path (Get-ClaudePluginsRoot $config) "installed_plugins.json"
     $settings = Join-Path $config "settings.json"
     if (-not (Test-Path -LiteralPath $records -PathType Leaf) -or
         -not (Test-Path -LiteralPath $settings -PathType Leaf)) { return $false }

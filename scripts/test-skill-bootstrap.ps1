@@ -34,7 +34,8 @@ function Invoke-Case {
     $homeDir = Join-Path $caseDir "home"
     $bin = Join-Path $caseDir "bin"
     $log = Join-Path $caseDir "setup.log"
-    New-Item -ItemType Directory -Path $homeDir, $bin | Out-Null
+    $cwd = Join-Path $caseDir "cwd"
+    New-Item -ItemType Directory -Path $homeDir, $bin, $cwd | Out-Null
     if ($onWindows) {
         $archdevPath = Join-Path $bin "archdev.cmd"
         $bash = Join-Path $env:ProgramFiles "Git\bin\bash.exe"
@@ -50,7 +51,7 @@ function Invoke-Case {
         $shell = (Get-Process -Id $PID).Path
     }
     Set-Content -LiteralPath $log -Value $null -NoNewline
-    if ($Prepare) { & $Prepare $homeDir }
+    if ($Prepare) { & $Prepare $homeDir $cwd }
 
     foreach ($variable in $caseVariables) { Remove-Item "Env:$variable" -ErrorAction SilentlyContinue }
     $env:HOME = $homeDir
@@ -58,10 +59,16 @@ function Invoke-Case {
     $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
     foreach ($key in $Environment.Keys) { Set-Item "Env:$key" $Environment[$key] }
+    $savedLocation = Get-Location
+    $savedDirectory = [Environment]::CurrentDirectory
+    Set-Location -LiteralPath $cwd
+    [Environment]::CurrentDirectory = $cwd
     try {
         $out = & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo "archdev/scripts/bootstrap.ps1") 2>(Join-Path $caseDir "stderr")
         $exit = $LASTEXITCODE
     } finally {
+        Set-Location $savedLocation
+        [Environment]::CurrentDirectory = $savedDirectory
         $env:PATH = $savedPath
         $env:HOME = $savedHome
     }
@@ -99,14 +106,33 @@ $claudeHooksElsewhere = {
     & $claudeHooks $homeDir
     Move-Item (Join-Path $homeDir ".claude") (Join-Path $homeDir "claude-config")
 }
-function New-PluginRecords([string]$Plugins, [string]$Enabled, [int]$Version = 2) {
+# Records a Claude plugin install. $Root is where installed_plugins.json goes:
+# "home:<rel>" or "cwd:<rel>", default home:.claude/plugins. settings.json
+# always goes in <home>/.claude.
+function New-PluginRecords([string]$Plugins, [string]$Enabled, [int]$Version = 2, [string]$Root = "home:.claude/plugins") {
     return {
-        param($homeDir)
-        $dir = Join-Path $homeDir ".claude/plugins"
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        Set-Content (Join-Path $dir "installed_plugins.json") "{`"version`": $Version, `"plugins`": $Plugins}"
+        param($homeDir, $cwd)
+        $base, $rel = $Root.Split(":", 2)
+        $dir = Join-Path $(if ($base -eq "cwd") { $cwd } else { $homeDir }) $rel
+        New-Item -ItemType Directory -Path $dir, (Join-Path $homeDir ".claude") -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $dir "installed_plugins.json") "{`"version`": $Version, `"plugins`": $Plugins}"
         Set-Content (Join-Path $homeDir ".claude/settings.json") "{`"enabledPlugins`": $Enabled}"
+        New-Item -ItemType Directory -Path (Join-Path $homeDir "empty-cache") -Force | Out-Null
     }.GetNewClosure()
+}
+$userPlugin = '{"archdev@archastro": [{"scope": "user"}]}'
+$userEnabled = '{"archdev@archastro": true}'
+# CLAUDE_CODE_PLUGIN_CACHE_DIR moves the plugins root, install records
+# included; enabledPlugins stays in <config dir>/settings.json. Each entry:
+# records root, variable value ({home}/{work} substituted), expected calls.
+$refreshOnly = "repo hook setup --refresh"
+$relocatedCases = [ordered]@{
+    "relocated-absolute" = @("home:plugin-cache", "{home}/plugin-cache", $refreshOnly)
+    "relocated-tilde" = @("home:plugin-cache", "~/plugin-cache", $refreshOnly)
+    "relocated-relative" = @("cwd:rel-cache", "rel-cache", $refreshOnly)
+    "relocated-tilde-user" = @("cwd:~nobody/cache", "~nobody/cache", $refreshOnly)
+    "default-root" = @("home:.claude/plugins", "", $refreshOnly)
+    "default-root-only" = @("home:.claude/plugins", "{home}/empty-cache", "repo hook setup --harness claude`nrepo hook setup --refresh")
 }
 $pluginApplies = [ordered]@{
     "claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": true}'
@@ -136,6 +162,11 @@ try {
     } $claudeHooksElsewhere
     foreach ($case in $pluginApplies.Keys) {
         Invoke-Case $case "repo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginApplies[$case]
+    }
+    foreach ($case in $relocatedCases.Keys) {
+        $root, $value, $expected = $relocatedCases[$case]
+        $value = $value.Replace("{home}", (Join-Path $work "$case/home"))
+        Invoke-Case $case $expected @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1"; CLAUDE_CODE_PLUGIN_CACHE_DIR = $value } (New-PluginRecords $userPlugin $userEnabled 2 $root)
     }
     foreach ($case in $pluginDoesNotApply.Keys) {
         Invoke-Case $case "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginDoesNotApply[$case]
