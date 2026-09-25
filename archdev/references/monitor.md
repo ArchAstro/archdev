@@ -239,8 +239,9 @@ Rules:
 - `--dry-run` prints the exact post without sending. `-a <file>` attaches
   a screenshot.
 - Use only kinds that actually happened. Skip routine progress.
-- CLI older than 0.46.0 (`archdev log post --help` does not list
-  `--project`, or `archdev projects` is an unknown command): the
+- CLI older than 0.46.5 (`archdev log post --help` does not list
+  `--project`, `archdev projects` is an unknown command, or `archdev
+  extract finalize --help` does not list `--publish`): the
   bootstrap script upgrades it; if bootstrap was skipped or could not
   install, post without the flag and do not retry with it. The post goes
   out untagged, and the untagged warning is expected until the upgrade.
@@ -351,8 +352,9 @@ The flow, per event:
    `example.json`, and `brief.json` (definition id, version, digest).
    Read `DEFINITION.md` before your first assessment of that type; reuse
    it for the rest of the session while `brief.json`'s digest is
-   unchanged. `<type>` is `plan`, `task`, or `pr` (`code-region` exists
-   for a single changed range and carries no activity event).
+   unchanged. `<type>` is `plan`, `task`, or `pr` for activity events;
+   `code-region` grades one changed range and is published per focus
+   range instead of posted (Focus range seals, below).
 2. **Fact payload.** `"$archdev" extract context <extractor> <ref> --json`
    prints the event value's `jsonSchema` and the frozen subject:
    `plan.created <plan path>`, `task.lifecycle <task id>`,
@@ -462,7 +464,8 @@ When to assess: on every `plan.*`, `task.*`, and `pr.*` event, at the
 moment you post it. A `pr.updated` after a push gets a fresh assessment
 of the new head; the CLI checks only that the seal names the same PR,
 not which head it graded, so re-assessing is on you. For a PR, store
-its review annotations first (next section), then assess, then post.
+its review annotations first (next section), publish a seal for each
+focus range (the section after), then assess the PR and post.
 
 Not yours to run:
 
@@ -521,18 +524,76 @@ its branch):
 5. Confirm with `"$archdev" extract show pr.review-annotations <num>
    --json`: it prints the stored row; `ExtractionNotFoundError` means
    nothing is stored for this head; any other error means the checkout
-   is not at the PR head. Then log the `pr.*` event.
+   is not at the PR head. Then publish the focus range seals (next
+   section) and log the `pr.*` event.
 
 Verify before you stop: at every stopping point, and before any `done`
 or `handoff` post, run step 5 for each PR you pushed to this session.
 From any checkout, `"$archdev" inspect metadata <num> --sha "$(git
 rev-parse HEAD)"` reads the same row and reports "No review annotations
-are published" when it is missing.
+are published" when it is missing; its `assessments` list shows the
+head's published seals.
 
 If step 4 fails (signed out: `"$archdev" auth status` shows no session;
 no GitHub origin; a validation error), fix what it names or say so in
 the event's `--message` and in your reply to the user; never skip
 silently.
+
+## Focus range seals
+
+ArchDev grades a hunk from the sealed `risk.code-region` assessment
+that covers it: the rail card, the callout, the toolbar badge, the risk
+filter and the index all read the seal's combined grade, with the seal
+named on the badge's hover. Without one they show the annotation
+producer's own `risk` label, which is not a graded assessment. Seals
+are rows in `github_pr_risk_assessments` for the exact head, so they
+vanish on every push exactly as annotations do, and the same session
+that stores the annotations publishes them.
+
+Right after the annotation row is stored (previous section, step 5),
+for each range in the row's `summary.focus`, from the checkout at the
+PR head:
+
+1. **Collect.** `"$archdev" extract context code-region.risk
+   "<owner/repo>#<num>;<path>:<side>:<start>-<end>" --json` freezes the
+   range and collects its evidence (the diff at the head, the edited
+   symbols and their callers, checks). The range must be changed lines
+   only, on one side; the collector refuses a selection that includes
+   unchanged lines, so split a focus range around context and collect
+   each changed run, or select several changed ranges of one behavior
+   in one call by repeating `;<path>:<side>:<start>-<end>`; a nontext
+   file (an image, a binary) is selected whole with `;file=<path>`. The
+   `user` string is a JSON object whose `input` is the complete packet,
+   with `subject.locations` already set.
+2. **Judge.** Author `{input, assessment}` as in Risk assessments step
+   3, with `input` taken from the collected packet: keep `subject` as
+   collected (its `source.source` is the pull request URL, which
+   `--publish` accepts), keep the evidence items you cite with their
+   ids and kinds, add what you observed yourself, and carry the
+   collector's `missingInputs` forward. `--publish` stores the whole
+   seal in the row, so a full collected packet fits here; the 64 KB cap
+   applies to `log post` attachments only. Grade the range, not the PR:
+   `objective` and `scope` name the behavior the range changes.
+3. **Seal and publish.** `"$archdev" extract finalize risk.code-region
+   ./judgment.json --out ./sealed/<num>-<n>/ --publish <owner/repo>#<num>`
+   validates, derives the combined grade, writes `result.json` and
+   `digest.txt`, and stores the row for `input.subject.head`. The
+   result's `published` block echoes `head_sha`, `combined_risk` and
+   `locations`. A seal whose subject names another pull request, or a
+   `risk.pr` seal, is refused; a repeat of the same seal finds its row
+   and exits 0. A store failure exits non-zero: fix what it names
+   (signed out, wrong pull) or say so in the `pr.*` event's `--message`.
+4. **Mitigate, then recompute**, as in Risk assessments step 5: a
+   medium or high grade on a range you can make safer within the PR's
+   scope is a fix and a push, which is a new head, so go back to the
+   annotation row for that head and publish its seals afresh. At most
+   two rounds.
+
+Verify with `"$archdev" inspect metadata <num> --sha <head> --json`:
+`assessments` lists every stored seal for the head with its
+`definition_id`, `combined_risk`, `locations` and `producer`. Every
+focus range should have one covering seal; a range without one shows
+the producer's unsealed label in the review.
 
 ## Factory sessions
 

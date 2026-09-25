@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.46.0"
+$minVersion = [Version]"0.46.5"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -55,11 +55,13 @@ function Test-Skill([string]$Binary) {
     $helpText = & $Binary projects list --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev projects list ")) { return $false }
     $helpText = & $Binary log post --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--project <id>"))
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "--project <id>")) { return $false }
+    $helpText = & $Binary extract finalize --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--publish <pull>"))
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, or log --project commands (need 0.46.0+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands (need 0.46.5+).")
     $archdev = Install-ArchDev
 }
 
