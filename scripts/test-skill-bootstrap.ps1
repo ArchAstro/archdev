@@ -40,7 +40,8 @@ function Invoke-Case {
         $bash = Join-Path $env:ProgramFiles "Git\bin\bash.exe"
         Set-Content -LiteralPath $archdevPath -Value "@`"$bash`" `"$(Join-Path $repo 'scripts/fake-archdev')`" %*"
         $casePath = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
-        $shell = "powershell.exe"
+        # Absolute: the case PATH below leaves out the PowerShell directory.
+        $shell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
     } else {
         $archdevPath = Join-Path $bin "archdev"
         Copy-Item (Join-Path $repo "scripts/fake-archdev") $archdevPath
