@@ -1,7 +1,8 @@
 # Runs archdev/scripts/bootstrap.ps1 against scripts/fake-archdev in a
 # throwaway HOME for each case, and checks which `repo hook setup` call the
-# bootstrap made for the harness that ran it. Unix pwsh only: the fake CLI is
-# a Bash script.
+# bootstrap made for the harness that ran it. The fake CLI is a Bash script;
+# on Windows an archdev.cmd runs it through Git Bash, and the bootstrap runs
+# under Windows PowerShell (`powershell -File`), as SKILL.md invokes it.
 
 $ErrorActionPreference = "Stop"
 
@@ -9,6 +10,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 $work = Join-Path ([IO.Path]::GetTempPath()) ("archdev-bootstrap-test-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $work | Out-Null
 $failures = 0
+$onWindows = $env:OS -eq "Windows_NT"
 
 # Every variable a case may set; each case starts with all of them cleared.
 $caseVariables = @(
@@ -33,19 +35,30 @@ function Invoke-Case {
     $bin = Join-Path $caseDir "bin"
     $log = Join-Path $caseDir "setup.log"
     New-Item -ItemType Directory -Path $homeDir, $bin | Out-Null
-    Copy-Item (Join-Path $repo "scripts/fake-archdev") (Join-Path $bin "archdev")
-    & chmod +x (Join-Path $bin "archdev")
+    if ($onWindows) {
+        $archdevPath = Join-Path $bin "archdev.cmd"
+        $bash = Join-Path $env:ProgramFiles "Git\bin\bash.exe"
+        Set-Content -LiteralPath $archdevPath -Value "@`"$bash`" `"$(Join-Path $repo 'scripts/fake-archdev')`" %*"
+        $casePath = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
+        $shell = "powershell.exe"
+    } else {
+        $archdevPath = Join-Path $bin "archdev"
+        Copy-Item (Join-Path $repo "scripts/fake-archdev") $archdevPath
+        & chmod +x $archdevPath
+        $casePath = "$bin`:/usr/bin:/bin"
+        $shell = (Get-Process -Id $PID).Path
+    }
     Set-Content -LiteralPath $log -Value $null -NoNewline
     if ($Prepare) { & $Prepare $homeDir }
 
     foreach ($variable in $caseVariables) { Remove-Item "Env:$variable" -ErrorAction SilentlyContinue }
     $env:HOME = $homeDir
-    $env:PATH = "$bin$([IO.Path]::PathSeparator)/usr/bin$([IO.Path]::PathSeparator)/bin"
+    if ($onWindows) { $env:USERPROFILE = $homeDir }
+    $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
     foreach ($key in $Environment.Keys) { Set-Item "Env:$key" $Environment[$key] }
     try {
-        $pwsh = (Get-Process -Id $PID).Path
-        $out = & $pwsh -NoProfile -File (Join-Path $repo "archdev/scripts/bootstrap.ps1") 2>(Join-Path $caseDir "stderr")
+        $out = & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo "archdev/scripts/bootstrap.ps1") 2>(Join-Path $caseDir "stderr")
         $exit = $LASTEXITCODE
     } finally {
         $env:PATH = $savedPath
@@ -59,7 +72,7 @@ function Invoke-Case {
         return
     }
     # Callers read stdout as the archdev path, so nothing else may reach it.
-    if (@($out).Count -ne 1 -or @($out)[0] -ne (Join-Path $bin "archdev")) {
+    if (@($out).Count -ne 1 -or @($out)[0] -ne $archdevPath) {
         Write-Host "FAIL ${Name}: bootstrap printed '$out', not the archdev path"
         $script:failures++
         return
