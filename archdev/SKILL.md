@@ -5,10 +5,11 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.46.0 or newer (the `repo` namespace, `log post` /
-`messages` / `search`, harness hooks, `extract brief`, `extract finalize`,
-and `log --assessment` for sealed risk assessments on plan/task/pr
-events, plus `projects` and `log post --project`). The bootstrap script
+Requires CLI 0.46.5 or newer (the `repo` namespace, `log post` /
+`messages` / `search`, harness hooks, `extract brief`, `extract finalize`
+with `--publish` for sealed code-region assessments on a PR's focus
+ranges, and `log --assessment` for sealed risk assessments on
+plan/task/pr events, plus `projects` and `log post --project`). The bootstrap script
 below upgrades older installs automatically; on a CLI it could not
 upgrade, follow the fallbacks in monitor.md.
 
@@ -104,7 +105,10 @@ Three beats, one command
    in monitor.md). Outside Factory sessions, for every
    PR you pushed to this session, confirm its current head has
    annotations (`extract show pr.review-annotations <num> --json`) and
-   store them if it does not.
+   store them if it does not, and confirm each focus range on that head
+   has a published `risk.code-region` seal (`inspect metadata <num>
+   --sha <head>` lists them under `assessments`); publish the missing
+   ones (see "Focus range seals" in monitor.md).
 
 Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
