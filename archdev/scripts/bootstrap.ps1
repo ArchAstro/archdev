@@ -72,12 +72,99 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
 if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, repo, and projects commands" }
 
-# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
-# harnesses that already have archdev hooks change, and a failure (for example
-# an older archdev earlier on PATH) is reported without blocking the skill.
-# Its stderr goes straight to the console; only stdout is relayed, because
-# merging stderr into the pipeline under ErrorActionPreference=Stop throws.
+# Ensure ArchDev hooks for the harness running this skill, so the monitor
+# contract reaches later sessions even when they never load the skill. The
+# harness comes from the marker it sets on the shells it spawns.
+function Get-CallingHarness {
+    if ($env:CLAUDECODE -eq "1") { return "claude" }
+    if ($env:CODEX_THREAD_ID) { return "codex" }
+    if ($env:GROK_SESSION_ID) { return "grok" }
+    return $null
+}
+
+function Get-HomeDirectory {
+    if ($env:USERPROFILE) { return $env:USERPROFILE }
+    return $HOME
+}
+
+# The file each harness reads hooks from; keep in step with the CLI's
+# harnessHookFile.
+function Get-HarnessHookFile([string]$Harness) {
+    $homeDir = Get-HomeDirectory
+    switch ($Harness) {
+        "claude" {
+            $dir = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $homeDir ".claude" }
+            return (Join-Path $dir "settings.json")
+        }
+        "codex" {
+            $dir = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $homeDir ".codex" }
+            return (Join-Path $dir "hooks.json")
+        }
+        "grok" {
+            $dir = if ($env:GROK_HOME) { $env:GROK_HOME } else { Join-Path $homeDir ".grok" }
+            return (Join-Path (Join-Path $dir "hooks") "archdev.json")
+        }
+    }
+}
+
+# Whether the harness config already carries a hook command archdev wrote.
+function Test-ArchDevHooks([string]$Harness) {
+    $file = Get-HarnessHookFile $Harness
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
+    $text = Get-Content -LiteralPath $file -Raw
+    return ($text -match '"command"\s*:\s*"\s*archdev (repo|inspect) hook ')
+}
+
+# The archdev Claude Code plugin ships the same hooks; settings.json hooks on
+# top of it would run every hook twice. Counts a user-scope install that the
+# user settings have not disabled.
+function Test-ClaudePlugin {
+    $config = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path (Get-HomeDirectory) ".claude" }
+    $root = if ($env:CLAUDE_CODE_PLUGIN_CACHE_DIR) { $env:CLAUDE_CODE_PLUGIN_CACHE_DIR } else { Join-Path $config "plugins" }
+    $file = Join-Path $root "installed_plugins.json"
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
+    $installs = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).plugins.'archdev@archastro'
+    if (-not (@($installs) | Where-Object { $_.scope -eq "user" })) { return $false }
+    $settings = Join-Path $config "settings.json"
+    if (Test-Path -LiteralPath $settings -PathType Leaf) {
+        $enabled = (Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).enabledPlugins
+        if ($enabled -and $enabled.'archdev@archastro' -eq $false) { return $false }
+    }
+    return $true
+}
+
+# `repo hook setup --uninstall` records an opt-out only on CLIs that also
+# print the plugin hooks (`repo hook plugin-hooks-json`). An older CLI would
+# undo a deliberate uninstall, so it only refreshes.
+function Test-SetupHonoursOptOut {
+    $help = (& $archdev repo hook --help 2>$null) -join "`n"
+    return ($help -match "plugin-hooks-json")
+}
+
+# Failures are reported without blocking the skill (for example an older
+# archdev earlier on PATH, which setup refuses to wire). Setup's stderr goes
+# straight to the console; only stdout is relayed, because merging stderr into
+# the pipeline under ErrorActionPreference=Stop throws. Each step has its own
+# try so a failed install still leaves the refresh.
 try {
+    $ErrorActionPreference = "Continue"
+    $harness = Get-CallingHarness
+    $install = $harness -and -not (Test-ArchDevHooks $harness) -and
+        -not ($harness -eq "claude" -and (Test-ClaudePlugin)) -and
+        (Test-SetupHonoursOptOut)
+    if ($install) {
+        & $archdev repo hook setup --harness $harness | ForEach-Object { [Console]::Error.WriteLine($_) }
+        if ($LASTEXITCODE -ne 0) {
+            [Console]::Error.WriteLine("Could not install ArchDev hooks for $harness; see above, then run: archdev repo hook setup --harness $harness")
+        }
+    }
+} catch {
+    [Console]::Error.WriteLine("Could not install ArchDev hooks: $_")
+}
+# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
+# to this CLI's hook wiring.
+try {
+    $ErrorActionPreference = "Continue"
     $hookHelp = (& $archdev repo hook setup --help 2>$null) -join "`n"
     if ($hookHelp -match "--refresh") {
         & $archdev repo hook setup --refresh | ForEach-Object { [Console]::Error.WriteLine($_) }

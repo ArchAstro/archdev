@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Checks the Claude Code plugin this repository publishes:
+#   1. `claude plugin validate` accepts the marketplace, the plugin, and its
+#      hooks, with no errors and no warnings other than the missing version
+#      (left out on purpose so installs track commits).
+#   2. hooks/hooks.json runs exactly the `archdev repo hook` commands the CLI
+#      installs for Claude, each guarded so a machine without archdev is silent.
+#   3. When the archdev on PATH prints canonical plugin hooks
+#      (`repo hook plugin-hooks-json`), hooks/hooks.json matches them.
+# Requires claude and jq.
+
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+hooks="$repo/hooks/hooks.json"
+failures=0
+
+fail() {
+  printf 'FAIL %s\n' "$1" >&2
+  failures=$((failures + 1))
+}
+
+# 1. Claude Code's own validator.
+for target in "$repo/.claude-plugin/marketplace.json" "$repo/.claude-plugin/plugin.json"; do
+  report="$(claude plugin validate --json "$target")" || {
+    printf '%s\n' "$report" >&2
+    fail "claude plugin validate rejected $target"
+    continue
+  }
+  problems="$(jq -r '
+    [.manifest] + (.contents // [])
+    | map(
+        (.errors // [] | map("error: \(.path): \(.message)")),
+        (.warnings // [] | map(select(.message | startswith("No version specified") | not))
+                         | map("warning: \(.path): \(.message)"))
+      )
+    | flatten | .[]' <<<"$report")"
+  if [[ -n "$problems" ]]; then
+    printf '%s\n' "$problems" >&2
+    fail "claude plugin validate reported problems for $target"
+  else
+    label="${target#"$repo"}"
+    printf 'ok   claude plugin validate %s\n' "${label#/}"
+  fi
+done
+
+# Every skill the plugin lists must exist.
+while IFS= read -r skill; do
+  if [[ -f "$repo/$skill/SKILL.md" ]]; then
+    printf 'ok   skill %s\n' "$skill"
+  else
+    fail "plugin.json lists $skill, which has no SKILL.md"
+  fi
+done < <(jq -r '.skills[]' "$repo/.claude-plugin/plugin.json")
+
+# 2. The hook commands match the CLI's Claude wiring. Keep in step with
+# HARNESS_HOOKS, POST_TOOL_MATCHERS, and hookGroup in firstlanding
+# src/ts/archdev/src/reviews/hooks/harnesses.ts.
+spec="$(jq -r '.hooks.SessionStart[0].hooks[0].command' "$hooks" | grep -Eo -- '--spec [0-9]+$' | cut -d' ' -f2 || true)"
+[[ -n "$spec" ]] || fail "SessionStart command carries no --spec"
+guard='command -v archdev >/dev/null 2>&1 || exit 0; '
+post_tool_matcher='^(?:Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.+)$'
+expected="$(jq -n --arg guard "$guard" --arg spec "$spec" --arg matcher "$post_tool_matcher" '
+  def group($name; $timeout):
+    [{hooks: [{type: "command",
+               command: "\($guard)archdev repo hook \($name) --harness claude --spec \($spec)",
+               timeout: $timeout}]}];
+  {
+    SessionStart: group("start"; 30),
+    SubagentStart: group("subagent-start"; 30),
+    UserPromptSubmit: group("prompt"; 30),
+    PostToolUse: (group("post-tool"; 10) | map({matcher: $matcher} + .)),
+    Stop: group("stop"; 30),
+    SubagentStop: group("subagent-stop"; 30)
+  }')"
+if diff <(jq -S . <<<"$expected") <(jq -S .hooks "$hooks") >&2; then
+  printf 'ok   hooks.json matches the archdev Claude wiring (spec %s)\n' "$spec"
+else
+  fail "hooks/hooks.json differs from the expected archdev Claude wiring (diff above)"
+fi
+
+# 3. The CLI's canonical plugin hooks, once the archdev on PATH provides them.
+if command -v archdev >/dev/null 2>&1 &&
+  [[ "$(archdev repo hook --help 2>/dev/null || true)" == *plugin-hooks-json* ]]; then
+  canonical="$(archdev repo hook plugin-hooks-json --harness claude)"
+  if diff <(jq -S .hooks <<<"$canonical") <(jq -S .hooks "$hooks") >&2; then
+    printf 'ok   hooks.json matches archdev %s plugin-hooks-json\n' "$(archdev --version)"
+  else
+    fail "hooks/hooks.json differs from archdev repo hook plugin-hooks-json (diff above)"
+  fi
+else
+  printf 'skip archdev on PATH does not provide repo hook plugin-hooks-json\n'
+fi
+
+if ((failures > 0)); then
+  printf '%d plugin check(s) failed\n' "$failures" >&2
+  exit 1
+fi
+printf 'Claude plugin checks passed\n'

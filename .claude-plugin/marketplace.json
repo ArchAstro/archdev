@@ -1,0 +1,15 @@
+{
+  "name": "archastro",
+  "owner": {
+    "name": "ArchAstro",
+    "url": "https://github.com/ArchAstro"
+  },
+  "description": "ArchDev plugins for Claude Code",
+  "plugins": [
+    {
+      "name": "archdev",
+      "source": "./",
+      "description": "ArchDev skills plus the repo monitor hooks that deliver the session contract without loading a skill"
+    }
+  ]
+}

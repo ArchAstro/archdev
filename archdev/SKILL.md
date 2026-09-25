@@ -13,6 +13,9 @@ plan/task/pr events, plus `projects` and `log post --project`). The bootstrap sc
 below upgrades older installs automatically; on a CLI it could not
 upgrade, follow the fallbacks in monitor.md.
 
+Once installed, the hooks deliver the monitor contract to every session,
+including sessions that never load this skill.
+
 Three phases, in order: Bootstrap → Map → Monitor. Each phase has a
 reference file with the concrete commands.
 
@@ -39,6 +42,11 @@ PowerShell:
 $archdev = & powershell -NoProfile -File 'C:\absolute\path\to\archdev\scripts\bootstrap.ps1'
 ```
 
+Bootstrap also installs the monitor hooks for the harness running it
+(`repo hook setup --harness <name>`) when that harness has none, on a CLI
+that records `--uninstall` as an opt-out, then refreshes installed hooks.
+With the archdev Claude Code plugin, the plugin carries Claude's hooks.
+
 Examples below use `"$archdev"`; PowerShell uses `& $archdev`. Prefer
 global `--json` for machine-readable results. If bootstrap fails, report
 the error and point to the [official installer](https://github.com/ArchAstro/archdev#install).
@@ -63,8 +71,8 @@ jobs daemon registration; personal overrides stay in gitignored
 `archdev.local.json`), plus the `activity` taxonomy describing how this
 repo plans, codes, reviews, and takes instruction. End by installing
 the monitor hooks (`repo hook setup`) so session coverage starts
-immediately. Bootstrap keeps installed hooks on the CLI's wiring
-(`repo hook setup --refresh`).
+immediately; bootstrap covers only the harness that ran it. Bootstrap
+keeps installed hooks on the CLI's wiring (`repo hook setup --refresh`).
 
 ## 3. Monitor
 

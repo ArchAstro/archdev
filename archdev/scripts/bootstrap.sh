@@ -102,9 +102,70 @@ supports_skill "$executable" || {
   exit 1
 }
 
-# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
-# harnesses that already have archdev hooks change, and a failure (for example
-# an older archdev earlier on PATH) is reported without blocking the skill.
+# Ensure ArchDev hooks for the harness running this skill, so the monitor
+# contract reaches later sessions even when they never load the skill. The
+# harness comes from the marker it sets on the shells it spawns.
+calling_harness() {
+  if [[ "${CLAUDECODE:-}" == 1 ]]; then
+    printf 'claude\n'
+  elif [[ -n "${CODEX_THREAD_ID:-}" ]]; then
+    printf 'codex\n'
+  elif [[ -n "${GROK_SESSION_ID:-}" ]]; then
+    printf 'grok\n'
+  fi
+}
+
+# The file each harness reads hooks from; keep in step with the CLI's
+# harnessHookFile.
+harness_hook_file() {
+  case "$1" in
+    claude) printf '%s/settings.json\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ;;
+    codex) printf '%s/hooks.json\n' "${CODEX_HOME:-$HOME/.codex}" ;;
+    grok) printf '%s/hooks/archdev.json\n' "${GROK_HOME:-$HOME/.grok}" ;;
+  esac
+}
+
+# Whether the harness config already carries a hook command archdev wrote.
+has_archdev_hooks() {
+  local file
+  file="$(harness_hook_file "$1")"
+  [[ -f "$file" ]] &&
+    grep -Eq '"command"[[:space:]]*:[[:space:]]*"[[:space:]]*archdev (repo|inspect) hook ' "$file"
+}
+
+# The archdev Claude Code plugin ships the same hooks; settings.json hooks on
+# top of it would run every hook twice. Counts a user-scope install that the
+# user settings have not disabled.
+claude_plugin_installed() {
+  local config="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  local root="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$config/plugins}"
+  [[ -f "$root/installed_plugins.json" ]] || return 1
+  tr -d ' \t\r\n' <"$root/installed_plugins.json" |
+    grep -Eq '"archdev@archastro":\[[^]]*"scope":"user"' || return 1
+  ! { [[ -f "$config/settings.json" ]] &&
+    tr -d ' \t\r\n' <"$config/settings.json" | grep -Fq '"archdev@archastro":false'; }
+}
+
+# `repo hook setup --uninstall` records an opt-out only on CLIs that also
+# print the plugin hooks (`repo hook plugin-hooks-json`). An older CLI would
+# undo a deliberate uninstall, so it only refreshes.
+setup_honours_opt_out() {
+  local help
+  help="$("$executable" repo hook --help 2>/dev/null || true)"
+  [[ "$help" == *plugin-hooks-json* ]]
+}
+
+# Failures are reported without blocking the skill (for example an older
+# archdev earlier on PATH, which setup refuses to wire).
+harness="$(calling_harness)"
+if [[ -n "$harness" ]] && ! has_archdev_hooks "$harness" &&
+  ! { [[ "$harness" == claude ]] && claude_plugin_installed; } &&
+  setup_honours_opt_out; then
+  "$executable" repo hook setup --harness "$harness" >&2 ||
+    printf 'Could not install ArchDev hooks for %s; see above, then run: archdev repo hook setup --harness %s\n' "$harness" "$harness" >&2
+fi
+# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
+# to this CLI's hook wiring.
 hook_help="$("$executable" repo hook setup --help 2>/dev/null || true)"
 if [[ "$hook_help" == *"--refresh"* ]]; then
   "$executable" repo hook setup --refresh >&2 ||

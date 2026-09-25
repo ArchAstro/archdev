@@ -100,8 +100,13 @@ start|prompt|post-tool|stop --spec <N>` (copy `N` from `repo hook setup
 from an older `--spec` as stale.
 
 Each installed command carries `--spec N`, the hook wiring version of the
-CLI that wrote it. This skill's bootstrap runs `repo hook setup --refresh`
-after checking the CLI, which updates only harnesses that already have
-archdev hooks. Setup refuses when the `archdev` on PATH (what hooks run)
-is older than the CLI running setup; upgrade or fix PATH rather than
-passing `--force`.
+CLI that wrote it. After checking the CLI, this skill's bootstrap runs
+`repo hook setup --harness <name>` for the harness running it when that
+harness has no archdev hooks, then `repo hook setup --refresh`, which
+updates only harnesses that already have archdev hooks. It installs
+only with a CLI whose `--uninstall` records an opt-out (one that lists `repo
+hook plugin-hooks-json`), and never writes Claude `settings.json` hooks while
+the archdev Claude Code plugin is installed, because the plugin carries
+them. Setup refuses when the `archdev` on PATH (what hooks run) is older
+than the CLI running setup; upgrade or fix PATH rather than passing
+`--force`.
