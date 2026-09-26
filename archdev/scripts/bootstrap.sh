@@ -6,7 +6,7 @@ installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
 installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
-min_version="0.46.5"
+min_version="0.46.6"
 
 absolute_path() {
   local candidate="$1"
@@ -86,7 +86,7 @@ supports_skill() {
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands (need 0.46.5+).\n' >&2
+  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -102,11 +102,18 @@ supports_skill "$executable" || {
   exit 1
 }
 
-# Ensure ArchDev hooks for the harness running this skill, so the monitor
-# contract reaches later sessions even when they never load the skill. The
-# harness comes from the marker it sets on the shells it spawns.
+# Install ArchDev hooks for the harness running this skill, so the ArchDev
+# contract reaches later sessions and subagents even when they never load the
+# skill. The harness comes from the marker it sets on the shells it spawns.
+# The CLI owns every decision: `setup --harness <name>` leaves current hooks
+# alone, replaces stale ones, and skips a harness the user removed with
+# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
+# Factory workers and daemon pipeline steps install nothing: their host owns
+# the harness configuration they run under, as in the CLI's self-heal.
 calling_harness() {
-  if [[ "${CLAUDECODE:-}" == 1 ]]; then
+  if [[ -n "${ARCHDEV_FACTORY_AGENT_ROLE:-}${ARCHDEV_JOB_ID:-}${ARCHDEV_STEP_ID:-}" ]]; then
+    return 0
+  elif [[ "${CLAUDECODE:-}" == 1 ]]; then
     printf 'claude\n'
   elif [[ -n "${CODEX_THREAD_ID:-}" ]]; then
     printf 'codex\n'
@@ -115,84 +122,10 @@ calling_harness() {
   fi
 }
 
-# The file each harness reads hooks from; keep in step with the CLI's
-# harnessHookFile.
-harness_hook_file() {
-  case "$1" in
-    claude) printf '%s/settings.json\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ;;
-    codex) printf '%s/hooks.json\n' "${CODEX_HOME:-$HOME/.codex}" ;;
-    grok) printf '%s/hooks/archdev.json\n' "${GROK_HOME:-$HOME/.grok}" ;;
-  esac
-}
-
-# Whether the harness config already carries a hook command archdev wrote.
-has_archdev_hooks() {
-  local file
-  file="$(harness_hook_file "$1")"
-  [[ -f "$file" ]] &&
-    grep -Eq '"command"[[:space:]]*:[[:space:]]*"[[:space:]]*archdev (repo|inspect) hook ' "$file"
-}
-
-# Claude Code's plugins root, which holds installed_plugins.json; same rule as
-# the CLI's claudePluginsRoot. CLAUDE_CODE_PLUGIN_CACHE_DIR moves it when set
-# and non-empty: `~` alone or a leading `~/` becomes the home directory, a
-# relative value resolves against the working directory, and `~user/` stays
-# as given, so it is relative too. Otherwise it is <config dir>/plugins.
-claude_plugins_root() {
-  local relocated="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-}"
-  if [[ -z "$relocated" ]]; then
-    printf '%s/plugins\n' "$1"
-  elif [[ "$relocated" == "~" || "$relocated" == "~/"* ]]; then
-    printf '%s%s\n' "$HOME" "${relocated:1}"
-  elif [[ "$relocated" == /* ]]; then
-    printf '%s\n' "$relocated"
-  else
-    printf '%s/%s\n' "$PWD" "$relocated"
-  fi
-}
-
-# The archdev Claude Code plugin ships the same hooks; settings.json hooks on
-# top of it would run every hook twice. Same rule as the CLI's
-# claudePluginInstall: an `archdev@<any marketplace>` install at user or
-# managed scope (or unscoped) in <plugins root>/installed_plugins.json whose
-# key `enabledPlugins` in <config dir>/settings.json sets to true.
-claude_plugin_installed() {
-  local config="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-  local records settings="$config/settings.json"
-  records="$(claude_plugins_root "$config")/installed_plugins.json"
-  [[ -f "$records" && -f "$settings" ]] || return 1
-  local installed enabled key rest value
-  installed="$(tr -d ' \t\r\n' <"$records")"
-  enabled="$(tr -d ' \t\r\n' <"$settings")"
-  while IFS= read -r key; do
-    [[ -n "$key" ]] || continue
-    [[ "$enabled" == *"${key}true"* ]] || continue
-    # The key's value: a list of installs (version 2) or one install.
-    rest="${installed#*"$key"}"
-    if [[ "$rest" == "["* ]]; then value="${rest%%]*}"; else value="${rest%%\}*}"; fi
-    if [[ "$value" != *'"scope":'* || "$value" == *'"scope":"user"'* ||
-      "$value" == *'"scope":"managed"'* ]]; then
-      return 0
-    fi
-  done < <(grep -o '"archdev@[^"]*":' <<<"$installed" | sort -u)
-  return 1
-}
-
-# `repo hook setup --uninstall` records an opt-out only on CLIs that also
-# print the plugin hooks (`repo hook plugin-hooks-json`). An older CLI would
-# undo a deliberate uninstall, so it only refreshes.
-setup_honours_opt_out() {
-  local help
-  help="$("$executable" repo hook --help 2>/dev/null || true)"
-  [[ "$help" == *plugin-hooks-json* ]]
-}
-
 # Failures are reported without blocking the skill (for example an older
 # archdev earlier on PATH, which setup refuses to wire).
 harness="$(calling_harness)"
-if [[ -n "$harness" ]] && ! has_archdev_hooks "$harness" &&
-  ! { [[ "$harness" == claude ]] && claude_plugin_installed; } &&
-  setup_honours_opt_out; then
+if [[ -n "$harness" ]]; then
   "$executable" repo hook setup --harness "$harness" >&2 ||
     printf 'Could not install ArchDev hooks for %s; see above, then run: archdev repo hook setup --harness %s\n' "$harness" "$harness" >&2
 fi

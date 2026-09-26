@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.46.5"
+$minVersion = [Version]"0.46.6"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -61,7 +61,7 @@ function Test-Skill([string]$Binary) {
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands (need 0.46.5+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).")
     $archdev = Install-ArchDev
 }
 
@@ -72,96 +72,20 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
 if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, repo, and projects commands" }
 
-# Ensure ArchDev hooks for the harness running this skill, so the monitor
-# contract reaches later sessions even when they never load the skill. The
-# harness comes from the marker it sets on the shells it spawns.
+# Install ArchDev hooks for the harness running this skill, so the ArchDev
+# contract reaches later sessions and subagents even when they never load the
+# skill. The harness comes from the marker it sets on the shells it spawns.
+# The CLI owns every decision: `setup --harness <name>` leaves current hooks
+# alone, replaces stale ones, and skips a harness the user removed with
+# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
+# Factory workers and daemon pipeline steps install nothing: their host owns
+# the harness configuration they run under, as in the CLI's self-heal.
 function Get-CallingHarness {
+    if ($env:ARCHDEV_FACTORY_AGENT_ROLE -or $env:ARCHDEV_JOB_ID -or $env:ARCHDEV_STEP_ID) { return $null }
     if ($env:CLAUDECODE -eq "1") { return "claude" }
     if ($env:CODEX_THREAD_ID) { return "codex" }
     if ($env:GROK_SESSION_ID) { return "grok" }
     return $null
-}
-
-function Get-HomeDirectory {
-    if ($env:USERPROFILE) { return $env:USERPROFILE }
-    return $HOME
-}
-
-# The file each harness reads hooks from; keep in step with the CLI's
-# harnessHookFile.
-function Get-HarnessHookFile([string]$Harness) {
-    $homeDir = Get-HomeDirectory
-    switch ($Harness) {
-        "claude" {
-            $dir = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $homeDir ".claude" }
-            return (Join-Path $dir "settings.json")
-        }
-        "codex" {
-            $dir = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $homeDir ".codex" }
-            return (Join-Path $dir "hooks.json")
-        }
-        "grok" {
-            $dir = if ($env:GROK_HOME) { $env:GROK_HOME } else { Join-Path $homeDir ".grok" }
-            return (Join-Path (Join-Path $dir "hooks") "archdev.json")
-        }
-    }
-}
-
-# Whether the harness config already carries a hook command archdev wrote.
-function Test-ArchDevHooks([string]$Harness) {
-    $file = Get-HarnessHookFile $Harness
-    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
-    $text = Get-Content -LiteralPath $file -Raw
-    return ($text -match '"command"\s*:\s*"\s*archdev (repo|inspect) hook ')
-}
-
-# Claude Code's plugins root, which holds installed_plugins.json; same rule as
-# the CLI's claudePluginsRoot. CLAUDE_CODE_PLUGIN_CACHE_DIR moves it when set
-# and non-empty: `~` alone or a leading `~/` becomes the home directory, a
-# relative value resolves against the working directory, and `~user/` stays
-# as given, so it is relative too. Otherwise it is <config dir>/plugins.
-function Get-ClaudePluginsRoot([string]$Config) {
-    $relocated = $env:CLAUDE_CODE_PLUGIN_CACHE_DIR
-    if (-not $relocated) { return (Join-Path $Config "plugins") }
-    if ($relocated -eq "~" -or $relocated.StartsWith("~/")) {
-        return (Get-HomeDirectory) + $relocated.Substring(1)
-    }
-    # Combine keeps a rooted value and prefixes a relative one; neither step
-    # expands `~`, unlike PowerShell's own path handling.
-    return [IO.Path]::GetFullPath([IO.Path]::Combine([Environment]::CurrentDirectory, $relocated))
-}
-
-# The archdev Claude Code plugin ships the same hooks; settings.json hooks on
-# top of it would run every hook twice. Same rule as the CLI's
-# claudePluginInstall: an `archdev@<any marketplace>` install at user or
-# managed scope (or unscoped) in <plugins root>/installed_plugins.json whose
-# key `enabledPlugins` in <config dir>/settings.json sets to true.
-function Test-ClaudePlugin {
-    $config = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path (Get-HomeDirectory) ".claude" }
-    $records = Join-Path (Get-ClaudePluginsRoot $config) "installed_plugins.json"
-    $settings = Join-Path $config "settings.json"
-    if (-not (Test-Path -LiteralPath $records -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $settings -PathType Leaf)) { return $false }
-    $plugins = (Get-Content -LiteralPath $records -Raw | ConvertFrom-Json).plugins
-    $enabled = (Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).enabledPlugins
-    if (-not $plugins -or -not $enabled) { return $false }
-    foreach ($entry in $plugins.PSObject.Properties) {
-        if ($entry.Name.Split("@")[0] -ne "archdev") { continue }
-        if ($enabled.($entry.Name) -ne $true) { continue }
-        foreach ($install in @($entry.Value)) {
-            $scope = $install.scope
-            if ($null -eq $scope -or $scope -eq "user" -or $scope -eq "managed") { return $true }
-        }
-    }
-    return $false
-}
-
-# `repo hook setup --uninstall` records an opt-out only on CLIs that also
-# print the plugin hooks (`repo hook plugin-hooks-json`). An older CLI would
-# undo a deliberate uninstall, so it only refreshes.
-function Test-SetupHonoursOptOut {
-    $help = (& $archdev repo hook --help 2>$null) -join "`n"
-    return ($help -match "plugin-hooks-json")
 }
 
 # Failures are reported without blocking the skill (for example an older
@@ -172,10 +96,7 @@ function Test-SetupHonoursOptOut {
 try {
     $ErrorActionPreference = "Continue"
     $harness = Get-CallingHarness
-    $install = $harness -and -not (Test-ArchDevHooks $harness) -and
-        -not ($harness -eq "claude" -and (Test-ClaudePlugin)) -and
-        (Test-SetupHonoursOptOut)
-    if ($install) {
+    if ($harness) {
         & $archdev repo hook setup --harness $harness | ForEach-Object { [Console]::Error.WriteLine($_) }
         if ($LASTEXITCODE -ne 0) {
             [Console]::Error.WriteLine("Could not install ArchDev hooks for $harness; see above, then run: archdev repo hook setup --harness $harness")

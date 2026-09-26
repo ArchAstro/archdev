@@ -3,29 +3,19 @@
 # the bootstrap uses to accept a CLI, and appends the argv of every
 # `repo hook setup` call (other than --help) to $ARCHDEV_FAKE_LOG.
 #
-#   ARCHDEV_FAKE_TRACK1=1       `repo hook --help` lists plugin-hooks-json,
-#                               the marker of a CLI whose setup honours an
-#                               uninstall opt-out
 #   ARCHDEV_FAKE_SETUP_EXIT=N   exit code of `repo hook setup`
 
 set -euo pipefail
 
 args="$*"
 case "$args" in
-  --version) echo 0.46.5 ;;
+  --version) echo 0.46.6 ;;
   "agents run --help") echo "Usage: archdev agents run [options]" ;;
   "settings provider models --help") echo "Usage: archdev settings provider models [options]" ;;
   "repo status --help") echo "Probe CLI, login, model access, repo wiring, taxonomy, and hooks" ;;
   "projects list --help") echo "Usage: archdev projects list [options]" ;;
   "log post --help") echo "  --project <id>  Project for this post" ;;
   "extract finalize --help") echo "  --publish <pull>  Publish to a pull request" ;;
-  "repo hook --help")
-    echo "Commands:"
-    echo "  setup|install [options]"
-    if [[ "${ARCHDEV_FAKE_TRACK1:-}" == 1 ]]; then
-      echo "  plugin-hooks-json [options]"
-    fi
-    ;;
   "repo hook setup --help") echo "  --refresh  Only update harnesses that already have archdev hooks" ;;
   "repo hook setup"*)
     printf '%s\n' "$args" >>"$ARCHDEV_FAKE_LOG"

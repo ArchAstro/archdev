@@ -1,4 +1,4 @@
-name: Skill and Plugin Checks
+name: Skill Bootstrap Checks
 
 on:
   pull_request:
@@ -30,15 +30,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-skill-bootstrap.ps1
 
-  claude-plugin:
-    name: Claude Code plugin
+  skill-bootstrap-cli:
+    name: Skill bootstrap with the released CLI
     runs-on: ubuntu-latest
-    env:
-      CLAUDE_CODE_VERSION: 2.1.282
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Claude Code
-        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
       - name: Install the latest ArchDev release
         env:
           ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/archdev-bin
@@ -47,7 +43,5 @@ jobs:
         run: |
           ./install.sh
           echo "$ARCHDEV_INSTALL_DIR" >>"$GITHUB_PATH"
-      - name: Validate the plugin manifest and hooks
-        run: scripts/check-claude-plugin.sh
-      - name: Install the plugin and run its hooks
-        run: scripts/test-claude-plugin-install.sh
+      - name: Bootstrap installs and respects hooks
+        run: scripts/test-skill-bootstrap-cli.sh

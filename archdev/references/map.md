@@ -87,13 +87,19 @@ after editing.
 Install now — session coverage starts immediately:
 
 ```sh
-"$archdev" repo hook setup [--harness claude|codex|grok|archdev] [--force]
+"$archdev" repo hook setup [--harness claude|codex|grok|pi|archdev] [--force]
 ```
 
 Installs SessionStart, UserPromptSubmit, PostToolUse and Stop, plus
-SubagentStart and SubagentStop for Claude (Grok: no UserPromptSubmit). Without `--harness`, covers every installed harness
-(config-dir presence = installed); warns when none is found — pass
-`--harness <name>` to install anyway. `--uninstall` removes them.
+SubagentStart and SubagentStop for Claude (Grok: no UserPromptSubmit).
+Without `--harness`, covers every installed harness (config-dir presence =
+installed); warns when none is found — pass `--harness <name>` to install
+anyway. `--uninstall` removes them and records the opt-out in
+`~/.archdev/hook-opt-out.json`; `setup --harness <name>`, `setup --refresh`,
+full `archdev setup`, and the self-heal all skip an opted-out harness, while
+a bare `setup` or `--force` reinstalls it and clears the opt-out. `repo
+status` still shows an opted-out harness as missing; leave it that way
+unless the user asks.
 Harnesses outside that list: hand-author entries invoking `repo hook
 start|prompt|post-tool|stop --spec <N>` (copy `N` from `repo hook setup
 --help`). Verify with `repo status`: it reports missing hooks and hooks
@@ -101,12 +107,12 @@ from an older `--spec` as stale.
 
 Each installed command carries `--spec N`, the hook wiring version of the
 CLI that wrote it. After checking the CLI, this skill's bootstrap runs
-`repo hook setup --harness <name>` for the harness running it when that
-harness has no archdev hooks, then `repo hook setup --refresh`, which
-updates only harnesses that already have archdev hooks. It installs
-only with a CLI whose `--uninstall` records an opt-out (one that lists `repo
-hook plugin-hooks-json`), and never writes Claude `settings.json` hooks while
-the archdev Claude Code plugin is installed, because the plugin carries
-them. Setup refuses when the `archdev` on PATH (what hooks run) is older
-than the CLI running setup; upgrade or fix PATH rather than passing
-`--force`.
+`repo hook setup --harness <name>` for the harness running it (from
+`CLAUDECODE=1`, `CODEX_THREAD_ID`, or `GROK_SESSION_ID`), then `repo hook
+setup --refresh`, which updates harnesses that already have archdev hooks
+and always installs ArchDev's own runtime hooks. Inside a Factory worker or
+daemon pipeline step the bootstrap skips the `--harness` install. Most other `archdev` commands run
+inside Claude Code or Codex do the same install for that harness when its
+hooks are missing or stale. Setup
+refuses when the `archdev` on PATH (what hooks run) is older than the CLI
+running setup; upgrade or fix PATH rather than passing `--force`.

@@ -36,35 +36,35 @@ irm https://raw.githubusercontent.com/ArchAstro/archdev/main/install.ps1 | iex
 The release archive installs `archdev`. The Unix installer also configures
 Bash, Zsh, or Fish completions for the active shell.
 
-## Claude Code plugin
+## Skills and harness hooks
 
-The `archdev` plugin gives Claude Code the ArchDev and Tasks skills plus the
-repo monitor hooks, so every session gets the ArchDev contract without
-running `archdev repo hook setup` or loading a skill first. The hooks call
-the `archdev` CLI on your PATH and do nothing when it is not installed.
-
-In Claude Code:
-
-```text
-/plugin marketplace add ArchAstro/archdev
-/plugin install archdev@archastro
-```
-
-From a shell:
+The `archdev` CLI installs the skills and the harness hooks. There is no
+Claude Code plugin.
 
 ```bash
-claude plugin marketplace add ArchAstro/archdev
-claude plugin install archdev@archastro --scope user
+archdev setup                              # first run: login, repo, hooks for every harness; offers skills
+archdev setup --skills                     # only the skills, for every detected coding tool
+archdev repo hook setup                    # only the hooks, for every harness on this machine
+archdev repo hook setup --harness claude   # hooks for one harness: claude, codex, grok, pi, or archdev
+archdev repo status                        # check CLI, login, model access, repo wiring, and hooks
 ```
 
-Restart Claude Code or run `/reload-plugins` to load it. Third-party
-marketplaces do not auto-update by default: run
-`claude plugin update archdev@archastro`, or turn on auto-update for
-`archastro` under `/plugin` → **Marketplaces**.
+`archdev setup --skills` runs
+`npx skills add ArchAstro/archdev --skill '*' --global --agent <detected tools>`.
+Most `archdev` commands run inside Claude Code or Codex reinstall that
+harness's hooks when they are missing or stale (not in Factory or daemon
+sessions), and the `archdev` skill's bootstrap script installs them for the
+harness running it (Claude Code, Codex, or Grok).
 
-If you installed hooks with `archdev repo hook setup` before, remove the
-Claude ones so they do not run twice:
-`archdev repo hook setup --uninstall --harness claude`.
+`archdev repo hook setup --uninstall --harness <name>` removes a harness's
+hooks and records the opt-out in `~/.archdev/hook-opt-out.json`. Full
+`archdev setup`, the self-heal, and the skill bootstrap leave that harness
+alone. `archdev repo hook setup` without `--harness`, or with `--force`,
+reinstalls it and clears the opt-out.
+
+The hooks give every session the ArchDev contract, including sessions that
+never load the skill. In Claude Code they also run for subagents:
+SubagentStart tells each subagent to load the `archdev` skill.
 
 ## Install Tasks
 

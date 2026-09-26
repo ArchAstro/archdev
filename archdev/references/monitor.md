@@ -17,8 +17,13 @@ tailing. The session runs in three beats:
    head you pushed has its annotations.
 
 In any Git checkout, the hooks deliver the ArchDev contract at session
-start and, in Claude Code, at subagent start (`repo hook
-subagent-start`). In a mapped repo, the start hook (`repo hook start`)
+start (on Grok, with the first tool call, because Grok drops session-start
+output) and, in Claude Code, at subagent start (`repo hook
+subagent-start`): load the `archdev` skill, store review annotations after
+each push that moves a PR head, and, for a subagent, leave team room posts
+to the top-level session. Harnesses without a subagent hook get none of
+this in spawned agents, so the parent puts it in their prompt (SKILL.md,
+Subagents and spawned agents). In a mapped repo, the start hook (`repo hook start`)
 also injects this flow as the self-check
 block generated from the repo's own `activity` taxonomy: room reads,
 lifecycle rules, resource `detection` prompts, the closed event list,

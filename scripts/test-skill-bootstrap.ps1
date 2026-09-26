@@ -1,6 +1,8 @@
 # Runs archdev/scripts/bootstrap.ps1 against scripts/fake-archdev in a
 # throwaway HOME for each case, and checks which `repo hook setup` call the
-# bootstrap made for the harness that ran it. The fake CLI is a Bash script;
+# bootstrap made for the harness that ran it. What those calls do to hook
+# files is the CLI's job; scripts/test-skill-bootstrap-cli.sh checks that
+# against a real archdev. The fake CLI is a Bash script;
 # on Windows an archdev.cmd runs it through Git Bash, and the bootstrap runs
 # under Windows PowerShell (`powershell -File`), as SKILL.md invokes it.
 
@@ -14,9 +16,9 @@ $onWindows = $env:OS -eq "Windows_NT"
 
 # Every variable a case may set; each case starts with all of them cleared.
 $caseVariables = @(
-    "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "CLAUDE_CONFIG_DIR",
-    "CLAUDE_CODE_PLUGIN_CACHE_DIR", "CODEX_HOME", "GROK_HOME", "USERPROFILE",
-    "ARCHDEV_FAKE_TRACK1", "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG"
+    "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "USERPROFILE",
+    "ARCHDEV_FACTORY_AGENT_ROLE", "ARCHDEV_JOB_ID", "ARCHDEV_STEP_ID",
+    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG"
 )
 $savedPath = $env:PATH
 $savedHome = $env:HOME
@@ -27,15 +29,13 @@ function Invoke-Case {
     param(
         [string]$Name,
         [string]$Expected,
-        [hashtable]$Environment = @{},
-        [scriptblock]$Prepare = $null
+        [hashtable]$Environment = @{}
     )
     $caseDir = Join-Path $work $Name
     $homeDir = Join-Path $caseDir "home"
     $bin = Join-Path $caseDir "bin"
     $log = Join-Path $caseDir "setup.log"
-    $cwd = Join-Path $caseDir "cwd"
-    New-Item -ItemType Directory -Path $homeDir, $bin, $cwd | Out-Null
+    New-Item -ItemType Directory -Path $homeDir, $bin | Out-Null
     if ($onWindows) {
         $archdevPath = Join-Path $bin "archdev.cmd"
         $bash = Join-Path $env:ProgramFiles "Git\bin\bash.exe"
@@ -51,7 +51,6 @@ function Invoke-Case {
         $shell = (Get-Process -Id $PID).Path
     }
     Set-Content -LiteralPath $log -Value $null -NoNewline
-    if ($Prepare) { & $Prepare $homeDir $cwd }
 
     foreach ($variable in $caseVariables) { Remove-Item "Env:$variable" -ErrorAction SilentlyContinue }
     $env:HOME = $homeDir
@@ -59,16 +58,10 @@ function Invoke-Case {
     $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
     foreach ($key in $Environment.Keys) { Set-Item "Env:$key" $Environment[$key] }
-    $savedLocation = Get-Location
-    $savedDirectory = [Environment]::CurrentDirectory
-    Set-Location -LiteralPath $cwd
-    [Environment]::CurrentDirectory = $cwd
     try {
         $out = & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo "archdev/scripts/bootstrap.ps1") 2>(Join-Path $caseDir "stderr")
         $exit = $LASTEXITCODE
     } finally {
-        Set-Location $savedLocation
-        [Environment]::CurrentDirectory = $savedDirectory
         $env:PATH = $savedPath
         $env:HOME = $savedHome
     }
@@ -95,87 +88,26 @@ function Invoke-Case {
     }
 }
 
-$claudeHooks = {
-    param($homeDir)
-    $dir = Join-Path $homeDir ".claude"
-    New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    Set-Content (Join-Path $dir "settings.json") '{"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "archdev repo hook start --harness claude --spec 3"}]}]}}'
-}
-$claudeHooksElsewhere = {
-    param($homeDir)
-    & $claudeHooks $homeDir
-    Move-Item (Join-Path $homeDir ".claude") (Join-Path $homeDir "claude-config")
-}
-# Records a Claude plugin install. $Root is where installed_plugins.json goes:
-# "home:<rel>" or "cwd:<rel>", default home:.claude/plugins. settings.json
-# always goes in <home>/.claude.
-function New-PluginRecords([string]$Plugins, [string]$Enabled, [int]$Version = 2, [string]$Root = "home:.claude/plugins") {
-    return {
-        param($homeDir, $cwd)
-        $base, $rel = $Root.Split(":", 2)
-        $dir = Join-Path $(if ($base -eq "cwd") { $cwd } else { $homeDir }) $rel
-        New-Item -ItemType Directory -Path $dir, (Join-Path $homeDir ".claude") -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $dir "installed_plugins.json") "{`"version`": $Version, `"plugins`": $Plugins}"
-        Set-Content (Join-Path $homeDir ".claude/settings.json") "{`"enabledPlugins`": $Enabled}"
-        New-Item -ItemType Directory -Path (Join-Path $homeDir "empty-cache") -Force | Out-Null
-    }.GetNewClosure()
-}
-$userPlugin = '{"archdev@archastro": [{"scope": "user"}]}'
-$userEnabled = '{"archdev@archastro": true}'
-# CLAUDE_CODE_PLUGIN_CACHE_DIR moves the plugins root, install records
-# included; enabledPlugins stays in <config dir>/settings.json. Each entry:
-# records root, variable value ({home}/{work} substituted), expected calls.
+$install = { param($harness) "repo hook setup --harness $harness`nrepo hook setup --refresh" }
 $refreshOnly = "repo hook setup --refresh"
-$relocatedCases = [ordered]@{
-    "relocated-absolute" = @("home:plugin-cache", "{home}/plugin-cache", $refreshOnly)
-    "relocated-tilde" = @("home:plugin-cache", "~/plugin-cache", $refreshOnly)
-    "relocated-relative" = @("cwd:rel-cache", "rel-cache", $refreshOnly)
-    "relocated-tilde-user" = @("cwd:~nobody/cache", "~nobody/cache", $refreshOnly)
-    "default-root" = @("home:.claude/plugins", "", $refreshOnly)
-    "default-root-only" = @("home:.claude/plugins", "{home}/empty-cache", "repo hook setup --harness claude`nrepo hook setup --refresh")
-}
-$pluginApplies = [ordered]@{
-    "claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": true}'
-    "mirror-claude-plugin" = New-PluginRecords '{"archdev@team-mirror": [{"scope": "managed"}]}' '{"archdev@team-mirror": true}'
-    "unscoped-claude-plugin" = New-PluginRecords '{"archdev@archastro": {"version": "1"}}' '{"archdev@archastro": true}' 1
-}
-$pluginDoesNotApply = [ordered]@{
-    "disabled-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{"archdev@archastro": false}'
-    "unlisted-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "user"}]}' '{}'
-    "project-claude-plugin" = New-PluginRecords '{"archdev@archastro": [{"scope": "project", "projectPath": "/elsewhere"}]}' '{"archdev@archastro": true}'
-    "other-named-plugin" = New-PluginRecords '{"archdev-extras@archastro": [{"scope": "user"}]}' '{"archdev-extras@archastro": true}'
-}
-$foreignHooks = {
-    param($homeDir)
-    $dir = Join-Path $homeDir ".claude"
-    New-Item -ItemType Directory -Path $dir -Force | Out-Null
-    Set-Content (Join-Path $dir "settings.json") '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "my-wrapper archdev repo hook stop"}]}]}}'
-}
 
 try {
-    Invoke-Case "claude-no-hooks" "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" }
-    Invoke-Case "claude-foreign-hooks" "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $foreignHooks
-    Invoke-Case "claude-hooks-present" "repo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $claudeHooks
-    Invoke-Case "claude-config-dir" "repo hook setup --refresh" @{
-        CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1"
-        CLAUDE_CONFIG_DIR = (Join-Path $work "claude-config-dir/home/claude-config")
-    } $claudeHooksElsewhere
-    foreach ($case in $pluginApplies.Keys) {
-        Invoke-Case $case "repo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginApplies[$case]
-    }
-    foreach ($case in $relocatedCases.Keys) {
-        $root, $value, $expected = $relocatedCases[$case]
-        $value = $value.Replace("{home}", (Join-Path $work "$case/home"))
-        Invoke-Case $case $expected @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1"; CLAUDE_CODE_PLUGIN_CACHE_DIR = $value } (New-PluginRecords $userPlugin $userEnabled 2 $root)
-    }
-    foreach ($case in $pluginDoesNotApply.Keys) {
-        Invoke-Case $case "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1" } $pluginDoesNotApply[$case]
-    }
-    Invoke-Case "claude-opted-out-old-cli" "repo hook setup --refresh" @{ CLAUDECODE = "1" }
-    Invoke-Case "codex-no-hooks" "repo hook setup --harness codex`nrepo hook setup --refresh" @{ CODEX_THREAD_ID = "019a-thread"; ARCHDEV_FAKE_TRACK1 = "1" }
-    Invoke-Case "grok-no-hooks" "repo hook setup --harness grok`nrepo hook setup --refresh" @{ GROK_SESSION_ID = "grok-session"; ARCHDEV_FAKE_TRACK1 = "1" }
-    Invoke-Case "unknown-harness" "repo hook setup --refresh" @{ ARCHDEV_FAKE_TRACK1 = "1" }
-    Invoke-Case "setup-fails" "repo hook setup --harness claude`nrepo hook setup --refresh" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_TRACK1 = "1"; ARCHDEV_FAKE_SETUP_EXIT = "1" }
+    # Each harness installs its own hooks, then every hooked harness refreshes.
+    Invoke-Case "claude" (& $install "claude") @{ CLAUDECODE = "1" }
+    Invoke-Case "codex" (& $install "codex") @{ CODEX_THREAD_ID = "019a-thread" }
+    Invoke-Case "grok" (& $install "grok") @{ GROK_SESSION_ID = "grok-session" }
+    # CLAUDECODE is a flag: only the value 1 marks Claude Code.
+    Invoke-Case "claude-flag-off" $refreshOnly @{ CLAUDECODE = "0" }
+    # Factory workers and daemon pipeline steps leave harness config to their
+    # host, so only refresh.
+    Invoke-Case "factory-worker" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_FACTORY_AGENT_ROLE = "worker" }
+    Invoke-Case "daemon-job" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_JOB_ID = "job-1" }
+    Invoke-Case "daemon-step" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_STEP_ID = "step-1" }
+    # No harness marker: nothing to install for, so only refresh.
+    Invoke-Case "unknown-harness" $refreshOnly
+    # A failing setup is reported but does not fail the bootstrap, and the
+    # refresh still runs.
+    Invoke-Case "setup-fails" (& $install "claude") @{ CLAUDECODE = "1"; ARCHDEV_FAKE_SETUP_EXIT = "1" }
 } finally {
     foreach ($name in $caseVariables) {
         if ($null -eq $saved[$name]) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
