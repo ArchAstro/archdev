@@ -38,8 +38,7 @@ Bash, Zsh, or Fish completions for the active shell.
 
 ## Skills and harness hooks
 
-The `archdev` CLI installs the skills and the harness hooks. There is no
-Claude Code plugin.
+The `archdev` CLI installs the skills and the harness hooks.
 
 ```bash
 archdev setup                              # first run: login, repo, hooks for every harness; offers skills

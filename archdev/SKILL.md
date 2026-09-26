@@ -14,9 +14,9 @@ keep an `--uninstall` opt-out). The bootstrap script
 below upgrades older installs automatically; on a CLI it could not
 upgrade, follow the fallbacks in monitor.md.
 
-The `archdev` CLI is the only setup path for skills and hooks; there is no
-plugin to install. Once installed, the hooks deliver the ArchDev contract to
-every session, including sessions that never load this skill.
+The `archdev` CLI is the only setup path for skills and hooks. Once
+installed, the hooks deliver the ArchDev contract to every session,
+including sessions that never load this skill.
 
 Three phases, in order: Bootstrap → Map → Monitor. Each phase has a
 reference file with the concrete commands.
