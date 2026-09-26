@@ -32,6 +32,9 @@ block a stop.
 
 ## Current attention
 
+For internal helpers that should not report presence, use the
+[child-process opt-out](#internal-helpers) instead of updating attention.
+
 Use presence when you begin or switch work on a known task, PR, or job.
 It stores current attention in one mutable custom object per agent/session;
 it is not an activity history or an independent work record.
@@ -83,6 +86,37 @@ the work; do not manufacture snapshots or substitute minimap room posts.
 
 Keep lessons and lifecycle history in `log post`; a presence command writes
 no room message. Do not create independent work objects to mirror attention.
+
+### Internal helpers
+
+ArchDev **0.46.9+** honors `ARCHDEV_PRESENCE_DISABLED=1`. Set it in the
+child environment **before launch** for internal review subagents, summarizers,
+judges, and compartmentalized tasks that should not appear as separate agents:
+
+```sh
+ARCHDEV_PRESENCE_DISABLED=1 codex exec --ephemeral 'Summarize the supplied text'
+ARCHDEV_PRESENCE_DISABLED=1 claude -p 'Review the supplied diff'
+```
+
+Programmatic launchers should add the variable to the child process's `env`,
+preserving the rest of its environment. Keep it out of shell profiles, shared
+harness settings, and the parent session's environment. Independently tracked
+workers keep reporting presence. Check `archdev --version` and upgrade older
+installs before relying on the opt-out; only the exact value `1` disables it.
+
+Native delegation tools may not expose a child environment option. In that
+case, disclose the limitation: a prompt cannot change the environment of the
+host's startup hooks. Tell the helper to prefix its own ArchDev invocations with
+`ARCHDEV_PRESENCE_DISABLED=1`; this suppresses those invocations' writes but does
+not suppress host lifecycle hooks. Never disable the parent to hide a child.
+
+The flag suppresses lifecycle, incidental, and in-process presence writes.
+Explicit `presence update`, `clear`, and `publish` succeed without writing and
+return `{"status":"disabled"}` with `--json`; do not retry that result or unset
+the flag to satisfy normal attention guidance. Reads and room logging remain
+available. Subagents still leave room posts to the top-level session. Existing
+presence rows are not deleted; they expire normally. `presence clear` leaves an
+idle agent visible and is not an opt-out.
 
 ## Team room
 
