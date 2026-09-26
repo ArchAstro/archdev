@@ -1,0 +1,47 @@
+name: Skill Bootstrap Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  skill-bootstrap:
+    name: Skill bootstrap hook setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bash bootstrap
+        run: scripts/test-skill-bootstrap.sh
+      - name: PowerShell bootstrap
+        shell: pwsh
+        run: ./scripts/test-skill-bootstrap.ps1
+
+  skill-bootstrap-windows:
+    name: Skill bootstrap hook setup (Windows PowerShell)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: PowerShell bootstrap
+        shell: pwsh
+        run: ./scripts/test-skill-bootstrap.ps1
+
+  skill-bootstrap-cli:
+    name: Skill bootstrap with the released CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the latest ArchDev release
+        env:
+          ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/archdev-bin
+          ARCHDEV_INSTALL_SKIP_PATH_UPDATE: "true"
+          ARCHDEV_INSTALL_SKIP_COMPLETIONS: "true"
+        run: |
+          ./install.sh
+          echo "$ARCHDEV_INSTALL_DIR" >>"$GITHUB_PATH"
+      - name: Bootstrap installs and respects hooks
+        run: scripts/test-skill-bootstrap-cli.sh

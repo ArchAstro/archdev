@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.46.5"
+$minVersion = [Version]"0.46.6"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -61,7 +61,7 @@ function Test-Skill([string]$Binary) {
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands (need 0.46.5+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).")
     $archdev = Install-ArchDev
 }
 
@@ -72,12 +72,43 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
 if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, repo, and projects commands" }
 
-# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
-# harnesses that already have archdev hooks change, and a failure (for example
-# an older archdev earlier on PATH) is reported without blocking the skill.
-# Its stderr goes straight to the console; only stdout is relayed, because
-# merging stderr into the pipeline under ErrorActionPreference=Stop throws.
+# Install ArchDev hooks for the harness running this skill, so the ArchDev
+# contract reaches later sessions and subagents even when they never load the
+# skill. The harness comes from the marker it sets on the shells it spawns.
+# The CLI owns every decision: `setup --harness <name>` leaves current hooks
+# alone, replaces stale ones, and skips a harness the user removed with
+# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
+# Factory workers and daemon pipeline steps install nothing: their host owns
+# the harness configuration they run under, as in the CLI's self-heal.
+function Get-CallingHarness {
+    if ($env:ARCHDEV_FACTORY_AGENT_ROLE -or $env:ARCHDEV_JOB_ID -or $env:ARCHDEV_STEP_ID) { return $null }
+    if ($env:CLAUDECODE -eq "1") { return "claude" }
+    if ($env:CODEX_THREAD_ID) { return "codex" }
+    if ($env:GROK_SESSION_ID) { return "grok" }
+    return $null
+}
+
+# Failures are reported without blocking the skill (for example an older
+# archdev earlier on PATH, which setup refuses to wire). Setup's stderr goes
+# straight to the console; only stdout is relayed, because merging stderr into
+# the pipeline under ErrorActionPreference=Stop throws. Each step has its own
+# try so a failed install still leaves the refresh.
 try {
+    $ErrorActionPreference = "Continue"
+    $harness = Get-CallingHarness
+    if ($harness) {
+        & $archdev repo hook setup --harness $harness | ForEach-Object { [Console]::Error.WriteLine($_) }
+        if ($LASTEXITCODE -ne 0) {
+            [Console]::Error.WriteLine("Could not install ArchDev hooks for $harness; see above, then run: archdev repo hook setup --harness $harness")
+        }
+    }
+} catch {
+    [Console]::Error.WriteLine("Could not install ArchDev hooks: $_")
+}
+# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
+# to this CLI's hook wiring.
+try {
+    $ErrorActionPreference = "Continue"
     $hookHelp = (& $archdev repo hook setup --help 2>$null) -join "`n"
     if ($hookHelp -match "--refresh") {
         & $archdev repo hook setup --refresh | ForEach-Object { [Console]::Error.WriteLine($_) }

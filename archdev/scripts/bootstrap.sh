@@ -6,7 +6,7 @@ installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
 installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
-min_version="0.46.5"
+min_version="0.46.6"
 
 absolute_path() {
   local candidate="$1"
@@ -86,7 +86,7 @@ supports_skill() {
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands (need 0.46.5+).\n' >&2
+  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -102,9 +102,35 @@ supports_skill "$executable" || {
   exit 1
 }
 
-# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
-# harnesses that already have archdev hooks change, and a failure (for example
-# an older archdev earlier on PATH) is reported without blocking the skill.
+# Install ArchDev hooks for the harness running this skill, so the ArchDev
+# contract reaches later sessions and subagents even when they never load the
+# skill. The harness comes from the marker it sets on the shells it spawns.
+# The CLI owns every decision: `setup --harness <name>` leaves current hooks
+# alone, replaces stale ones, and skips a harness the user removed with
+# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
+# Factory workers and daemon pipeline steps install nothing: their host owns
+# the harness configuration they run under, as in the CLI's self-heal.
+calling_harness() {
+  if [[ -n "${ARCHDEV_FACTORY_AGENT_ROLE:-}${ARCHDEV_JOB_ID:-}${ARCHDEV_STEP_ID:-}" ]]; then
+    return 0
+  elif [[ "${CLAUDECODE:-}" == 1 ]]; then
+    printf 'claude\n'
+  elif [[ -n "${CODEX_THREAD_ID:-}" ]]; then
+    printf 'codex\n'
+  elif [[ -n "${GROK_SESSION_ID:-}" ]]; then
+    printf 'grok\n'
+  fi
+}
+
+# Failures are reported without blocking the skill (for example an older
+# archdev earlier on PATH, which setup refuses to wire).
+harness="$(calling_harness)"
+if [[ -n "$harness" ]]; then
+  "$executable" repo hook setup --harness "$harness" >&2 ||
+    printf 'Could not install ArchDev hooks for %s; see above, then run: archdev repo hook setup --harness %s\n' "$harness" "$harness" >&2
+fi
+# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
+# to this CLI's hook wiring.
 hook_help="$("$executable" repo hook setup --help 2>/dev/null || true)"
 if [[ "$hook_help" == *"--refresh"* ]]; then
   "$executable" repo hook setup --refresh >&2 ||
