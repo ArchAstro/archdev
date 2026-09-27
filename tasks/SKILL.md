@@ -42,7 +42,9 @@ arguments. If bootstrap fails, report its error and point to the
 1. Run `"$archdev" auth status`. If signed out, run `"$archdev" auth login`,
    let the human finish browser sign-in, then check status again.
 2. Read `"$archdev" tasks guide` and `"$archdev" tasks graph schema` for the
-   installed CLI's contract. Prefer `--json` for output you need to parse.
+   installed CLI's contract. Read the schema's full output — do not truncate
+   it (for example by piping through `head`) — it is the authority when it
+   and this skill disagree. Prefer `--json` for output you need to parse.
 3. Choose the destination from the user's request and existing context.
    Review defaults to the signed-in user's personal Tasks. For team work,
    supply a known `--team <id>`; use `--repository <owner/repo>` when applicable.
@@ -78,8 +80,22 @@ review: approval owns saving this plan.
 
 Write a UTF-8 JSON file at a stable path, such as `plans/task-review.json`.
 Use the graph schema's `action: "preview"` format. Required node fields are
-`key`, `title`, `objective`, `acceptance`, and `verification`. The review command
-also accepts optional `major_decisions` (not part of `tasks graph schema`).
+`key`, `title`, `objective`, `acceptance`, `verification`, `implementation`,
+and `risk`.
+
+- `implementation`: the abstract plan of attack, written without inspecting
+  the whole codebase — numbered procedure steps, a high-level API sketch, a
+  CLI verb/flags/outputs, or the algorithm. Use `###` or lower headings only;
+  the Task keeps exactly one `## Implementation plan` section. Workers may
+  later expand this same section.
+- `risk`: `{grade: "low"|"medium"|"high", notes?}`. Grade from system
+  sensitivity, blast radius if the change is wrong, and how invasive the add
+  is — easy additive work on a well-tested edge is low, a rewrite of auth,
+  payments, or data-integrity is high. State the reason for the grade in
+  `notes` (markdown, or a string array rendered as bullets).
+
+The review command also accepts optional `major_decisions` (not part of
+`tasks graph schema`).
 
 ```json
 {
@@ -92,6 +108,16 @@ also accepts optional `major_decisions` (not part of `tasks graph schema`).
       "objective": "Add the export endpoint using the existing filtered query.",
       "acceptance": ["Export includes exactly the authorized filtered results."],
       "verification": ["Planned tests/export-api.e2e.test.ts: filtered export crosses HTTP and database boundaries and asserts returned rows."],
+      "implementation": [
+        "### Endpoint",
+        "1. Add `GET /api/export` reusing the existing filtered-query builder.",
+        "2. Stream rows to CSV instead of loading the full result set.",
+        "3. Enforce the same authorization the results page already applies."
+      ],
+      "risk": {
+        "grade": "low",
+        "notes": "Reuses an existing, tested query path; blast radius is one new read-only endpoint."
+      },
       "scope": ["Export API"],
       "exclusions": ["Scheduled exports"]
     },
@@ -101,6 +127,11 @@ also accepts optional `major_decisions` (not part of `tasks graph schema`).
       "objective": "Connect the results page's download action to the export endpoint.",
       "acceptance": ["The downloaded file matches the active filters."],
       "verification": ["Planned tests/export-ui.e2e.test.ts: download filtered results through the browser and inspect file contents."],
+      "implementation": "### Download action\n1. Wire the existing download button to `GET /api/export` with current filters as query params.\n2. Show a loading state until the file starts downloading.\n3. Surface a toast on a non-2xx response.",
+      "risk": {
+        "grade": "low",
+        "notes": ["Additive UI change on an existing button.", "No data model or auth changes."]
+      },
       "depends_on": ["export-api"],
       "dependency_reasons": {"export-api": "The download action needs the export endpoint."}
     }
@@ -118,7 +149,9 @@ also accepts optional `major_decisions` (not part of `tasks graph schema`).
 
 Replace illustrative paths with this project's real planned proof. Optional
 node fields also include `context`, `scope`, `exclusions`, `deliverables`,
-`depends_on`, `dependency_reasons`, and `priority` (0–4).
+`depends_on`, `dependency_reasons`, `priority` (0–4), and `kind`
+(`"human"` or `"post_deploy"`, which exempts the node from the
+pre-merge-unsatisfiable plan lint).
 Keep context concise and omit secrets and customer data. The CLI validates the
 preview and computes its hash; do not manufacture `plan_hash`.
 
@@ -171,8 +204,10 @@ test each node with a reader that has only that node. Run exactly one round.
    change, the expected behavior or interface, an acceptance criterion you
    could not verify, a planned test that does not name its file, boundary, or
    assertion, a referenced path or symbol that does not exist, what a
-   dependency provides, or a scope boundary. Do not report style preferences
-   or propose redesigns. An empty gaps list is a valid answer.
+   dependency provides, or a scope boundary. Also report an empty or missing
+   `implementation` plan, or a `risk` grade with no stated reason. Do not
+   report style preferences or propose redesigns. An empty gaps list is a
+   valid answer.
 
    Task:
    <node JSON>
@@ -183,8 +218,8 @@ test each node with a reader that has only that node. Run exactly one round.
 3. Triage every returned gap in the main context, which has the full history:
    - **Answerable from the conversation or code:** add the answer to the node
      (`objective`, `context`, `acceptance`, `verification`, `scope`,
-     `exclusions`, or `deliverables`). Write it so a reader without your
-     history could act on it; name real paths and symbols.
+     `exclusions`, `deliverables`, `implementation`, or `risk`). Write it so a
+     reader without your history could act on it; name real paths and symbols.
    - **A choice only the human can make:** add or extend a `major_decisions`
      entry. Do not pick an answer to close the gap.
    - **Not a real gap** (already stated, or out of scope): leave the node as
