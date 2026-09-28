@@ -170,9 +170,14 @@ Three beats, one command
    payloads (`log post --event`), with `--kind` on the same call when the
    event is also a lifecycle moment. Every `plan.*`, `task.*`, and
    `pr.*` event carries a sealed risk assessment you author under the
-   CLI's pinned risk definitions (`extract brief` → judgment →
-   `extract finalize` → `log post --assessment`; see "Risk assessments"
-   in monitor.md). Outside Factory sessions, for every
+   CLI's pinned risk definitions. The definition is the resource type
+   (`risk.task`, `risk.plan`, `risk.pr`), never the event name:
+   `extract brief risk.task` → judgment (`producer.role` is `author`,
+   `assessor`, or `human`) → `extract finalize risk.task` →
+   `extract context task.lifecycle <id>` → event value with `"risk"`
+   set to the whole sealed `result.json` → `log post --event
+   task.started --assessment <sealed>`; see Report and "Risk
+   assessments" in monitor.md. Outside Factory sessions, for every
    PR you pushed to this session, confirm its current head has
    annotations (`extract show pr.review-annotations <num> --json`) and
    store them if it does not, and confirm each focus range on that head
