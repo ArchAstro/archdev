@@ -34,8 +34,9 @@ block. The static checklist below is the same shape for reference.
 With hooks installed, a tool call that looks like a watched event (commit,
 push, `gh pr …`, `archdev tasks …`, a plan edit) is followed by an
 `ArchDev monitor:` note naming the likely event and extractor. Report it
-if it is a real hit; `archdev log post --event <event>` clears it. A note
-left unreported is repeated once at your next prompt. In Claude Code the
+if it is a real hit. The note clears once the room accepts (or queues) an
+`archdev log post --event <event>` for it; a post the CLI rejects leaves
+it pending. A note left unreported is repeated once at your next prompt. In Claude Code the
 stop and subagent-stop hooks hold the stop once for each pull request head
 you pushed that has no review annotations, naming the commands to store
 them. Other harnesses never block a stop, and Factory and daemon sessions
