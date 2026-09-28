@@ -267,8 +267,9 @@ Rules:
 - When an event marks the outcome, add the kind to the event's own
   call — never post twice —
   `"$archdev" log post --project <id> --kind done "<outcome>" -r <PR URL> --event pr.closed
-  --payload-file <envelope> --assessment <sealed>`. It counts as a `done`
-  for teammates and carries the validated event for activity readers.
+  --payload-file <dir>/event.json --assessment <dir>/sealed/result.json`.
+  It counts as a `done` for teammates and carries the validated event
+  for activity readers.
 - `--answers <msg_id>` links a post to the teammate `question` it
   answers.
 - Review each post before sending. Never post raw transcripts; state
@@ -363,6 +364,19 @@ Rules:
 - PR events: on `pr.created`, and on `pr.updated` when the head moved,
   store the head's review annotations *before* logging the event (see
   PR review annotations, below).
+- Events without an assessment (`commit.*`, `agent.*`):
+  `"$archdev" extract context <extractor> <ref> --json` prints the value
+  schema; author the value into `<dir>/event.json` and post it with
+  `"$archdev" log post --project <id> --event <event> --payload-file <dir>/event.json --message "<one-line summary>"`.
+  `--payload-file` takes the value object, never an extraction
+  envelope. When the value comes from
+  `"$archdev" extract run <extractor> <ref> --sink file:<dir>/out/`,
+  the sink writes a nested envelope `{key, provenance, schema, value}`
+  several directories down (find it with
+  `find <dir>/out -name '*.json'`), and passing that file fails with
+  `Unrecognized keys: "schema", "key", "provenance", "value"`. Extract
+  the envelope value file first:
+  `jq .value <envelope.json> > <dir>/event.json`.
 
 ## Risk assessments
 
