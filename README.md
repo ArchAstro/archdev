@@ -86,3 +86,10 @@ This repository owns public distribution: installers, release
 metadata, and downloadable binaries. ArchDev's source and release build stay
 in firstlanding. Report installation and packaging problems with a GitHub
 issue here.
+
+## License
+
+The files in this repository (including installers, skills, and documentation)
+are licensed under the [MIT License](LICENSE). Release binaries are built from
+a separate private source repository; this license does not apply to those
+binaries.
