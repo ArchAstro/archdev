@@ -80,11 +80,6 @@ npx skills add ArchAstro/archdev --skill tasks
 Then ask your agent:
 “Turn our plan into Tasks, open the web review, and iterate on my feedback.”
 
-## Skills (deprecated)
-
-The agents, inspect, jobs, and rooms skills have moved to `deprecated/` and
-are no longer published.
-
 ## Repository scope
 
 This repository owns public distribution: installers, release
