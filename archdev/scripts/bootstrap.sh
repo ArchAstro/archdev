@@ -6,7 +6,7 @@ installer_revision="9d50e7ce1e64a731d88cca8ae15ec2c45b1375df"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
 installer_sha256="04bde605fce1b3b2b33e13d730e31012e9fa53bce18465befd87b243ee70ffb2"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
-min_version="0.46.6"
+min_version="0.47.0"
 
 absolute_path() {
   local candidate="$1"
@@ -86,7 +86,7 @@ supports_skill() {
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).\n' >&2
+  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs, or does not hold a stop for a pushed pull request head that has no review annotations (need 0.47.0+).\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
