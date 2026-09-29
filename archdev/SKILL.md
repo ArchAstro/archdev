@@ -5,12 +5,13 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.46.6 or newer (the `repo` namespace, `log post` /
+Requires CLI 0.47.0 or newer (the `repo` namespace, `log post` /
 `messages` / `search`, harness hooks, `extract brief`, `extract finalize`
 with `--publish` for sealed code-region assessments on a PR's focus
 ranges, and `log --assessment` for sealed risk assessments on
-plan/task/pr events, plus `projects`, `log post --project`, and hooks that
-keep an `--uninstall` opt-out). The bootstrap script
+plan/task/pr events, plus `projects`, `log post --project`, hooks that
+keep an `--uninstall` opt-out, and the Stop hook that holds a session
+once for a pushed pull request head with no review annotations). The bootstrap script
 below upgrades older installs automatically; on a CLI it could not
 upgrade, follow the fallbacks in monitor.md.
 
