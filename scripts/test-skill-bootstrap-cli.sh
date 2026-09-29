@@ -4,7 +4,7 @@
 # archdev/scripts/bootstrap.sh in a throwaway HOME as a harness would, then
 # reads the hook files the CLI wrote.
 #
-# Usage: scripts/test-skill-bootstrap-cli.sh   (needs archdev 0.46.6+ on PATH)
+# Usage: scripts/test-skill-bootstrap-cli.sh   (needs archdev 0.47.0+ on PATH)
 
 set -euo pipefail
 
