@@ -37,8 +37,9 @@ push, `gh pr …`, `archdev tasks …`, a plan edit) is followed by an
 if it is a real hit. The note clears once the room accepts (or queues) an
 `archdev log post --event <event>` for it; a post the CLI rejects leaves
 it pending. A note left unreported is repeated once at your next prompt.
-Commits and pushes you make from the shell are posted for you; do not
-report them. In Claude Code the
+On current CLIs, commits and pushes of the current branch that you make
+with `git` in this checkout are posted for you and raise no note. Report a
+commit or push only when a note names it. In Claude Code the
 stop and subagent-stop hooks hold the stop once for each pull request head
 you pushed that has no review annotations, naming the commands to store
 them. Other harnesses never block a stop, and Factory and daemon sessions
@@ -192,8 +193,9 @@ out), ask:
 1. Did I start a session, get steered, or stop? → `agent.session_*`
 2. Was a plan created, started, or updated? (plan `detection`: …)
 3. Was a task created, started, updated, or closed? (task `detection`: …)
-4. Was a commit created or pushed? (commit `detection`: …) → shell commits
-   and pushes are posted for you; report only one a note names
+4. Was a commit created or pushed? (commit `detection`: …) → git commits
+   and pushes of the current branch are posted for you; report one only
+   when a note names it
 5. Was a PR created, updated, or closed? (pr `detection`: …) → on
    created, or updated with a new head, store its review annotations
    first (see PR review annotations; not in Factory sessions). Then, for
