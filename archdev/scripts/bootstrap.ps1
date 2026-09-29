@@ -33,7 +33,7 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-$minVersion = [Version]"0.46.6"
+$minVersion = [Version]"0.47.0"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
@@ -61,7 +61,7 @@ function Test-Skill([string]$Binary) {
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs (need 0.46.6+).")
+    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs, or does not hold a stop for a pushed pull request head that has no review annotations (need 0.47.0+).")
     $archdev = Install-ArchDev
 }
 
