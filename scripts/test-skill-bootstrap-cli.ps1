@@ -71,7 +71,16 @@ try {
         foreach ($marker in @('CLAUDECODE', 'CODEX_THREAD_ID')) {
             Set-Item "Env:$marker" '1'
             try {
-                & $binary auth status *> $null
+                # Windows PowerShell promotes native stderr to an error even
+                # when redirected. Missing login is expected in this HOME;
+                # relax only this probe and assert its exit before continuing.
+                $probeErrorAction = $ErrorActionPreference
+                try {
+                    $ErrorActionPreference = 'Continue'
+                    & $binary auth status *> $null
+                    $authExit = $LASTEXITCODE
+                } finally { $ErrorActionPreference = $probeErrorAction }
+                Assert-Proof ($authExit -eq 1) "Expected unauthenticated auth status exit 1, got $authExit"
                 & $binary tasks guide *> $null
                 Assert-Proof ($LASTEXITCODE -eq 0) "Tasks guide failed"
                 Assert-Proof ((Snapshot $homeDir) -eq $before) "Ordinary commands changed personal configuration"
