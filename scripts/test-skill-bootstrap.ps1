@@ -62,8 +62,13 @@ function Invoke-Case {
     $runner = Join-Path $caseDir "runner.ps1"
     $bootstrap = (Join-Path $repo "$Skill/scripts/bootstrap.ps1").Replace("'", "''")
     Set-Content -LiteralPath $runner -Value @"
+`$ErrorActionPreference = 'Stop'
 function global:Invoke-WebRequest { throw 'Blocked installer download in bootstrap fixture' }
-& '$bootstrap'
+try { & '$bootstrap' } catch {
+    [Console]::Error.WriteLine(`$_.ToString())
+    exit 1
+}
+exit 0
 "@
     try {
         $out = & $shell -NoProfile -ExecutionPolicy Bypass -File $runner 2>(Join-Path $caseDir "stderr")
@@ -130,3 +135,6 @@ if ($failures -gt 0) {
     exit 1
 }
 Write-Host "All bootstrap cases passed"
+# GitHub's PowerShell wrapper inherits LASTEXITCODE; negative cases must not
+# turn a successful fixture suite into a failed job.
+exit 0
