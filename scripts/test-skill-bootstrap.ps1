@@ -16,7 +16,7 @@ $onWindows = $env:OS -eq "Windows_NT"
 $caseVariables = @(
     "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "USERPROFILE",
     "ARCHDEV_FACTORY_AGENT_ROLE", "ARCHDEV_JOB_ID", "ARCHDEV_STEP_ID",
-    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION"
+    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION", "ARCHDEV_INSTALL_DIR"
 )
 $savedPath = $env:PATH
 $savedHome = $env:HOME
@@ -57,6 +57,9 @@ function Invoke-Case {
     if ($onWindows) { $env:USERPROFILE = $homeDir }
     $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
+    # Linux PowerShell has no LOCALAPPDATA; rejection tests must reach the
+    # intercepted download, not fail while constructing a Windows default.
+    $env:ARCHDEV_INSTALL_DIR = Join-Path $caseDir "install"
     foreach ($key in $Environment.Keys) { Set-Item "Env:$key" $Environment[$key] }
     # Intercept every installer download, including negative capability cases.
     $runner = Join-Path $caseDir "runner.ps1"
@@ -81,7 +84,8 @@ exit 0
     if ($ExpectFailure) {
         $errorText = Get-Content (Join-Path $caseDir "stderr") -Raw
         if ($exit -eq 0 -or @($out).Count -ne 0 -or (Get-Item $log).Length -ne 0 -or $errorText -notmatch 'Blocked installer download') {
-            Write-Host "FAIL ${Name}: unsupported CLI accepted, wrote hooks, or escaped download interception"
+            Write-Host "FAIL ${Name}: unsupported CLI accepted, wrote hooks, or escaped download interception (exit=$exit)"
+            Write-Host $errorText
             $script:failures++
         } else { Write-Host "ok   $Name rejected without downloads or global fallback" }
         return
