@@ -10,6 +10,19 @@ browser handoff, feedback collection, revisions, and save verification; the
 human reviews the plan in the web UI. This works from any coding harness and
 does not require Factory, a daemon, a resident agent, or `archdev setup`.
 
+## Epic and project membership
+
+Before creating Tasks, search `archdev projects list --query "<epic>"` for an
+active project with the epic's exact name and the appropriate scope. Reuse it;
+if none fits, create it with `archdev projects create "<epic>" --description
+"<scope>"`. Resolve duplicate names by scope. Set both `--epic` and `--project`
+on task create/update. For graph import and review, set top-level `epic` and
+`project_id` on every node. Preserve the project ID across name changes.
+Without an epic, select the project by product area or initiative. Older tasks
+and artifacts may omit these optional fields; new agent-authored work should
+include both. Project membership does not change task visibility.
+
+
 ## 1. Connect this machine
 
 Resolve the absolute directory containing this loaded `SKILL.md`, independently
@@ -455,3 +468,11 @@ user's direction on decisions and scope.
 7. **Comment every status change** with why and what it unblocks. A
    status change with no comment is as opaque to the next person as the
    pause it resolved.
+
+
+During staggered releases, check `tasks create --help` for `--project`
+before authoring tasks with this guidance. If unavailable, upgrade the CLI;
+do not silently omit membership. Keep project names at most 80 characters
+until the deployed project schema and all participating CLI readers support
+200. Do not truncate an epic to create a misleading match; defer creating
+that project until those deployments are ready.

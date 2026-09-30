@@ -222,17 +222,20 @@ works on its own or on top of any `--event`.
 ### Tag every post with its project
 
 Before the first lifecycle post, find the project this work belongs to:
-`"$archdev" projects list --query "<subject>"`, then read the
-descriptions. Pick the project whose scope covers this work and pass its
-ID as `--project <id>` on every `archdev log post` for that work —
-notes, events, and `--kind` posts alike. The project belongs to the
-work, not the session: when a steer moves you to a different initiative
-(`agent.steered`), or a task turns out to sit elsewhere, look it up
-again before the next post. Create a project only when no
-active project fits (`"$archdev" projects create "<name>" --description
-"<which work belongs here>"`), and name it for the product area or
-initiative, not for the task or PR. Never create a project per PR, per
-task, or per session.
+`"$archdev" projects list --query "<epic or subject>"`, then read the
+descriptions. Pass its ID as `--project <id>` on every post, including
+notes, events, and `--kind` posts. When the work changes scope, look it up
+again before the next post.
+
+For work with an epic, search active projects for that exact epic name and
+confirm the scope. Reuse the matching project, or create one named for the epic
+when none fits. Resolve duplicate names by scope, never by result order. Set
+both `epic` and `project_id` on tasks (`tasks create/update --epic <name>
+--project <id>`); graph previews use top-level `epic` and `project_id` on each
+node. Use the same project ID on stream posts. Keep existing project IDs stable;
+do not rename a broad project based on one task. Without an epic, use the
+product area or initiative. These fields remain optional for older tasks and
+clients; agents authoring new work should set both.
 
 The tag lands in `metadata.project_id` beside the `pull_request` and
 `task_id` join keys, the key readers such as minimap file the post by.
@@ -732,3 +735,11 @@ the taxonomy proves itself.
   session posts; subagents never post.
 - Never post secrets, tokens, customer data, or unreviewed private
   content.
+
+
+During staggered releases, check `tasks create --help` for `--project`
+before authoring tasks with this guidance. If unavailable, upgrade the CLI;
+do not silently omit membership. Keep project names at most 80 characters
+until the deployed project schema and all participating CLI readers support
+200. Do not truncate an epic to create a misleading match; defer creating
+that project until those deployments are ready.
