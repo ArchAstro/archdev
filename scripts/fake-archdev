@@ -9,14 +9,24 @@ set -euo pipefail
 
 args="$*"
 case "$args" in
-  --version) echo 0.47.0 ;;
+  --version) echo "${ARCHDEV_FAKE_VERSION:-0.47.0}" ;;
+  "tasks review update --help") echo "Usage: archdev tasks review update [options] <id>" ;;
   "agents run --help") echo "Usage: archdev agents run [options]" ;;
   "settings provider models --help") echo "Usage: archdev settings provider models [options]" ;;
   "repo status --help") echo "Probe CLI, login, model access, repo wiring, taxonomy, and hooks" ;;
   "projects list --help") echo "Usage: archdev projects list [options]" ;;
   "log post --help") echo "  --project <id>  Project for this post" ;;
   "extract finalize --help") echo "  --publish <pull>  Publish to a pull request" ;;
-  "repo hook setup --help") echo "  --refresh  Only update harnesses that already have archdev hooks" ;;
+  "repo hook setup --help")
+    [[ "${ARCHDEV_FAKE_NO_LOCAL:-0}" == 1 ]] || echo "  --local  Install repository hooks"
+    echo "  --refresh  Only update harnesses that already have archdev hooks"
+    # Multiple writes after the matching line catch grep -q/SIGPIPE probes.
+    if [[ "${ARCHDEV_FAKE_VERBOSE_HELP:-0}" == 1 ]]; then
+      for ((line = 0; line < 4096; line++)); do
+        printf 'Additional hook reference information %s\n' "$line"
+      done
+    fi
+    ;;
   "repo hook setup"*)
     printf '%s\n' "$args" >>"$ARCHDEV_FAKE_LOG"
     # Real setup reports what it changed on stdout; the bootstrap must keep

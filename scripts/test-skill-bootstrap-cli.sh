@@ -1,129 +1,128 @@
 #!/usr/bin/env bash
-# End-to-end check of the skill bootstrap against the real archdev on PATH
-# (CI installs the latest release first). Each case runs
-# archdev/scripts/bootstrap.sh in a throwaway HOME as a harness would, then
-# reads the hook files the CLI wrote.
-#
-# Usage: scripts/test-skill-bootstrap-cli.sh   (needs archdev 0.47.0+ on PATH)
-
+# Canonical proof: an agent resolves ArchDev without configuring hooks, then
+# applies only an explicitly chosen placement. Real CLI and shell callbacks;
+# no coding-agent trust or browser authentication is simulated as verified.
+# Usage: scripts/test-skill-bootstrap-cli.sh (ArchDev 0.47.0+ and Node on PATH)
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-archdev="$(command -v archdev)" || {
-  printf 'archdev is not on PATH; install it first (./install.sh)\n' >&2
-  exit 1
-}
+archdev="$(command -v archdev)"
 archdev_dir="$(dirname "$archdev")"
+node="$(command -v node)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/archdev-bootstrap-cli-test.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-failures=0
-
-fail() {
-  printf 'FAIL %s\n' "$1" >&2
-  failures=$((failures + 1))
-}
-pass() { printf 'ok   %s\n' "$1"; }
-
-# Run a command as a harness would, in $home with only the given variables.
-in_home() {
-  env -i HOME="$home" PATH="$archdev_dir:/usr/bin:/bin" "$@"
-}
-
-# Distinct archdev hook events in a hook file, sorted, one line.
-archdev_events() {
-  [[ -f "$1" ]] || return 0
-  python3 - "$1" <<'PY'
-import json, sys
-hooks = json.load(open(sys.argv[1])).get("hooks", {})
-events = sorted(
-    event for event, groups in hooks.items()
-    if any(h.get("command", "").startswith("archdev repo hook ")
-           for g in groups for h in g.get("hooks", []))
-)
-print(" ".join(events))
-PY
-}
-
-# Claude Code session on a machine with Claude installed but no ArchDev
-# hooks, the state behind `hooks:claude missing`.
-home="$work/claude/home"
-mkdir -p "$home/.claude"
-settings="$home/.claude/settings.json"
-
-# Boundary: the bootstrap runs the real CLI, which writes settings.json.
-out="$(in_home CLAUDECODE=1 bash "$repo/archdev/scripts/bootstrap.sh" 2>"$work/claude.stderr")" ||
-  { cat "$work/claude.stderr" >&2; fail "bootstrap exited nonzero in Claude Code"; }
-[[ "$out" == "$archdev" ]] && pass "bootstrap prints only the archdev path" ||
-  fail "bootstrap printed '$out', not $archdev"
-
-# Outcome: every Claude event, subagents included, runs an archdev hook.
-events="$(archdev_events "$settings")"
-[[ "$events" == "PostToolUse SessionStart Stop SubagentStart SubagentStop UserPromptSubmit" ]] &&
-  pass "Claude Code gets session and subagent hooks" ||
-  fail "Claude hook events: '$events'"
-
-# The command settings.json installed for one event.
-installed_command() {
-  python3 - "$settings" "$1" <<'PY'
-import json, sys
-groups = json.load(open(sys.argv[1]))["hooks"][sys.argv[2]]
-print(next(h["command"] for g in groups for h in g["hooks"]
-           if h["command"].startswith("archdev repo hook ")))
-PY
-}
-
-# Boundary: run the installed SessionStart and SubagentStart commands as
-# Claude Code would, in a Git checkout. Both tell the agent to load the
-# archdev skill.
+home="$work/home"
 checkout="$work/checkout"
-git init --quiet "$checkout"
-start="$(cd "$checkout" && printf '{"hook_event_name":"SessionStart","source":"startup","cwd":"%s"}' "$checkout" |
-  in_home bash -c "$(installed_command SessionStart 2>/dev/null)" 2>/dev/null || true)"
-[[ "$start" == *'Load the `archdev` skill'* ]] &&
-  pass "session start hook asks the agent to load the skill" ||
-  fail "session start hook output: $start"
-subagent="$(cd "$checkout" && printf '{"hook_event_name":"SubagentStart","agent_type":"general-purpose","cwd":"%s"}' "$checkout" |
-  in_home bash -c "$(installed_command SubagentStart 2>/dev/null)" 2>/dev/null || true)"
-[[ "$subagent" == *'Load the `archdev` skill'* ]] &&
-  pass "subagent start hook asks the subagent to load the skill" ||
-  fail "subagent start hook output: $subagent"
+mkdir -p "$home/.claude" "$checkout" "$work/node-only" "$work/empty-templates"
+git -c core.hooksPath=/dev/null -c init.templateDir="$work/empty-templates" init --quiet "$checkout"
+ln -s "$node" "$work/node-only/node"
+node_dir="$(dirname "$node")"
 
-# A second bootstrap leaves the installed hooks as they are.
-before="$(cat "$settings" 2>/dev/null || true)"
-in_home CLAUDECODE=1 bash "$repo/archdev/scripts/bootstrap.sh" >/dev/null 2>&1 ||
-  fail "second bootstrap exited nonzero"
-[[ -f "$settings" && "$(cat "$settings")" == "$before" ]] && pass "second bootstrap changes nothing" ||
-  fail "second bootstrap rewrote settings.json"
+in_home() (
+  cd "$checkout"
+  env -i HOME="$home" PATH="$archdev_dir:$node_dir:/usr/bin:/bin" "$@"
+)
+snapshot() {
+  python3 - "$1" <<'PY'
+import hashlib, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+for path in sorted(root.rglob('*')):
+    relative = path.relative_to(root)
+    # Process logs/cache/crash records are not hook or user configuration.
+    if relative.parts[:2] in [('.archdev', 'logs'), ('.cache', 'archdev')]:
+        continue
+    if path.is_file():
+        print(relative, hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+}
 
-# The user removes the hooks; the next bootstrap must not put them back.
-in_home archdev repo hook setup --uninstall --harness claude >/dev/null 2>&1 ||
-  fail "repo hook setup --uninstall exited nonzero"
-in_home CLAUDECODE=1 bash "$repo/archdev/scripts/bootstrap.sh" >/dev/null 2>&1 ||
-  fail "bootstrap after uninstall exited nonzero"
-events="$(archdev_events "$settings")"
-[[ -z "$events" ]] && pass "bootstrap respects an uninstall opt-out" ||
-  fail "hooks came back after --uninstall: '$events'"
+# Seed an unrelated personal hook. Existence of an agent config directory is
+# not permission for the skill to install or refresh user-wide ArchDev hooks.
+printf '%s\n' '{"permissions":{"allow":["Read"]},"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"printf teammate"}]}]}}' >"$home/.claude/settings.json"
+# Ordinary commands may initialize the product default. Seed this legitimate
+# profile once so the proof measures hook/setting mutations, not initialization.
+mkdir -p "$home/.config/archdev"
+printf '%s\n' '{"defaultApp":"dap_033y70rWJriCRNyb9uL0Pm"}' >"$home/.config/archdev/config.json"
+before="$(snapshot "$home")"
+checkout_before="$(snapshot "$checkout")"
+for skill in archdev tasks; do
+  for marker in CLAUDECODE=1 CODEX_THREAD_ID=thread-1 GROK_SESSION_ID=session-1 ARCHDEV_FACTORY_AGENT_ROLE=worker; do
+    out="$(in_home "$marker" bash "$repo/$skill/scripts/bootstrap.sh")"
+    [[ "$out" == "$archdev" ]]
+    [[ "$(snapshot "$home")" == "$before" ]]
+    [[ "$(snapshot "$checkout")" == "$checkout_before" ]]
+  done
+done
+# Ordinary authenticated/Tasks operations must not opt missing harnesses in.
+# Missing login is expected in this isolated home; configuration must stay put.
+for marker in CLAUDECODE=1 CODEX_THREAD_ID=thread-1; do
+  in_home "$marker" archdev auth status >/dev/null 2>&1 || true
+  in_home "$marker" archdev tasks guide >/dev/null
+  [[ "$(snapshot "$home")" == "$before" ]]
+  [[ "$(snapshot "$checkout")" == "$checkout_before" ]]
+done
+printf 'ok   core and Tasks resolve the real CLI without changing personal configuration\n'
 
-# A Factory worker in Claude Code leaves the user's settings alone.
-home="$work/factory/home"
-mkdir -p "$home/.claude"
-in_home CLAUDECODE=1 ARCHDEV_FACTORY_AGENT_ROLE=worker bash "$repo/archdev/scripts/bootstrap.sh" >/dev/null 2>&1 ||
-  fail "bootstrap exited nonzero in a Factory worker"
-events="$(archdev_events "$home/.claude/settings.json")"
-[[ -z "$events" ]] && pass "Factory worker installs no Claude hooks" ||
-  fail "Factory worker installed Claude hooks: '$events'"
+# The agent has received explicit repository/reporting consent. Cross the real
+# CLI process boundary into the isolated Git fixture; only shareable project
+# files may be written.
+(cd "$checkout" && in_home archdev repo hook setup --local)
+[[ "$(snapshot "$home")" == "$before" ]]
+for file in .claude/settings.json .codex/hooks.json .grok/hooks/archdev.json .pi/extensions/archdev.js .archdev/hooks.json; do
+  [[ -f "$checkout/$file" ]]
+done
+[[ ! -e "$checkout/.claude/settings.local.json" ]]
+printf 'ok   approved repository placement prepares all five harnesses and leaves personal settings alone\n'
 
-# Codex session: its own hooks.json gets the session hooks.
-home="$work/codex/home"
-mkdir -p "$home/.codex"
-in_home CODEX_THREAD_ID=019a-thread bash "$repo/archdev/scripts/bootstrap.sh" >/dev/null 2>"$work/codex.stderr" ||
-  { cat "$work/codex.stderr" >&2; fail "bootstrap exited nonzero in Codex"; }
-events="$(archdev_events "$home/.codex/hooks.json")"
-[[ "$events" == "PostToolUse SessionStart Stop UserPromptSubmit" ]] &&
-  pass "Codex gets session hooks" || fail "Codex hook events: '$events'"
+# Run the actual installed Claude callback as a harness would. The binary is
+# present; its existing workflow contract must survive the shared launcher.
+start_command="$(python3 - "$checkout/.claude/settings.json" <<'PY'
+import json, sys
+groups = json.load(open(sys.argv[1]))['hooks']['SessionStart']
+print(next(h['command'] for g in groups for h in g['hooks'] if 'archdev repo hook ' in h.get('command', '')))
+PY
+)"
+payload="$(printf '{"hook_event_name":"SessionStart","source":"startup","cwd":"%s"}' "$checkout")"
+start="$(cd "$checkout" && printf '%s' "$payload" | in_home bash -c "$start_command")"
+[[ "$start" == *'Load the `archdev` skill'* ]]
+printf 'ok   installed shared callback delegates to the real CLI and delivers its contract\n'
 
-if ((failures > 0)); then
-  printf '%d bootstrap CLI case(s) failed\n' "$failures" >&2
-  exit 1
-fi
-printf 'All bootstrap CLI cases passed\n'
+# A teammate without the binary gets guidance, not an installer or config
+# mutation. Node remains available, as required by repository JSON hooks.
+missing_before="$(snapshot "$home")"
+missing="$(cd "$checkout" && printf '%s' "$payload" | in_home PATH="$work/node-only:/usr/bin:/bin" bash -c "$start_command")"
+[[ "$missing" == *'https://archdev.ai/install.md'* ]]
+[[ "$(snapshot "$home")" == "$missing_before" ]]
+printf 'ok   missing-binary callback points to the agent guide without installing anything\n'
+
+# Re-loading either skill must not infer another scope from these files.
+project_before="$(snapshot "$checkout")"
+personal_before="$(snapshot "$home")"
+for skill in archdev tasks; do
+  (cd "$checkout" && in_home CLAUDECODE=1 bash "$repo/$skill/scripts/bootstrap.sh") >/dev/null
+done
+[[ "$(snapshot "$home")" == "$personal_before" ]]
+[[ "$(snapshot "$checkout")" == "$project_before" ]]
+
+# The user explicitly chooses machine-wide setup as a separate action. The
+# real CLI may now modify personal hooks, but never the existing project ones.
+(cd "$checkout" && in_home archdev repo hook setup)
+[[ "$(snapshot "$checkout")" == "$project_before" ]]
+python3 - "$home/.claude/settings.json" <<'PY'
+import json, sys
+settings = json.load(open(sys.argv[1]))
+assert settings['permissions'] == {'allow': ['Read']}
+commands = [h['command'] for g in settings['hooks']['SessionStart'] for h in g['hooks']]
+assert 'printf teammate' in commands
+assert any(c.startswith('archdev repo hook start') for c in commands)
+PY
+printf 'ok   only explicit user-wide setup writes personal ArchDev hooks, preserving unrelated settings\n'
+
+# An uninstall is not repaired by loading the skill. Project hooks survive;
+# bootstrap leaves the user's opt-out and personal settings byte-for-byte.
+in_home archdev repo hook setup --uninstall --harness claude
+uninstalled="$(snapshot "$home")"
+in_home CLAUDECODE=1 bash "$repo/archdev/scripts/bootstrap.sh" >/dev/null
+[[ "$(snapshot "$home")" == "$uninstalled" ]]
+[[ "$(snapshot "$checkout")" == "$project_before" ]]
+printf 'All explicit-placement bootstrap CLI cases passed\n'

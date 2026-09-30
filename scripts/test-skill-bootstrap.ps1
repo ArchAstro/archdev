@@ -1,8 +1,6 @@
-# Runs archdev/scripts/bootstrap.ps1 against scripts/fake-archdev in a
-# throwaway HOME for each case, and checks which `repo hook setup` call the
-# bootstrap made for the harness that ran it. What those calls do to hook
-# files is the CLI's job; scripts/test-skill-bootstrap-cli.sh checks that
-# against a real archdev. The fake CLI is a Bash script;
+# Runs core and Tasks bootstrap against fake-archdev in isolated homes.
+# Capability probes are allowed; no hook installation or refresh is allowed.
+# test-skill-bootstrap-cli.sh proves explicit scope with the real CLI. The fake CLI is a Bash script;
 # on Windows an archdev.cmd runs it through Git Bash, and the bootstrap runs
 # under Windows PowerShell (`powershell -File`), as SKILL.md invokes it.
 
@@ -18,7 +16,7 @@ $onWindows = $env:OS -eq "Windows_NT"
 $caseVariables = @(
     "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "USERPROFILE",
     "ARCHDEV_FACTORY_AGENT_ROLE", "ARCHDEV_JOB_ID", "ARCHDEV_STEP_ID",
-    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG"
+    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION"
 )
 $savedPath = $env:PATH
 $savedHome = $env:HOME
@@ -29,7 +27,9 @@ function Invoke-Case {
     param(
         [string]$Name,
         [string]$Expected,
-        [hashtable]$Environment = @{}
+        [hashtable]$Environment = @{},
+        [string]$Skill = "archdev",
+        [bool]$ExpectFailure = $false
     )
     $caseDir = Join-Path $work $Name
     $homeDir = Join-Path $caseDir "home"
@@ -58,14 +58,29 @@ function Invoke-Case {
     $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
     foreach ($key in $Environment.Keys) { Set-Item "Env:$key" $Environment[$key] }
+    # Intercept every installer download, including negative capability cases.
+    $runner = Join-Path $caseDir "runner.ps1"
+    $bootstrap = (Join-Path $repo "$Skill/scripts/bootstrap.ps1").Replace("'", "''")
+    Set-Content -LiteralPath $runner -Value @"
+function global:Invoke-WebRequest { throw 'Blocked installer download in bootstrap fixture' }
+& '$bootstrap'
+"@
     try {
-        $out = & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo "archdev/scripts/bootstrap.ps1") 2>(Join-Path $caseDir "stderr")
+        $out = & $shell -NoProfile -ExecutionPolicy Bypass -File $runner 2>(Join-Path $caseDir "stderr")
         $exit = $LASTEXITCODE
     } finally {
         $env:PATH = $savedPath
         $env:HOME = $savedHome
     }
 
+    if ($ExpectFailure) {
+        $errorText = Get-Content (Join-Path $caseDir "stderr") -Raw
+        if ($exit -eq 0 -or @($out).Count -ne 0 -or (Get-Item $log).Length -ne 0 -or $errorText -notmatch 'Blocked installer download') {
+            Write-Host "FAIL ${Name}: unsupported CLI accepted, wrote hooks, or escaped download interception"
+            $script:failures++
+        } else { Write-Host "ok   $Name rejected without downloads or global fallback" }
+        return
+    }
     if ($exit -ne 0) {
         Write-Host "FAIL ${Name}: bootstrap exited $exit"
         Get-Content (Join-Path $caseDir "stderr") | Write-Host
@@ -88,26 +103,20 @@ function Invoke-Case {
     }
 }
 
-$install = { param($harness) "repo hook setup --harness $harness`nrepo hook setup --refresh" }
-$refreshOnly = "repo hook setup --refresh"
-
 try {
-    # Each harness installs its own hooks, then every hooked harness refreshes.
-    Invoke-Case "claude" (& $install "claude") @{ CLAUDECODE = "1" }
-    Invoke-Case "codex" (& $install "codex") @{ CODEX_THREAD_ID = "019a-thread" }
-    Invoke-Case "grok" (& $install "grok") @{ GROK_SESSION_ID = "grok-session" }
-    # CLAUDECODE is a flag: only the value 1 marks Claude Code.
-    Invoke-Case "claude-flag-off" $refreshOnly @{ CLAUDECODE = "0" }
-    # Factory workers and daemon pipeline steps leave harness config to their
-    # host, so only refresh.
-    Invoke-Case "factory-worker" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_FACTORY_AGENT_ROLE = "worker" }
-    Invoke-Case "daemon-job" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_JOB_ID = "job-1" }
-    Invoke-Case "daemon-step" $refreshOnly @{ CLAUDECODE = "1"; ARCHDEV_STEP_ID = "step-1" }
-    # No harness marker: nothing to install for, so only refresh.
-    Invoke-Case "unknown-harness" $refreshOnly
-    # A failing setup is reported but does not fail the bootstrap, and the
-    # refresh still runs.
-    Invoke-Case "setup-fails" (& $install "claude") @{ CLAUDECODE = "1"; ARCHDEV_FAKE_SETUP_EXIT = "1" }
+    foreach ($skill in @("archdev", "tasks")) {
+        Invoke-Case "$skill-claude" "" @{ CLAUDECODE = "1" } $skill
+        Invoke-Case "$skill-codex" "" @{ CODEX_THREAD_ID = "019a-thread" } $skill
+        Invoke-Case "$skill-grok" "" @{ GROK_SESSION_ID = "grok-session" } $skill
+        Invoke-Case "$skill-claude-off" "" @{ CLAUDECODE = "0" } $skill
+        Invoke-Case "$skill-factory" "" @{ CLAUDECODE = "1"; ARCHDEV_FACTORY_AGENT_ROLE = "worker" } $skill
+        Invoke-Case "$skill-job" "" @{ CLAUDECODE = "1"; ARCHDEV_JOB_ID = "job-1" } $skill
+        Invoke-Case "$skill-step" "" @{ CLAUDECODE = "1"; ARCHDEV_STEP_ID = "step-1" } $skill
+        Invoke-Case "$skill-unknown" "" @{} $skill
+        Invoke-Case "$skill-setup-would-fail" "" @{ CLAUDECODE = "1"; ARCHDEV_FAKE_SETUP_EXIT = "1" } $skill
+        Invoke-Case "$skill-no-local" "" @{ ARCHDEV_FAKE_NO_LOCAL = "1" } $skill $true
+        Invoke-Case "$skill-old-version" "" @{ ARCHDEV_FAKE_VERSION = "0.46.0" } $skill $true
+    }
 } finally {
     foreach ($name in $caseVariables) {
         if ($null -eq $saved[$name]) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   skill-bootstrap:
-    name: Skill bootstrap hook setup
+    name: Skill bootstrap leaves configuration alone
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -22,13 +22,28 @@ jobs:
         run: ./scripts/test-skill-bootstrap.ps1
 
   skill-bootstrap-windows:
-    name: Skill bootstrap hook setup (Windows PowerShell)
+    name: Skill bootstrap leaves configuration alone (Windows PowerShell)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: PowerShell bootstrap
         shell: pwsh
         run: ./scripts/test-skill-bootstrap.ps1
+
+  skill-bootstrap-cli-windows:
+    name: Explicit placement with the released CLI (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the latest ArchDev release
+        shell: powershell
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP 'archdev-bin'
+          ./install.ps1 -InstallDir $installDir -SkipPathUpdate
+          $installDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Agent configures only the explicitly chosen scope
+        shell: powershell
+        run: ./scripts/test-skill-bootstrap-cli.ps1
 
   skill-bootstrap-cli:
     name: Skill bootstrap with the released CLI
@@ -43,5 +58,5 @@ jobs:
         run: |
           ./install.sh
           echo "$ARCHDEV_INSTALL_DIR" >>"$GITHUB_PATH"
-      - name: Bootstrap installs and respects hooks
+      - name: Agent configures only the explicitly chosen scope
         run: scripts/test-skill-bootstrap-cli.sh

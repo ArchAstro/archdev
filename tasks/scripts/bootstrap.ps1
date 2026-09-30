@@ -33,9 +33,20 @@ function Install-ArchDev {
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Install-ArchDev }
 
-& $archdev tasks review update --help *> $null
-if ($LASTEXITCODE -ne 0) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Tasks web review commands.")
+function Test-Tasks([string]$Binary) {
+    $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
+    try {
+        if ([Version]$raw -lt [Version]"0.47.0") { return $false }
+    } catch { return $false }
+    $helpText = & $Binary tasks review update --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev tasks review update ")) { return $false }
+    # This capability marks the release with consent-safe hook self-heal.
+    $hookHelp = & $Binary repo hook setup --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($hookHelp -join "`n") -match "--local"))
+}
+
+if (-not (Test-Tasks $archdev)) {
+    [Console]::Error.WriteLine("Updating ArchDev: Tasks requires 0.47.0+, web review commands, and consent-safe repository hook support.")
     $archdev = Install-ArchDev
 }
 
@@ -44,23 +55,7 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-& $archdev tasks review update --help *> $null
-if ($LASTEXITCODE -ne 0) { throw "Installed ArchDev does not provide Tasks web review commands" }
+if (-not (Test-Tasks $archdev)) { throw "Installed ArchDev lacks Tasks web review commands or consent-safe repository hook support on 0.47.0+" }
 
-# Bring installed ArchDev harness hooks up to this CLI's hook wiring. Only
-# harnesses that already have archdev hooks change, and a failure (for example
-# an older archdev earlier on PATH) is reported without blocking the skill.
-# Its stderr goes straight to the console; only stdout is relayed, because
-# merging stderr into the pipeline under ErrorActionPreference=Stop throws.
-try {
-    $hookHelp = (& $archdev repo hook setup --help 2>$null) -join "`n"
-    if ($hookHelp -match "--refresh") {
-        & $archdev repo hook setup --refresh | ForEach-Object { [Console]::Error.WriteLine($_) }
-        if ($LASTEXITCODE -ne 0) {
-            [Console]::Error.WriteLine("Could not refresh ArchDev hooks; see above, then run: archdev repo hook setup")
-        }
-    }
-} catch {
-    [Console]::Error.WriteLine("Could not refresh ArchDev hooks: $_")
-}
+# Tasks executable resolution does not authorize changing hook configuration.
 Write-Output $archdev

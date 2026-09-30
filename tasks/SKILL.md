@@ -14,8 +14,12 @@ does not require Factory, a daemon, a resident agent, or `archdev setup`.
 
 Resolve the absolute directory containing this loaded `SKILL.md`, independently
 of the current repository. Its bootstrap installs ArchDev when missing and
-updates an older CLI that lacks the review commands. Capture its stdout, which
-is the executable's absolute path; diagnostics go to stderr.
+updates a CLI older than 0.47.0 or lacking review commands. Get approval
+before installing or upgrading software. The scripts never install or
+refresh hooks or change configuration scope. For initial ArchDev setup,
+follow [the agent installation guide](https://archdev.ai/install.md) and
+wait for explicit placement and reporting consent. Capture bootstrap stdout,
+which is the executable's absolute path; diagnostics go to stderr.
 
 Bash/Zsh:
 

@@ -1,7 +1,12 @@
 # Map
 
-Goal: opt the repo into ArchDev and record how it works in `archdev.json`
-under the `activity` key, then install the monitor hooks.
+Goal: record the approved repository workflow in `archdev.json` under
+`activity`, then install hooks in the approved scope. This is an agent
+implementation reference, not a list of commands for the user.
+
+Follow [the installation guide](https://archdev.ai/install.md) first. User-wide
+installation does not authorize repository mapping: skip this phase unless
+repository placement or separate mapping was explicitly approved.
 
 ## 1. Init
 
@@ -9,7 +14,7 @@ under the `activity` key, then install the monitor hooks.
    in; the local daemon is not involved.
 2. If absent: `"$archdev" repo map init` (§2) creates `archdev.json`
    along with the activity skeleton. A CLI that refuses here predates
-   this; re-run the bootstrap script to upgrade.
+   this; request an approved software upgrade, then check `--local` support.
 3. Do not run `repo init` (`jobs repo enable`) for onboarding. It
    clones a private repository and registers it with the local daemon,
    which only jobs, Factory, and PR watching need. `repo status` does
@@ -20,7 +25,8 @@ under the `activity` key, then install the monitor hooks.
 
 ## 2. Scaffold and interview
 
-1. Run `"$archdev" repo map init` to scaffold the `activity` skeleton —
+1. If the mapping is already complete, leave it unchanged. Otherwise run
+   `"$archdev" repo map init` to scaffold the `activity` skeleton —
    prefilled from the resolved `tasks.backend`, existing plan dirs,
    origin remote, and VCS topology. It merges missing keys and refuses
    to overwrite a filled taxonomy without `--force`.
@@ -77,42 +83,57 @@ Task-system vocabulary (open list): `archdev` (local,
 issues/projects), `linear`, `jira`, `asana`, `trello`, `notion`,
 `clickup`, `azure-boards`, `youtrack`, `todoist`, `markdown`
 (`TODO.md`, `tasks/`), `manual` (chat-assigned, no tracker).
-Harnesses: `claude|codex|cursor|gemini|copilot|opencode|grok|archdev`
+Harnesses: `claude|codex|cursor|gemini|copilot|opencode|grok|pi|archdev`
 + free text. PR providers: `github|gitlab|bitbucket|forgejo|azure` + …
 VCS: `git|jj|sapling|hg|svn|…`. `check` enforces the schema; re-run it
 after editing.
 
-## 4. Install hooks (final map step)
+## 4. Install hooks in the approved scope
 
-Install now — session coverage starts immediately:
+Explain that session activity goes to the organization's stream, where other
+members can read it. Require explicit reporting consent before installation.
+
+**For this repository**, from its Git root:
 
 ```sh
-"$archdev" repo hook setup [--harness claude|codex|grok|pi|archdev] [--force]
+"$archdev" repo hook setup --local
 ```
 
-Installs SessionStart, UserPromptSubmit, PostToolUse and Stop, plus
-SubagentStart and SubagentStop for Claude (Grok: no UserPromptSubmit).
-Without `--harness`, covers every installed harness (config-dir presence =
-installed); warns when none is found — pass `--harness <name>` to install
-anyway. `--uninstall` removes them and records the opt-out in
-`~/.archdev/hook-opt-out.json`; `setup --harness <name>`, `setup --refresh`,
-full `archdev setup`, and the self-heal all skip an opted-out harness, while
-a bare `setup` or `--force` reinstalls it and clears the opt-out. `repo
-status` still shows an opted-out harness as missing; leave it that way
-unless the user asks.
-Harnesses outside that list: hand-author entries invoking `repo hook
-start|prompt|post-tool|stop --spec <N>` (copy `N` from `repo hook setup
---help`). Verify with `repo status`: it reports missing hooks and hooks
-from an older `--spec` as stale.
+This prepares Claude Code, Codex, Grok, Pi, and ArchDev, even if those tools are
+not installed yet. It preserves other tools' settings and user-wide hooks.
+Claude uses shareable `.claude/settings.json`; the other paths are
+`.codex/hooks.json`, `.grok/hooks/archdev.json`, `.pi/extensions/archdev.js`,
+and `.archdev/hooks.json`. Missing-binary callbacks provide installation
+guidance without downloads. Node.js is required for shared JSON callbacks.
+Codex and Grok require project trust; never approve it automatically. Reload
+Pi after installing its extension. Share files only through approved code
+review, never automatic commits.
 
-Each installed command carries `--spec N`, the hook wiring version of the
-CLI that wrote it. After checking the CLI, this skill's bootstrap runs
-`repo hook setup --harness <name>` for the harness running it (from
-`CLAUDECODE=1`, `CODEX_THREAD_ID`, or `GROK_SESSION_ID`), then `repo hook
-setup --refresh`, which updates harnesses that already have archdev hooks
-and always installs ArchDev's own runtime hooks. Inside a Factory worker or
-daemon pipeline step the bootstrap skips the `--harness` install. Most other `archdev` commands run
-inside Claude Code or Codex do the same install for that harness when its
-hooks are missing or stale. Setup
-refuses when the `archdev` on PATH (what hooks run) is older than the CLI
-running setup; upgrade or fix PATH rather than passing `--force`.
+**For me on this machine**, only after that explicit choice:
+
+```sh
+"$archdev" repo hook setup
+```
+
+This configures detected user-wide harnesses, not repository files. It does
+not authorize initializing shared repository configuration. `--harness
+claude codex` selects particular harnesses in either scope. Preserve the
+scope when repairing or removing hooks: refresh existing hooks with
+`repo hook setup --refresh --local` for repository placement, or
+`repo hook setup --refresh` for user-wide placement. Bare setup is a first
+installation action, not a repair: it can clear opt-outs. Reinstall an opted-out
+tool only after separate approval: verify that the resolved executable matches
+the harness PATH, then use `repo hook setup --harness <name> --force`, retaining
+the selected scope. This may clear only the approved harness's opt-out; never
+use `--force` to bypass a PATH mismatch.
+Repository removals use `--local`; user-wide removals omit it. `--uninstall --local` removes
+only ArchDev's repository hooks. User-wide uninstall records an opt-out;
+leave opted-out harnesses alone unless the user explicitly requests reinstall.
+Never use `--force` just to silence a readiness check.
+
+The binary bootstrap never installs or refreshes hooks. `repo status --json`
+can identify missing/stale wiring, but a remediation is not permission to
+change scope. Check the actual files and test activation in a new trusted
+session when possible; file creation alone does not prove activation.
+If a different `archdev` on PATH prevents setup, repair PATH with permission
+rather than forcing setup or falling back to global hooks.
