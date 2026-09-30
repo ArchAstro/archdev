@@ -77,16 +77,17 @@ version_ok() {
 
 supports_skill() {
   version_ok "$1" &&
-    "$1" agents run --help 2>/dev/null | grep -Fq "Usage: archdev agents run " &&
-    "$1" settings provider models --help 2>/dev/null | grep -Fq "Usage: archdev settings provider models " &&
-    "$1" repo status --help 2>/dev/null | grep -Fq "Probe CLI, login, model access" &&
-    "$1" projects list --help 2>/dev/null | grep -Fq "Usage: archdev projects list " &&
-    "$1" log post --help 2>/dev/null | grep -Fq -- "--project <id>" &&
-    "$1" extract finalize --help 2>/dev/null | grep -Fq -- "--publish <pull>"
+    "$1" agents run --help 2>/dev/null | grep -F "Usage: archdev agents run " >/dev/null &&
+    "$1" settings provider models --help 2>/dev/null | grep -F "Usage: archdev settings provider models " >/dev/null &&
+    "$1" repo status --help 2>/dev/null | grep -F "Probe CLI, login, model access" >/dev/null &&
+    "$1" projects list --help 2>/dev/null | grep -F "Usage: archdev projects list " >/dev/null &&
+    "$1" log post --help 2>/dev/null | grep -F -- "--project <id>" >/dev/null &&
+    "$1" extract finalize --help 2>/dev/null | grep -F -- "--publish <pull>" >/dev/null &&
+    "$1" repo hook setup --help 2>/dev/null | grep -F -- "--local" >/dev/null
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs, or does not hold a stop for a pushed pull request head that has no review annotations (need 0.47.0+).\n' >&2
+  printf 'Updating ArchDev: this skill requires 0.47.0+ and repository hook setup with --local.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -98,42 +99,10 @@ fi
 
 "$executable" --version >&2
 supports_skill "$executable" || {
-  printf 'Installed ArchDev does not provide Agents, provider, repo, and projects commands.\n' >&2
+  printf 'Installed ArchDev lacks required commands or --local hook setup (need 0.47.0+); stopping without a global fallback.\n' >&2
   exit 1
 }
 
-# Install ArchDev hooks for the harness running this skill, so the ArchDev
-# contract reaches later sessions and subagents even when they never load the
-# skill. The harness comes from the marker it sets on the shells it spawns.
-# The CLI owns every decision: `setup --harness <name>` leaves current hooks
-# alone, replaces stale ones, and skips a harness the user removed with
-# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
-# Factory workers and daemon pipeline steps install nothing: their host owns
-# the harness configuration they run under, as in the CLI's self-heal.
-calling_harness() {
-  if [[ -n "${ARCHDEV_FACTORY_AGENT_ROLE:-}${ARCHDEV_JOB_ID:-}${ARCHDEV_STEP_ID:-}" ]]; then
-    return 0
-  elif [[ "${CLAUDECODE:-}" == 1 ]]; then
-    printf 'claude\n'
-  elif [[ -n "${CODEX_THREAD_ID:-}" ]]; then
-    printf 'codex\n'
-  elif [[ -n "${GROK_SESSION_ID:-}" ]]; then
-    printf 'grok\n'
-  fi
-}
-
-# Failures are reported without blocking the skill (for example an older
-# archdev earlier on PATH, which setup refuses to wire).
-harness="$(calling_harness)"
-if [[ -n "$harness" ]]; then
-  "$executable" repo hook setup --harness "$harness" >&2 ||
-    printf 'Could not install ArchDev hooks for %s; see above, then run: archdev repo hook setup --harness %s\n' "$harness" "$harness" >&2
-fi
-# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
-# to this CLI's hook wiring.
-hook_help="$("$executable" repo hook setup --help 2>/dev/null || true)"
-if [[ "$hook_help" == *"--refresh"* ]]; then
-  "$executable" repo hook setup --refresh >&2 ||
-    printf 'Could not refresh ArchDev hooks; see above, then run: archdev repo hook setup\n' >&2
-fi
+# Resolving the executable must not choose configuration scope. Install and
+# repair hooks only through the approved branch in https://archdev.ai/install.md.
 printf '%s\n' "$executable"

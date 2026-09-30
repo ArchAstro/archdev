@@ -1,40 +1,56 @@
 # Bootstrap
 
-Goal: `archdev` installed and current, user logged in, model access
-configured, repo wiring valid. `SKILL.md` step 0 runs `repo status`,
-which checks all of this — the steps below are what each check means
-and how to clear it.
+Goal: an available ArchDev executable and the authentication required by the
+requested operation. These commands are for the agent, not the user.
 
-## 1. Version and login
+## Installation and consent
 
-1. `"$archdev" --version` (need 0.47.0+), then `"$archdev" auth status`.
-2. If unauthenticated: `"$archdev" auth login` (browser,
-   copy/paste, or personal access token). Keep a persistent interactive
-   process running while the human signs in; do not proceed headless.
-3. `auth logout` removes credentials — never run it as a fix for anything.
+For first-time installation or a change in configuration scope, follow
+[the agent installation guide](https://archdev.ai/install.md). Ask and wait for
+**For me on this machine** or **For this repository**, explain organization
+stream visibility, and obtain reporting consent before making changes.
 
-## 2. Model access (separate from login)
+The guide covers prerequisites, verified binary installation, scoped core
+skills, personal sign-in, and scoped hooks. Get approval before installing or
+upgrading software. Binary installation and credentials are per-user in either
+scope. Do not edit agent instruction files or commit changes without permission.
 
-ArchDev identity and BYO model credentials are different
-authentications. Check both:
+The Bash and PowerShell bootstrap scripts resolve or install the executable
+and check its capabilities. They do not install or refresh hooks, install
+skills, authenticate, or create repository configuration. Do not run them to
+bypass the guide's consent steps.
 
-1. `"$archdev" settings provider status` — independent of `auth status`.
-2. If no model access: from the target repo, run `"$archdev" agents
-   setup` (agent-only onboarding: no Jobs, daemon, or private remotes).
-   Choose interactively, or `--provider openai --provider-email <email>`
-   for ChatGPT OAuth, `xai` for Grok, `archdev` for the model router.
-   (`archdev` here is the setup selector; the provider id is `platform`.)
-3. A provider login alone proves nothing about the next request — verify
-   the actual selected model and one small authorized request when setup
-   requires it. For existing model access, skip to the operation.
+## Version and login
 
-Full onboarding (`"$archdev" setup`) is for first-run only: auth +
-provider + daemon + repo registration + model-guided config audit.
-`--skills` installs skills for detected tools without other setup.
+1. `"$archdev" --version` (need 0.47.0+) and
+   `"$archdev" repo hook setup --help` (must include `--local`). If the
+   published release lacks repository setup, stop; never fall back globally.
+2. `"$archdev" auth status`. For approved stream reporting, if unauthenticated,
+   run `"$archdev" auth login` and keep the interactive process available while
+   the user signs in. Do not request tokens in chat or copy another user's
+   credentials. Local code inspection does not require an ArchDev account.
+3. `auth logout` removes credentials. Never run it as a repair step.
 
-## 3. Validate the repo
+## Model access only when requested
 
-`"$archdev" check` validates configuration without executing it. Success
-criteria for this phase: `auth status` ok, provider status ok, `check`
-clean. On failure, fix the reported keys and re-run — do not work around
-them with other commands.
+Session reporting does not require provider setup. A missing model-access
+check is not a reason to configure a provider or block hook installation.
+If the user requests an operation needing ArchDev model access:
+
+1. Check `"$archdev" settings provider status`, independently of login.
+2. If necessary and approved, run `"$archdev" agents setup` and let the user
+   choose a provider interactively. `--provider openai --provider-email <email>`
+   selects ChatGPT OAuth; `xai` selects Grok; `archdev` selects the model router
+   (whose provider id is `platform`).
+3. Verify the selected model and one small authorized request. Do not make
+   paid model requests merely to verify session-hook installation.
+
+Do not use full `"$archdev" setup` for guided installation or readiness repair.
+Use the scoped primitives from the installation guide instead.
+
+## Repository validation only in the approved scope
+
+For repository placement or separately approved repository mapping,
+`"$archdev" check` validates configuration without executing it. Keep existing
+configuration and fix only relevant reported keys, then re-run. For user-wide
+installation, do not initialize a repository to satisfy a readiness check.

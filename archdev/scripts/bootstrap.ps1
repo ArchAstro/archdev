@@ -57,11 +57,13 @@ function Test-Skill([string]$Binary) {
     $helpText = & $Binary log post --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "--project <id>")) { return $false }
     $helpText = & $Binary extract finalize --help 2>$null
-    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--publish <pull>"))
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "--publish <pull>")) { return $false }
+    $helpText = & $Binary repo hook setup --help 2>$null
+    return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--local"))
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev because this version lacks Agents, provider, repo, projects, log --project, or extract finalize --publish commands, or does not keep hook opt-outs, or does not hold a stop for a pushed pull request head that has no review annotations (need 0.47.0+).")
+    [Console]::Error.WriteLine("Updating ArchDev: this skill requires 0.47.0+ and repository hook setup with --local.")
     $archdev = Install-ArchDev
 }
 
@@ -70,53 +72,8 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Skill $archdev)) { throw "Installed ArchDev does not provide Agents, provider, repo, and projects commands" }
+if (-not (Test-Skill $archdev)) { throw "Installed ArchDev lacks required commands or --local hook setup (need 0.47.0+); stopping without a global fallback" }
 
-# Install ArchDev hooks for the harness running this skill, so the ArchDev
-# contract reaches later sessions and subagents even when they never load the
-# skill. The harness comes from the marker it sets on the shells it spawns.
-# The CLI owns every decision: `setup --harness <name>` leaves current hooks
-# alone, replaces stale ones, and skips a harness the user removed with
-# `--uninstall` (recorded in ~/.archdev/hook-opt-out.json since 0.46.6).
-# Factory workers and daemon pipeline steps install nothing: their host owns
-# the harness configuration they run under, as in the CLI's self-heal.
-function Get-CallingHarness {
-    if ($env:ARCHDEV_FACTORY_AGENT_ROLE -or $env:ARCHDEV_JOB_ID -or $env:ARCHDEV_STEP_ID) { return $null }
-    if ($env:CLAUDECODE -eq "1") { return "claude" }
-    if ($env:CODEX_THREAD_ID) { return "codex" }
-    if ($env:GROK_SESSION_ID) { return "grok" }
-    return $null
-}
-
-# Failures are reported without blocking the skill (for example an older
-# archdev earlier on PATH, which setup refuses to wire). Setup's stderr goes
-# straight to the console; only stdout is relayed, because merging stderr into
-# the pipeline under ErrorActionPreference=Stop throws. Each step has its own
-# try so a failed install still leaves the refresh.
-try {
-    $ErrorActionPreference = "Continue"
-    $harness = Get-CallingHarness
-    if ($harness) {
-        & $archdev repo hook setup --harness $harness | ForEach-Object { [Console]::Error.WriteLine($_) }
-        if ($LASTEXITCODE -ne 0) {
-            [Console]::Error.WriteLine("Could not install ArchDev hooks for $harness; see above, then run: archdev repo hook setup --harness $harness")
-        }
-    }
-} catch {
-    [Console]::Error.WriteLine("Could not install ArchDev hooks: $_")
-}
-# Bring every harness that has archdev hooks, and ArchDev's own runtime, up
-# to this CLI's hook wiring.
-try {
-    $ErrorActionPreference = "Continue"
-    $hookHelp = (& $archdev repo hook setup --help 2>$null) -join "`n"
-    if ($hookHelp -match "--refresh") {
-        & $archdev repo hook setup --refresh | ForEach-Object { [Console]::Error.WriteLine($_) }
-        if ($LASTEXITCODE -ne 0) {
-            [Console]::Error.WriteLine("Could not refresh ArchDev hooks; see above, then run: archdev repo hook setup")
-        }
-    }
-} catch {
-    [Console]::Error.WriteLine("Could not refresh ArchDev hooks: $_")
-}
+# Resolving the executable must not choose configuration scope. Install and
+# repair hooks only through the approved branch in https://archdev.ai/install.md.
 Write-Output $archdev
