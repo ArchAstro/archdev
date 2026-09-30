@@ -245,7 +245,7 @@ files posts by project lists it under Unfiled.
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
 | `lesson` | right away, on a reusable root cause, failure, or fix | symptom, cause, fix; the exact command, error, or file |
 | `abandoned` | an approach failed and should not be repeated | what was tried, why it failed |
-| `done` | a meaningful outcome is finished, and the PR's current head already has its review annotations | intent, externally visible result, useful findings, actual verification; `-r` PR URL |
+| `done` | a meaningful outcome is finished, and the PR's current head already has its review annotations | intent, externally visible result, actual verification; `-r` PR URL. Anything reusable the work taught goes in its own `lesson`, not inside the done |
 | `handoff` | someone else owns the next action | headline starts `@firstname`; current state |
 | `question` | a decision only a teammate can make | headline starts `@firstname`; evidence and options |
 
