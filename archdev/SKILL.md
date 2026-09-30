@@ -164,14 +164,13 @@ Three beats, one command
    `log post --kind` — `start` once scope is clear, `lesson` on a reusable
    root cause or fix, `abandoned` for a failed approach, `done` (with
    the PR URL) or an `@name` `handoff` at the end. Before the first
-   post, find the project the work belongs to
-   (`archdev projects list --query "<subject>"`) and pass its ID as
-   `--project <id>` on every `archdev log post` for that work. If no
-   active project covers it, create one
-   (`archdev projects create "<name>" --description "<scope>"`), named
-   for the product area or initiative, never for the PR, task, or
-   session. Look the project up again when a steer moves the session
-   to a different initiative. Re-read the stream before committing or
+   post, find the project for this work. For an epic, search active projects
+   for its exact name and matching scope; reuse that match or create it with
+   the epic name. Without an epic, select an active product-area or initiative
+   project covering the work, creating one only if none fits. Pass its ID as
+   `--project <id>` on every stream post. Never create a project per PR, task,
+   or session. Look it up again when the work changes scope. Re-read the stream
+   before committing or
    opening a PR. After `gh pr create` and after every push that moves
    a PR head, store that head's review annotations before doing
    anything else (see "PR review annotations" in monitor.md).
@@ -195,6 +194,17 @@ Three beats, one command
    --sha <head>` lists them under `assessments`); publish the missing
    ones (see "Focus range seals" in monitor.md).
 
+
+For work with an epic, search active projects for that exact epic name and
+confirm the scope. Reuse the matching project, or create one named for the epic
+when none fits. Resolve duplicate names by scope, never by result order. Set
+both `epic` and `project_id` on tasks (`tasks create/update --epic <name>
+--project <id>`); graph previews use top-level `epic` and `project_id` on each
+node. Use the same project ID on stream posts. Keep existing project IDs stable;
+do not rename a broad project based on one task. Without an epic, use the
+product area or initiative. These fields remain optional for older tasks and
+clients; agents authoring new work should set both.
+
 Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
 payload summary.
@@ -211,3 +221,11 @@ the risks you find within scope, then recompute, at most twice, before
 you post (monitor.md, Report and PR review annotations). No daemon, no
 log tailing: the model is the sensor until an event proves reliable
 enough to promote into the stop hook.
+
+
+During staggered releases, check `tasks create --help` for `--project`
+before authoring tasks with this guidance. If unavailable, upgrade the CLI;
+do not silently omit membership. Keep project names at most 80 characters
+until the deployed project schema and all participating CLI readers support
+200. Do not truncate an epic to create a misleading match; defer creating
+that project until those deployments are ready.
