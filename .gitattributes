@@ -1,3 +1,2 @@
 # Scripts run by Bash must keep LF endings on Windows checkouts too.
 *.sh text eol=lf
-scripts/fake-archdev text eol=lf
