@@ -83,11 +83,13 @@ supports_skill() {
     "$1" projects list --help 2>/dev/null | grep -F "Usage: archdev projects list " >/dev/null &&
     "$1" log post --help 2>/dev/null | grep -F -- "--project <id>" >/dev/null &&
     "$1" extract finalize --help 2>/dev/null | grep -F -- "--publish <pull>" >/dev/null &&
+    "$1" extract finalize --help 2>/dev/null | grep -F -- "--region <group>" >/dev/null &&
+    "$1" inspect regions --help 2>/dev/null | grep -F "Usage: archdev inspect regions " >/dev/null &&
     "$1" repo hook setup --help 2>/dev/null | grep -F -- "--local" >/dev/null
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev: this skill requires 0.47.0+ and repository hook setup with --local.\n' >&2
+  printf 'Updating ArchDev: this skill requires 0.47.0+, repository hook setup with --local, and the source-group seal commands (inspect regions, extract finalize --region).\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -99,7 +101,7 @@ fi
 
 "$executable" --version >&2
 supports_skill "$executable" || {
-  printf 'Installed ArchDev lacks required commands or --local hook setup (need 0.47.0+); stopping without a global fallback.\n' >&2
+  printf 'Installed ArchDev lacks required commands, --local hook setup, or the source-group seal commands (inspect regions, extract finalize --region); stopping without a global fallback.\n' >&2
   exit 1
 }
 

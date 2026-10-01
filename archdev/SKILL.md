@@ -190,10 +190,11 @@ Three beats, one command
    assessments" in monitor.md. Outside Factory sessions, for every
    PR you pushed to this session, confirm its current head has
    annotations (`extract show pr.review-annotations <num> --json`) and
-   store them if it does not, and confirm each focus range on that head
-   has a published `risk.code-region` seal (`inspect metadata <num>
-   --sha <head>` lists them under `assessments`); publish the missing
-   ones (see "Focus range seals" in monitor.md).
+   store them if it does not, and confirm each source group of that
+   head (`inspect regions <num> --sha <head>`) has a published
+   `risk.code-region` seal (`inspect metadata <num> --sha <head>` lists
+   them under `assessments` with their `region`); publish the missing
+   ones (see "Source group seals" in monitor.md).
 
 Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
