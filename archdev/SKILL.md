@@ -7,8 +7,9 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 Requires CLI 0.47.0 or newer (the `repo` namespace, `log post` /
 `messages` / `search`, harness hooks, `extract brief`, `extract finalize`
-with `--publish` for sealed code-region assessments on a PR's focus
-ranges, and `log --assessment` for sealed risk assessments on
+with `--publish`, `--region` and `--carried-from` for sealed code-region
+assessments on a PR's source groups, `inspect regions` to list those
+groups, and `log --assessment` for sealed risk assessments on
 plan/task/pr events, plus `projects`, `log post --project`, hooks that
 keep an `--uninstall` opt-out, and the Stop hook that holds a session
 once for a pushed pull request head with no review annotations). Hook setup
