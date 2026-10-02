@@ -16,7 +16,12 @@ case "$args" in
   "repo status --help") echo "Probe CLI, login, model access, repo wiring, taxonomy, and hooks" ;;
   "projects list --help") echo "Usage: archdev projects list [options]" ;;
   "log post --help") echo "  --project <id>  Project for this post" ;;
-  "extract finalize --help") echo "  --publish <pull>  Publish to a pull request" ;;
+  "extract finalize --help")
+    echo "  --publish <pull>  Publish to a pull request"
+    echo "  --region <group>  Record the source group the seal was judged for"
+    echo "  --carried-from <seal>  Record the earlier head's seal the judgment reuses"
+    ;;
+  "inspect regions --help") echo "Usage: archdev inspect regions [options] <pull>" ;;
   "repo hook setup --help")
     [[ "${ARCHDEV_FAKE_NO_LOCAL:-0}" == 1 ]] || echo "  --local  Install repository hooks"
     echo "  --refresh  Only update harnesses that already have archdev hooks"

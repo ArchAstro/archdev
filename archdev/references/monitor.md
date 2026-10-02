@@ -433,8 +433,8 @@ The flow, per event:
    session while `brief.json`'s digest is unchanged. `<resource>` is the
    resource being judged, never the event name: `task` for every
    `task.*` event, `plan` for `plan.*`, `pr` for `pr.*` (the table under
-   Report). `code-region` grades one changed range and is published per
-   focus range instead of posted (Focus range seals, below).
+   Report). `code-region` grades one source group of a head and is
+   published per group instead of posted (Source group seals, below).
 2. **Judgment.** Author one JSON file with `input` and `assessment`
    matching the two schemas in the brief.
    - `input.subject.source.source` names the event subject exactly:
@@ -555,7 +555,7 @@ moment you post it. A `pr.updated` after a push gets a fresh assessment
 of the new head; the CLI checks only that the seal names the same PR,
 not which head it graded, so re-assessing is on you. For a PR, store
 its review annotations first (next section), publish a seal for each
-focus range (the section after), then assess the PR and post.
+source group (the section after), then assess the PR and post.
 
 Not yours to run:
 
@@ -614,7 +614,7 @@ its branch):
 5. Confirm with `"$archdev" extract show pr.review-annotations <num>
    --json`: it prints the stored row; `ExtractionNotFoundError` means
    nothing is stored for this head; any other error means the checkout
-   is not at the PR head. Then publish the focus range seals (next
+   is not at the PR head. Then publish the source group seals (next
    section) and log the `pr.*` event.
 
 Verify before you stop: at every stopping point, and before any `done`
@@ -629,7 +629,7 @@ no GitHub origin; a validation error), fix what it names or say so in
 the event's `--message` and in your reply to the user; never skip
 silently.
 
-## Focus range seals
+## Source group seals
 
 ArchDev grades a hunk from the sealed `risk.code-region` assessment
 that covers it: the rail card, the callout, the toolbar badge, the risk
@@ -640,50 +640,77 @@ are rows in `github_pr_risk_assessments` for the exact head, so they
 vanish on every push exactly as annotations do, and the same session
 that stores the annotations publishes them.
 
-Right after the annotation row is stored (previous section, step 5),
-for each range in the row's `summary.focus`, from the checkout at the
-PR head:
+The unit sealed is a source group, not a focus range: one group per
+semantic-group label in the head's annotation row over its source
+hunks, plus one group per file for the source hunks no label covers.
+Test, documentation, lockfile and generated paths never form a group.
+`archdev publish` seals the same groups the same way for the heads it
+pushes, so a session and the Factory agree on what a hunk's seal is.
 
-1. **Collect.** `"$archdev" extract context code-region.risk
+Right after the annotation row is stored (previous section, step 5),
+from the checkout at the PR head:
+
+1. **List the groups.** `"$archdev" --json inspect regions
+   <owner/repo>#<num>` prints `groups` in seal order (gravest risk
+   annotation first, then diff order). Each carries `label`,
+   `locations` (changed ranges on one side, or a nontext file),
+   `content_sha256` (the group's identity across pushes), and `region`,
+   the exact `--region` value for step 4. Without a stored annotation
+   row it groups by file and says so; a row authored against a
+   different diff is refused, so store the row for this head first.
+2. **Reuse what the previous head sealed.** When this push replaced a
+   head you sealed earlier, `"$archdev" --json inspect metadata <num>
+   --sha <previous head>` lists its seals with their `region`. A
+   previous `risk.code-region` seal whose `region.content_sha256`
+   equals a group's `content_sha256` is that group's judgment: collect
+   the group as in step 3, take `assessment` from the previous seal's
+   `result.assessment` instead of judging again, and pass
+   `--carried-from <previous head>:<previous digest>` in step 4. If
+   finalize refuses the carry (a cited evidence id no longer resolves
+   in the new packet), judge the group fresh.
+3. **Collect.** `"$archdev" extract context code-region.risk
    "<owner/repo>#<num>;<path>:<side>:<start>-<end>" --json` freezes the
-   range and collects its evidence (the diff at the head, the edited
-   symbols and their callers, checks). The range must be changed lines
-   only, on one side; the collector refuses a selection that includes
-   unchanged lines, so split a focus range around context and collect
-   each changed run, or select several changed ranges of one behavior
-   in one call by repeating `;<path>:<side>:<start>-<end>`; a nontext
-   file (an image, a binary) is selected whole with `;file=<path>`. The
-   `user` string is a JSON object whose `input` is the complete packet,
-   with `subject.locations` already set.
-2. **Judge.** Author `{input, assessment}` as in Risk assessments step
-   2, with `input` taken from the collected packet: keep `subject` as
-   collected (its `source.source` is the pull request URL, which
-   `--publish` accepts), keep the evidence items you cite with their
-   ids and kinds, add what you observed yourself, and carry the
-   collector's `missingInputs` forward. `--publish` stores the whole
-   seal in the row, so a full collected packet fits here; the 64 KB cap
-   applies to `log post` attachments only. Grade the range, not the PR:
-   `objective` and `scope` name the behavior the range changes.
-3. **Seal and publish.** `"$archdev" extract finalize risk.code-region
-   ./judgment.json --out ./sealed/<num>-<n>/ --publish <owner/repo>#<num>`
-   validates, derives the combined grade, writes `result.json` and
-   `digest.txt`, and stores the row for `input.subject.head`. The
-   result's `published` block echoes `head_sha`, `combined_risk` and
-   `locations`. A seal whose subject names another pull request, or a
-   `risk.pr` seal, is refused; a repeat of the same seal finds its row
-   and exits 0. A store failure exits non-zero: fix what it names
-   (signed out, wrong pull) or say so in the `pr.*` event's `--message`.
-4. **Mitigate, then recompute**, as in Risk assessments step 4: a
-   medium or high grade on a range you can make safer within the PR's
+   group's ranges and collects their evidence (the diff at the head,
+   the edited symbols and their callers, checks). Build the selector
+   from the group's `locations`: repeat `;<path>:<side>:<start>-<end>`
+   for every `lines` location, and `;file=<path>` for a `file`
+   location. Every range is changed lines only, which the collector
+   requires. The `user` string is a JSON object whose `input` is the
+   complete packet, with `subject.locations` already set.
+4. **Judge, seal and publish.** Author `{input, assessment}` as in Risk
+   assessments step 2, with `input` taken from the collected packet:
+   keep `subject` as collected (its `source.source` is the pull
+   request URL, which `--publish` accepts), keep the evidence items you
+   cite with their ids and kinds, add what you observed yourself, and
+   carry the collector's `missingInputs` forward. Grade the group, not
+   the PR: `objective` and `scope` name the behavior the group changes.
+   Then `"$archdev" extract finalize risk.code-region ./judgment.json
+   --out ./sealed/<num>-<n>/ --publish <owner/repo>#<num> --region
+   "<group's region value>"`, plus `--carried-from` for a reused
+   judgment. The row records the group's identity and provenance beside
+   the seal, so the next push finds it. A seal whose subject names
+   another pull request, or a `risk.pr` seal, is refused; a repeat of
+   the same seal finds its row and exits 0. A store failure exits
+   non-zero: fix what it names (signed out, wrong pull, a carried-from
+   the earlier head does not hold) or say so in the `pr.*` event's
+   `--message`.
+5. **Cap.** Judge at most six groups fresh per push, in the printed
+   order; carried seals do not count. Seal the rest on the next push,
+   where the already sealed groups carry forward and the cap goes to
+   the ones still missing. Say in the `pr.*` event's `--message` which
+   groups are unsealed.
+6. **Mitigate, then recompute**, as in Risk assessments step 4: a
+   medium or high grade on a group you can make safer within the PR's
    scope is a fix and a push, which is a new head, so go back to the
-   annotation row for that head and publish its seals afresh. At most
-   two rounds.
+   annotation row for that head and publish its seals afresh; the
+   groups you did not touch carry forward. At most two rounds.
 
 Verify with `"$archdev" inspect metadata <num> --sha <head> --json`:
 `assessments` lists every stored seal for the head with its
-`definition_id`, `combined_risk`, `locations` and `producer`. Every
-focus range should have one covering seal; a range without one shows
-the producer's unsealed label in the review.
+`definition_id`, `combined_risk`, `locations`, `region`, `carried_from`
+and `producer`. Every group `inspect regions` prints should have a seal
+whose `region.content_sha256` matches; a group without one shows the
+producer's unsealed label on its hunks in the review.
 
 ## Factory sessions
 
