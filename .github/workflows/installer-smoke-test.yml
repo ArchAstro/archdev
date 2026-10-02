@@ -25,6 +25,9 @@ jobs:
             completion_file: .config/fish/completions/archdev.fish
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cloud installer process contracts
+        if: matrix.shell_name == 'bash'
+        run: python3 scripts/test-cloud-installer.py
       - name: Build fixture release
         run: |
           chmod +x install.sh scripts/create-unix-fixtures.sh

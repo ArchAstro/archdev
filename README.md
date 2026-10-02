@@ -25,6 +25,31 @@ won't commit or push setup files without permission.
 See the [installation guide](https://docs.archdev.ai/docs/start-here/install)
 for what to expect, then ask your agent to review your changes with ArchDev.
 
+## Claude Code cloud environments
+
+In a personal Claude Code web environment, select **Custom** network access,
+keep the default package-manager hosts, and allow `platform.archastro.ai` and
+`archdev.ai`. Set `ARCHDEV_TOKEN=<your token>` in **Environment variables**.
+Anyone using this environment can read that token, so do not share the environment.
+Paste this into **Setup script**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ArchAstro/archdev/main/install-cloud.sh | bash
+```
+
+The script installs the latest CLI to `/usr/local/bin` and configures Claude
+hooks in the setup user's home directory (`/root` in Claude's cloud VM).
+Setup runs before environment variables are available; a temporary SessionStart
+hook signs in when the session starts. Installation errors are reported without
+preventing the session from starting. The initial download itself must succeed.
+Claude runs SessionStart hooks in parallel: until direct `ARCHDEV_TOKEN` auth
+is released, the first presence update can race login. Later CLI commands use
+the stored login.
+Use a repository with the ArchDev skill committed or enable it in your Claude
+account. Snapshot refreshes pick up installer and CLI updates.
+
+Maintainers: follow the [cloud release checklist](RELEASE_CHECKLIST.md).
+
 ## Distribution sources
 
 This repository owns public installers, release metadata, downloadable
