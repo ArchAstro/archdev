@@ -4,6 +4,7 @@
 # `repo hook setup` call (other than --help) to $ARCHDEV_FAKE_LOG.
 #
 #   ARCHDEV_FAKE_SETUP_EXIT=N   exit code of `repo hook setup`
+#   ARCHDEV_FAKE_NO_HEARTBEAT=1 behave like a release without `tasks heartbeat`
 
 set -euo pipefail
 
@@ -11,6 +12,10 @@ args="$*"
 case "$args" in
   --version) echo "${ARCHDEV_FAKE_VERSION:-0.47.0}" ;;
   "tasks review update --help") echo "Usage: archdev tasks review update [options] <id>" ;;
+  "tasks heartbeat --help")
+    [[ "${ARCHDEV_FAKE_NO_HEARTBEAT:-0}" == 1 ]] && exit 1
+    echo "Usage: archdev tasks heartbeat [options] <task-id>"
+    ;;
   "agents run --help") echo "Usage: archdev agents run [options]" ;;
   "settings provider models --help") echo "Usage: archdev settings provider models [options]" ;;
   "repo status --help") echo "Probe CLI, login, model access, repo wiring, taxonomy, and hooks" ;;

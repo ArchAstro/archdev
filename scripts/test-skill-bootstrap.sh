@@ -34,7 +34,7 @@ run_bootstrap() {
   printf 'ok   %s: executable resolved, no hook installation or refresh\n' "$name"
 }
 
-for skill in archdev tasks; do
+for skill in archdev tasks tasks-execute; do
   run_bootstrap "$skill-claude" "$skill" CLAUDECODE=1
   run_bootstrap "$skill-codex" "$skill" CODEX_THREAD_ID=019a-thread
   run_bootstrap "$skill-grok" "$skill" GROK_SESSION_ID=grok-session
@@ -48,10 +48,13 @@ done
 
 # Consume the entire help stream: with pipefail, grep -q can close early,
 # SIGPIPE the producer, and trigger an unnecessary install of a current CLI.
-for skill in archdev tasks; do
+for skill in archdev tasks tasks-execute; do
   run_bootstrap "$skill-verbose-help" "$skill" ARCHDEV_FAKE_VERBOSE_HELP=1
   # Both skills reject older releases that could silently opt in global hooks.
-  for rejection in ARCHDEV_FAKE_NO_LOCAL=1 ARCHDEV_FAKE_VERSION=0.46.0; do
+  rejections=(ARCHDEV_FAKE_NO_LOCAL=1 ARCHDEV_FAKE_VERSION=0.46.0)
+  # Task execution also needs the lease heartbeat command.
+  [[ "$skill" == tasks-execute ]] && rejections+=(ARCHDEV_FAKE_NO_HEARTBEAT=1)
+  for rejection in "${rejections[@]}"; do
     case_dir="$work/$skill-${rejection%%=*}"
     mkdir -p "$case_dir/home" "$case_dir/bin"
     cp "$repo/scripts/fake-archdev" "$case_dir/bin/archdev"
