@@ -6,8 +6,8 @@ function Resolve-ArchDevPath([string]$Candidate) {
 
 function Install-ArchDev {
     # Reviewed installer bytes; update the revision and digest together.
-    $installerUrl = "https://raw.githubusercontent.com/ArchAstro/archdev/9d50e7ce1e64a731d88cca8ae15ec2c45b1375df/install.ps1"
-    $installerSha256 = "222e807055126433a1239b2c30d0561f68e6f9661d994c86b7a0b9831452227e"
+    $installerUrl = "https://raw.githubusercontent.com/ArchAstro/archdev/a530d21dd04eaed5742b8ad7daf9140a3ee2ef0f/install.ps1"
+    $installerSha256 = "f767834cb5aeae252b9c37f427818906ee82f9a11a71b9d4fd0ba0cd2e8086e1"
     $installDir = if ($env:ARCHDEV_INSTALL_DIR) {
         $env:ARCHDEV_INSTALL_DIR
     } else {
