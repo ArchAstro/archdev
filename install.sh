@@ -167,26 +167,37 @@ if [[ "$SKIP_PATH_UPDATE" != true && "$INSTALL_DIR" == "$HOME/.local/bin" ]]; th
   esac
 fi
 
+# Shell completions are optional. Neither the Rust archdev nor older releases
+# are guaranteed to ship a `completion` command, so a failure here must not
+# fail the install or leave an empty completion file behind.
+install_completion() {
+  local shell_name="$1" target="$2" tmp
+  tmp="$(mktemp)"
+  if "$INSTALL_DIR/$BINARY_NAME" completion "$shell_name" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+    mkdir -p "$(dirname "$target")"
+    mv "$tmp" "$target"
+    chmod 0644 "$target"
+    return 0
+  fi
+  rm -f "$tmp"
+  return 1
+}
+
 if [[ "$SKIP_COMPLETIONS" != true ]]; then
   case "$(basename "${SHELL:-}")" in
     fish)
-      completion="$HOME/.config/fish/completions/archdev.fish"
-      mkdir -p "$(dirname "$completion")"
-      "$INSTALL_DIR/$BINARY_NAME" completion fish >"$completion"
+      install_completion fish "$HOME/.config/fish/completions/archdev.fish" || true
       ;;
     zsh)
-      completion="$HOME/.zsh/completions/_archdev"
-      mkdir -p "$(dirname "$completion")"
-      "$INSTALL_DIR/$BINARY_NAME" completion zsh >"$completion"
-      append_once "$HOME/.zshrc" 'fpath=("$HOME/.zsh/completions" $fpath)'
-      if ! grep -Fq 'compinit' "$HOME/.zshrc"; then
-        printf '\nautoload -Uz compinit\ncompinit\n' >>"$HOME/.zshrc"
+      if install_completion zsh "$HOME/.zsh/completions/_archdev"; then
+        append_once "$HOME/.zshrc" 'fpath=("$HOME/.zsh/completions" $fpath)'
+        if ! grep -Fq 'compinit' "$HOME/.zshrc"; then
+          printf '\nautoload -Uz compinit\ncompinit\n' >>"$HOME/.zshrc"
+        fi
       fi
       ;;
     bash)
-      completion="$HOME/.local/share/bash-completion/completions/archdev"
-      mkdir -p "$(dirname "$completion")"
-      "$INSTALL_DIR/$BINARY_NAME" completion bash >"$completion"
+      install_completion bash "$HOME/.local/share/bash-completion/completions/archdev" || true
       ;;
   esac
 fi
