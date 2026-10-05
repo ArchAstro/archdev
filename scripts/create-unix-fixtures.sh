@@ -4,10 +4,12 @@ set -euo pipefail
 
 OUTPUT_DIR=""
 VERSION=""
+NO_COMPLETION="false"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
+    --no-completion) NO_COMPLETION="true"; shift ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
 done
@@ -19,7 +21,10 @@ for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64 linux-x64-musl; do
   cat >"$fixture/archdev" <<EOF
 #!/usr/bin/env sh
 if [ "\${1:-}" = "--version" ]; then printf '%s\n' '$VERSION'; exit 0; fi
-if [ "\${1:-}" = "completion" ]; then printf '# completion for %s\n' "\${2:-unknown}"; exit 0; fi
+if [ "\${1:-}" = "completion" ]; then
+  if [ "$NO_COMPLETION" = true ]; then printf "error: unknown command 'completion'\n" >&2; exit 1; fi
+  printf '# completion for %s\n' "\${2:-unknown}"; exit 0
+fi
 exit 0
 EOF
   chmod +x "$fixture/archdev"

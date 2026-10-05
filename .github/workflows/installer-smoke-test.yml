@@ -54,6 +54,18 @@ jobs:
           ./install.sh
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
           test -f "$HOME/${{ matrix.completion_file }}"
+      - name: Install a release without a completion command
+        env:
+          HOME: ${{ runner.temp }}/home-nocompletion
+          SHELL: /bin/${{ matrix.shell_name }}
+        run: |
+          # The Rust archdev has no `completion` command. The installer must
+          # still succeed and must not leave an empty completion file.
+          mkdir -p "$HOME"
+          scripts/create-unix-fixtures.sh --output-dir "$RUNNER_TEMP/release-nocompletion" --version 0.31.0 --no-completion
+          ./install.sh --version 0.31.0 --base-url "file://$RUNNER_TEMP/release-nocompletion" --install-dir "$HOME/.local/bin"
+          test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
+          test ! -e "$HOME/${{ matrix.completion_file }}"
       - name: Stop fixture server
         if: always()
         run: test ! -f "$RUNNER_TEMP/server.pid" || kill "$(cat "$RUNNER_TEMP/server.pid")" || true
