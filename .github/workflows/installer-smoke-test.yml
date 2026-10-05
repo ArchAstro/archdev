@@ -95,6 +95,12 @@ jobs:
               } catch { Start-Sleep -Milliseconds 250 }
             }
             if (-not $ready) { throw "Fixture server did not become ready" }
+            # The installer must resolve archdev-old, never the Rust latest release.
+            $plan = (./install.ps1 -Version 0.31.0 -DryRun) -join "`n"
+            if ($plan -notmatch "asset_url=https://github.com/ArchAstro/archdev/releases/download/archdev-old-v0.31.0/archdev-old-windows-(x64|arm64).zip") { throw "Unexpected pinned asset URL: $plan" }
+            $latest = (./install.ps1 -DryRun) -join "`n"
+            if ($latest -match "releases/latest/download/archdev-old-") { throw "latest resolved to an archdev-old asset without a tag: $latest" }
+            if ($latest -notmatch "asset_url=https://github.com/ArchAstro/archdev/releases/(download/archdev-old-v\d+\.\d+\.\d+/archdev-old-windows|latest/download/archdev-windows)-(x64|arm64).zip") { throw "Unexpected latest asset URL: $latest" }
             ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
             $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
             if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
