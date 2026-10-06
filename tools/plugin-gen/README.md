@@ -31,6 +31,17 @@ release named by `version`.
 ## Release
 
 Set `version` in the catalog to the CLI release, run `npm run build`, and
-commit before tagging `v<version>`. Install commands pin that tag. The OpenCode
-plugin installs from npm: publish `plugins/opencode` as
-`@archastro/archdev-opencode@<version>`.
+merge before the CLI release tags `v<version>` on main. Install commands pin
+that tag.
+
+The tag push runs `.github/workflows/publish-opencode.yml`, which checks that
+the tag matches the catalog, reruns the plugin CI, and publishes
+`plugins/opencode` as `@archastro/archdev-opencode@<version>` through npm
+trusted publishing with provenance. Run it by hand with `dry_run` to pack and
+validate without publishing.
+
+One-time npm setup by an `@archastro` owner: publish the first version by hand
+(`npm publish plugins/opencode --access public` from the release tag), then
+connect this workflow with
+`npm trust github @archastro/archdev-opencode --repository ArchAstro/archdev --file publish-opencode.yml`
+or the package's Trusted Publisher settings on npmjs.com.

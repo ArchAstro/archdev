@@ -25,5 +25,8 @@
     "type": "git",
     "url": "git+https://github.com/ArchAstro/archdev.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }
