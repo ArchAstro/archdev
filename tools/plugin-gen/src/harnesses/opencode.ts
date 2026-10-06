@@ -48,6 +48,7 @@ export const ArchDevPlugin = async () => ({
       homepage: catalog.homepage,
       repository: { type: "git", url: `git+${catalog.repository}.git` },
       license: catalog.license,
+      publishConfig: { access: "public" },
     }),
     textFile(`${root}/index.js`, source),
     ...skillFiles(repoRoot, catalog, `${root}/skills`),

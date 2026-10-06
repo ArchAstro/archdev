@@ -198,6 +198,14 @@ describe("manifests", () => {
     });
   });
 
+  test("the OpenCode package is the public scoped package the publish workflow expects", () => {
+    const pkg = json("plugins/opencode/package.json");
+    assert.equal(pkg.name, "@archastro/archdev-opencode");
+    assert.equal(pkg.version, catalog.version);
+    assert.deepEqual(pkg.publishConfig, { access: "public" });
+    assert.deepEqual(pkg.files, ["index.js", "skills"]);
+  });
+
   test("the root package.json points Pi at the generated package", () => {
     assert.deepEqual(json("package.json").pi, {
       extensions: ["./plugins/pi/extensions"],
