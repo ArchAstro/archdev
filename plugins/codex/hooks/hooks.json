@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook start --harness codex --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook prompt --harness codex --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(?:Bash|Edit|Write|shell|local_shell|exec_command|apply_patch|mcp__.+)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook post-tool --harness codex --spec 5",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook stop --harness codex --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@archastro/archdev-pi",
+  "version": "0.49.1",
+  "description": "ArchDev skills, the ArchDev remote MCP server, and the hooks that report coding-agent sessions to your organization's ArchDev stream.",
+  "keywords": [
+    "archdev",
+    "code-review",
+    "tasks",
+    "activity",
+    "mcp",
+    "pi-package"
+  ],
+  "homepage": "https://archdev.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArchAstro/archdev.git"
+  },
+  "license": "MIT",
+  "files": [
+    "extensions",
+    "skills"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}

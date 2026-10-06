@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook start --harness grok --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(?:Bash|Edit|Write|run_terminal_command|search_replace|mcp__.+)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook post-tool --harness grok --spec 5",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook stop --harness grok --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

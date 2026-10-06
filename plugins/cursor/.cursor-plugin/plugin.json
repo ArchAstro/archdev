@@ -1,0 +1,21 @@
+{
+  "name": "archdev",
+  "displayName": "ArchDev",
+  "version": "0.49.1",
+  "description": "ArchDev skills, the ArchDev remote MCP server, and the hooks that report coding-agent sessions to your organization's ArchDev stream.",
+  "author": {
+    "name": "ArchAstro"
+  },
+  "homepage": "https://archdev.ai",
+  "repository": "https://github.com/ArchAstro/archdev",
+  "license": "MIT",
+  "keywords": [
+    "archdev",
+    "code-review",
+    "tasks",
+    "activity",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./mcp.json"
+}
