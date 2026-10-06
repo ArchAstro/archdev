@@ -1,0 +1,82 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook start --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook end --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook prompt --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(?:Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.+)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook post-tool --harness claude --spec 5",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook stop --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook subagent-start --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook subagent-stop --harness claude --spec 5",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

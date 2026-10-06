@@ -1,0 +1,21 @@
+{
+  "name": "@archastro/archdev-plugin-gen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generates every harness plugin bundle from catalog/archdev.json.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node src/cli.ts build",
+    "check": "node src/cli.ts check",
+    "test": "node --test test/*.test.ts",
+    "e2e": "node --test --test-concurrency=1 e2e/*.test.ts",
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "typescript": "7.0.2"
+  }
+}

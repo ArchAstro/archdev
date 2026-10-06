@@ -1,0 +1,5 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "archdev",
+  "description": "ArchDev skills, the ArchDev remote MCP server, and the hooks that report coding-agent sessions to your organization's ArchDev stream."
+}

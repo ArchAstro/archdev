@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "archdev": {
+      "serverUrl": "https://archdev.ai/api/v1/mcp"
+    }
+  }
+}

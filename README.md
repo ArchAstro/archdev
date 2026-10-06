@@ -50,6 +50,17 @@ account. Snapshot refreshes pick up installer and CLI updates.
 
 Maintainers: follow the [cloud release checklist](RELEASE_CHECKLIST.md).
 
+## Plugins
+
+`plugins/` holds an ArchDev plugin for Claude Code, Codex, GitHub Copilot,
+Cursor, Antigravity, Grok, OpenCode and Pi. Each bundles the skills, the remote
+MCP server and, where the CLI supports the harness, session hooks. See
+[plugins/README.md](plugins/README.md) for install commands.
+
+Plugins, `npx skills add ArchAstro/archdev`, `archdev repo hook setup` and
+adding the MCP server by hand are independent install paths, all generated from
+`catalog/archdev.json` by [tools/plugin-gen](tools/plugin-gen/README.md).
+
 ## Distribution sources
 
 This repository owns public installers, release metadata, downloadable

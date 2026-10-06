@@ -1,0 +1,20 @@
+{
+  "name": "archdev",
+  "interface": {
+    "displayName": "ArchDev"
+  },
+  "plugins": [
+    {
+      "name": "archdev",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "name": "archdev",
+  "displayName": "ArchDev",
+  "version": "0.49.1",
+  "description": "ArchDev skills, the ArchDev remote MCP server, and the hooks that report coding-agent sessions to your organization's ArchDev stream.",
+  "author": {
+    "name": "ArchAstro",
+    "url": "https://archdev.ai"
+  },
+  "homepage": "https://archdev.ai",
+  "repository": "https://github.com/ArchAstro/archdev",
+  "license": "MIT",
+  "keywords": ["archdev", "code-review", "tasks", "activity", "mcp"],
+  "category": "Developer Tools",
+  "skills": [
+    { "name": "archdev", "path": "archdev" },
+    { "name": "tasks", "path": "tasks" },
+    { "name": "tasks-execute", "path": "tasks-execute" }
+  ],
+  "mcp": {
+    "name": "archdev",
+    "url": "https://archdev.ai/api/v1/mcp",
+    "auth": "oauth"
+  },
+  "hooks": {
+    "command": "archdev repo hook",
+    "spec": 5,
+    "missingCliGuidance": "The ArchDev plugin is installed, but the ArchDev CLI is not on PATH, so session hooks are inactive. Read https://archdev.ai/install.md and ask the user before installing anything.",
+    "events": {
+      "sessionStart": { "action": "start", "timeout": 30 },
+      "promptSubmit": { "action": "prompt", "timeout": 30 },
+      "toolUse": { "action": "post-tool", "timeout": 10 },
+      "stop": { "action": "stop", "timeout": 30 },
+      "subagentStart": { "action": "subagent-start", "timeout": 30 },
+      "subagentStop": { "action": "subagent-stop", "timeout": 30 },
+      "sessionEnd": { "action": "end", "timeout": 30 }
+    }
+  },
+  "harnesses": {
+    "claude": {
+      "hooks": {
+        "harness": "claude",
+        "events": ["sessionStart", "sessionEnd", "promptSubmit", "toolUse", "stop", "subagentStart", "subagentStop"],
+        "toolMatcher": "^(?:Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.+)$"
+      }
+    },
+    "codex": {
+      "hooks": {
+        "harness": "codex",
+        "events": ["sessionStart", "promptSubmit", "toolUse", "stop"],
+        "toolMatcher": "^(?:Bash|Edit|Write|shell|local_shell|exec_command|apply_patch|mcp__.+)$"
+      }
+    },
+    "grok": {
+      "hooks": {
+        "harness": "grok",
+        "events": ["sessionStart", "toolUse", "stop"],
+        "toolMatcher": "^(?:Bash|Edit|Write|run_terminal_command|search_replace|mcp__.+)$"
+      }
+    },
+    "pi": {
+      "hooks": {
+        "harness": "pi",
+        "events": ["sessionStart", "promptSubmit", "toolUse", "stop", "sessionEnd"],
+        "toolMatcher": "^(?:bash|edit|write|mcp_call|mcp__.+)$",
+        "timeouts": { "promptSubmit": 10, "stop": 10, "sessionEnd": 10 }
+      }
+    },
+    "copilot": {
+      "hooksUnsupported": "archdev repo hook has no --harness copilot handler for Copilot's camelCase payloads and output contract."
+    },
+    "cursor": {
+      "hooksUnsupported": "archdev repo hook has no --harness cursor handler for Cursor's payloads and output contract."
+    },
+    "antigravity": {
+      "hooksUnsupported": "Antigravity has no SessionStart or UserPromptSubmit event and reads a named-hook file shape; the CLI's gemini handler targets neither."
+    },
+    "opencode": {
+      "hooksUnsupported": "archdev repo hook has no --harness opencode handler for OpenCode plugin events."
+    }
+  }
+}
