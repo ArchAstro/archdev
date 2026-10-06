@@ -1,6 +1,6 @@
 {
   "name": "@archastro/archdev-pi",
-  "version": "0.49.1",
+  "version": "0.49.2",
   "description": "ArchDev skills, the ArchDev remote MCP server, and the hooks that report coding-agent sessions to your organization's ArchDev stream.",
   "keywords": [
     "archdev",
