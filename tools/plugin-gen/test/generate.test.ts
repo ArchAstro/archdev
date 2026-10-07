@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -21,7 +22,8 @@ import {
   validateCatalog,
   type Catalog,
 } from "../src/catalog.ts";
-import { PASCAL_EVENTS, type GeneratedFile } from "../src/files.ts";
+import { NUDGE_EVENTS, nudgeScriptSource, PASCAL_EVENTS, shellQuote, type GeneratedFile } from "../src/files.ts";
+import { NUDGE_TEXT } from "../src/nudge-text.ts";
 import { diffFiles, generate, OWNED_PATHS, writeFiles } from "../src/generate.ts";
 import { ADAPTERS } from "../src/harnesses/index.ts";
 
@@ -128,7 +130,13 @@ describe("Claude-format hooks (Claude Code, Codex, Grok)", () => {
         assert.deepEqual(group.hooks, [
           {
             type: "command",
-            command: `command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook ${catalog.hooks.events[event].action} --harness ${wiring.harness} --spec ${catalog.hooks.spec}`,
+            command: wiring.nudge && NUDGE_EVENTS.includes(event)
+              ? `if command -v archdev >/dev/null 2>&1; then exec archdev repo hook ${catalog.hooks.events[event].action} --harness ${wiring.harness} --spec ${catalog.hooks.spec}; fi; exec sh "${wiring.nudge.pluginRoot}/hooks/archdev-nudge.sh" ${catalog.hooks.events[event].action}`
+              : `command -v archdev >/dev/null 2>&1 || ${
+              event === "sessionStart"
+                ? `{ printf '%s\\n' ${shellQuote(catalog.hooks.missingCliGuidance)}; exit 0; }`
+                : "exit 0"
+            }; exec archdev repo hook ${catalog.hooks.events[event].action} --harness ${wiring.harness} --spec ${catalog.hooks.spec}`,
             timeout: hookTimeout(catalog, wiring, event),
           },
         ]);
@@ -142,7 +150,7 @@ describe("manifests", () => {
     for (const root of ["plugins/claude", "plugins/grok"]) {
       assert.equal(json(`${root}/.claude-plugin/plugin.json`).version, catalog.version);
       assert.deepEqual(json(`${root}/.mcp.json`), {
-        mcpServers: { archdev: { type: "http", url: catalog.mcp.url } },
+        mcpServers: { archdev: { type: "http", url: `\${ARCHDEV_MCP_URL:-${catalog.mcp.url}}` } },
       });
     }
   });
@@ -219,8 +227,23 @@ describe("manifests", () => {
 describe("hook guard", () => {
   const command = JSON.parse(byPath.get("plugins/claude/hooks/hooks.json")!.content.toString()).hooks.Stop[0].hooks[0].command as string;
 
-  test("without the CLI on PATH the hook exits 0 silently", () => {
-    const result = spawnSync("/bin/sh", ["-c", command], { env: { PATH: "/usr/bin:/bin" }, input: "{}", encoding: "utf8" });
+  const hooksFile = JSON.parse(byPath.get("plugins/claude/hooks/hooks.json")!.content.toString()).hooks;
+
+  test("without the CLI on PATH the events the nudge script does not cover exit 0 silently", () => {
+    for (const event of ["SessionEnd", "SubagentStart", "SubagentStop"]) {
+      const result = spawnSync("/bin/sh", ["-c", hooksFile[event][0].hooks[0].command], { env: { PATH: "/usr/bin:/bin" }, input: "{}", encoding: "utf8" });
+      assert.equal(result.status, 0, event);
+      assert.equal(result.stdout + result.stderr, "", event);
+    }
+  });
+
+  test("without the CLI the Stop hook runs the bundled nudge script from the plugin root, silently when nothing is owed", () => {
+    const root = path.join(repoRoot, "plugins/claude");
+    const result = spawnSync("/bin/sh", ["-c", command], {
+      env: { PATH: "/usr/bin:/bin", CLAUDE_PLUGIN_ROOT: root, CLAUDE_PLUGIN_DATA: mkdtempSync(path.join(tmpdir(), "archdev-stop-")) },
+      input: '{"session_id":"s"}',
+      encoding: "utf8",
+    });
     assert.equal(result.status, 0);
     assert.equal(result.stdout + result.stderr, "");
   });
@@ -327,4 +350,98 @@ describe("check", () => {
     for (const file of files)
       assert.ok(OWNED_PATHS.some((owned) => file.path === owned || file.path.startsWith(`${owned}/`)), file.path);
   });
+});
+
+describe("nudge script across harnesses", () => {
+  const nudged = HARNESSES.filter((h) => harnessHooks(catalog, h)?.nudge);
+  const scriptOf = (h: string) => byPath.get(`plugins/${h}/hooks/archdev-nudge.sh`);
+
+  test("only the harnesses whose hook contract is verified ship it", () => {
+    assert.deepEqual([...nudged].sort(), ["claude", "codex"]);
+    for (const h of HARNESSES)
+      assert.equal(Boolean(scriptOf(h)), nudged.includes(h), h);
+  });
+
+  test("every copy is the one rendered script: same bytes, all texts, no markers left", () => {
+    const source = nudgeScriptSource(repoRoot);
+    assert.ok(!source.includes("@@"));
+    for (const text of Object.values(NUDGE_TEXT)) assert.ok(source.includes(text));
+    for (const h of nudged) {
+      assert.equal(scriptOf(h)!.content.toString("utf8"), source, h);
+      assert.equal(scriptOf(h)!.mode, 0o755);
+    }
+  });
+
+  test("a marker with no text, or a text with no marker, fails the build", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "archdev-nudge-src-"));
+    mkdirSync(path.join(dir, "tools/plugin-gen/assets"), { recursive: true });
+    writeFileSync(path.join(dir, "tools/plugin-gen/assets/archdev-nudge.sh.in"), "echo @@nope@@\n");
+    assert.throws(() => nudgeScriptSource(dir), /unknown text @@nope@@/);
+    writeFileSync(path.join(dir, "tools/plugin-gen/assets/archdev-nudge.sh.in"), "echo hi\n");
+    assert.throws(() => nudgeScriptSource(dir), /unused texts/);
+  });
+
+  test("harnesses without a verified contract keep the CLI-only hook command", () => {
+    for (const h of ["grok", "pi"] as const) {
+      const hooks = harnessHooks(catalog, h)!;
+      assert.equal(hooks.nudge, undefined, h);
+    }
+    const grok = JSON.stringify(json("plugins/grok/hooks/hooks.json"));
+    assert.ok(!grok.includes("archdev-nudge"));
+    assert.ok(!JSON.stringify(json("plugins/pi/package.json")).includes("nudge"));
+  });
+
+  test("an invalid pluginRoot is reported", () => {
+    const bad = structuredClone(catalog) as Catalog;
+    (bad.harnesses.codex as { hooks: { nudge: { pluginRoot: string } } }).hooks.nudge.pluginRoot = "$(rm -rf /)";
+    assert.ok(validateCatalog(bad).some((p) => /nudge.pluginRoot/.test(p)));
+  });
+
+  for (const [h, rootVar, dataVar] of [
+    ["claude", "CLAUDE_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA"],
+    ["codex", "PLUGIN_ROOT", "PLUGIN_DATA"],
+  ] as const) {
+    const hooksFile = () => json(`plugins/${h}/hooks/hooks.json`).hooks;
+    const cmd = (event: string) => hooksFile()[event][0].hooks[0].command as string;
+    const run = (event: string, input: unknown, extraPath = "") => {
+      const data = mkdtempSync(path.join(tmpdir(), "archdev-nudge-data-"));
+      const writeTo = mkdtempSync(path.join(tmpdir(), "archdev-nudge-root-"));
+      writeFiles(writeTo, files.filter((f) => f.path.startsWith(`plugins/${h}/`)));
+      const noCli = (process.env.PATH ?? "").split(path.delimiter).filter((d) => d && !existsSync(path.join(d, "archdev")));
+      return spawnSync("/bin/sh", ["-c", cmd(event)], {
+        env: { PATH: [extraPath, ...noCli].filter(Boolean).join(path.delimiter), [rootVar]: path.join(writeTo, `plugins/${h}`), [dataVar]: data },
+        input: JSON.stringify(input),
+        encoding: "utf8",
+      });
+    };
+
+    test(`${h}: the hook command from hooks.json runs the bundled script from its documented plugin root`, () => {
+      const r = run("SessionStart", { session_id: "abc", cwd: tmpdir(), hook_event_name: "SessionStart", source: "startup" });
+      assert.equal(r.status, 0);
+      const out = JSON.parse(r.stdout).hookSpecificOutput;
+      assert.equal(out.hookEventName, "SessionStart");
+      assert.match(out.additionalContext, /archdev_get_context/);
+      assert.match(out.additionalContext, /"session_id":"abc"/);
+    });
+
+    test(`${h}: with the CLI on PATH every nudged event forwards to archdev and never runs the script`, () => {
+      const bin = mkdtempSync(path.join(tmpdir(), "archdev-nudge-cli-"));
+      writeFileSync(path.join(bin, "archdev"), '#!/bin/sh\nprintf "CLI:%s" "$*"\n');
+      chmodSync(path.join(bin, "archdev"), 0o755);
+      for (const event of ["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop"]) {
+        const r = run(event, { session_id: "abc", cwd: tmpdir() }, bin);
+        assert.equal(r.status, 0, event);
+        assert.match(r.stdout, new RegExp(`^CLI:repo hook [a-z-]+ --harness ${h} --spec ${catalog.hooks.spec}$`), event);
+      }
+    });
+
+    test(`${h}: a failed or unrecognized payload through the hook command exits 0 silently`, () => {
+      for (const event of ["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop"]) {
+        const r = run(event, "garbage");
+        assert.equal(r.status, 0, event);
+      }
+      const r = run("PostToolUse", { session_id: "z", tool_name: "Read", tool_input: { file_path: "/x" } });
+      assert.equal(r.stdout, "");
+    });
+  }
 });

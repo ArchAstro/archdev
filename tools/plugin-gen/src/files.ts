@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { NUDGE_TEXT } from "./nudge-text.ts";
 import { hookTimeout, type Catalog, type HarnessHooks, type HookEvent } from "./catalog.ts";
 
 /** One file the generator owns, at a repository-relative POSIX path. */
@@ -74,16 +75,80 @@ export function hookCommand(
 }
 
 /**
- * Plugin hooks run the CLI from PATH. Without it they exit 0 with no output,
- * so a plugin installed before the CLI never shows a hook error; the bundled
- * archdev skill tells the agent how to install the CLI.
+ * Plugin hooks run the CLI from PATH. Without it they exit 0, so a plugin
+ * installed before the CLI never shows a hook error. At session start they
+ * also print the catalog's missing-CLI guidance, which reaches the agent as
+ * session context: the one moment a plugin-only user can be offered the CLI,
+ * with the user's approval, before the session's work happens. The other
+ * events stay silent.
  */
 export function guardedHookCommand(
   catalog: Catalog,
   hooks: HarnessHooks,
   event: HookEvent,
 ): string {
-  return `command -v archdev >/dev/null 2>&1 || exit 0; exec ${hookCommand(catalog, hooks, event)}`;
+  if (hooks.nudge && NUDGE_EVENTS.includes(event))
+    return nudgeHookCommand(catalog, hooks, event);
+  const missing =
+    event === "sessionStart"
+      ? `{ printf '%s\\n' ${shellQuote(catalog.hooks.missingCliGuidance)}; exit 0; }`
+      : "exit 0";
+  return `command -v archdev >/dev/null 2>&1 || ${missing}; exec ${hookCommand(catalog, hooks, event)}`;
+}
+
+/** Events whose hooks fall back to the nudge script when there is no CLI. */
+export const NUDGE_EVENTS: readonly HookEvent[] = ["sessionStart", "promptSubmit", "toolUse", "stop"];
+
+/** Where the generated plugin keeps the nudge script, relative to its root. */
+export const NUDGE_SCRIPT = "hooks/archdev-nudge.sh";
+
+/**
+ * With the CLI on PATH the hook is exactly the CLI's. Without it the bundled
+ * nudge script reads the same hook JSON and tells the model which ArchDev MCP
+ * tool to call. The CLI branch exits first, so nothing is reported twice.
+ */
+export function nudgeHookCommand(
+  catalog: Catalog,
+  hooks: HarnessHooks,
+  event: HookEvent,
+): string {
+  const { action } = catalog.hooks.events[event];
+  return `if command -v archdev >/dev/null 2>&1; then exec ${hookCommand(catalog, hooks, event)}; fi; exec sh "${hooks.nudge!.pluginRoot}/${NUDGE_SCRIPT}" ${action}`;
+}
+
+/**
+ * The nudge script every harness plugin bundles: the template with each
+ * `@@name@@` marker replaced by its text from `nudge-text.ts`, so no harness
+ * can carry different words. A leftover or unknown marker is a build error.
+ */
+export function nudgeScriptSource(repoRoot: string): string {
+  const template = readFileSync(
+    path.join(repoRoot, "tools/plugin-gen/assets/archdev-nudge.sh.in"),
+    "utf8",
+  );
+  const text = NUDGE_TEXT as Record<string, string>;
+  const used = new Set<string>();
+  const source = template.replace(/@@(\w+)@@/g, (_, name: string) => {
+    if (!(name in text)) throw new Error(`archdev-nudge.sh.in uses unknown text @@${name}@@`);
+    used.add(name);
+    return text[name]!;
+  });
+  const unused = Object.keys(text).filter((name) => !used.has(name));
+  if (unused.length > 0) throw new Error(`nudge-text.ts has unused texts: ${unused.join(", ")}`);
+  return source;
+}
+
+export function nudgeScriptFile(repoRoot: string, root: string): GeneratedFile {
+  return {
+    path: `${root}/${NUDGE_SCRIPT}`,
+    content: Buffer.from(nudgeScriptSource(repoRoot), "utf8"),
+    mode: 0o755,
+  };
+}
+
+/** POSIX single-quoted word. */
+export function shellQuote(text: string): string {
+  return `'${text.replaceAll("'", `'\\''`)}'`;
 }
 
 /** Event names Claude Code, Codex and Grok share. */
@@ -172,8 +237,18 @@ export function claudeManifest(catalog: Catalog): Record<string, unknown> {
   };
 }
 
+/**
+ * Claude Code expands `${VAR:-default}` in `.mcp.json`, so the server URL
+ * follows ARCHDEV_MCP_URL when it is set (a self-hosted or staging gateway)
+ * and is the catalog's URL otherwise.
+ */
 export function claudeMcp(catalog: Catalog): Record<string, unknown> {
   return {
-    mcpServers: { [catalog.mcp.name]: { type: "http", url: catalog.mcp.url } },
+    mcpServers: {
+      [catalog.mcp.name]: {
+        type: "http",
+        url: `\${ARCHDEV_MCP_URL:-${catalog.mcp.url}}`,
+      },
+    },
   };
 }

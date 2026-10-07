@@ -2,6 +2,8 @@
  * Cursor: `.cursor-plugin/plugin.json` naming its component paths, and a
  * `mcp.json` whose remote servers take a bare `url`. Cursor hooks would use a
  * camelCase `{ version: 1, hooks }` file; none ship until the CLI handles them.
+ * No nudge: `beforeSubmitPrompt` cannot inject context, and the shell tool's
+ * `tool_input` keys are undocumented (https://cursor.com/docs/hooks).
  */
 import { harnessHooks } from "../catalog.ts";
 import { jsonFile, skillFiles, type GeneratedFile } from "../files.ts";

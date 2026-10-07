@@ -1,7 +1,10 @@
 /**
  * GitHub Copilot (CLI, VS Code, app): Agent Plugins 1.0.0. Copilot hooks would
  * live in `com.github.copilot/hooks/hooks.json`; the catalog ships none until
- * the CLI handles Copilot's payloads.
+ * the CLI handles Copilot's payloads. No nudge: command hooks on
+ * `userPromptSubmitted` have their output dropped, and the shell tool's input
+ * keys and MCP tool names are undocumented
+ * (https://docs.github.com/en/copilot/reference/hooks-configuration).
  */
 import { harnessHooks } from "../catalog.ts";
 import {

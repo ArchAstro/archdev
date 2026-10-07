@@ -3,7 +3,8 @@
  * extension that forwards Pi's events to `archdev repo hook`. Pi has no MCP
  * client, so no server ships. The extension mirrors the one
  * `archdev repo hook setup` writes, so a session reports the same way through
- * either install path.
+ * either install path. No nudge: Pi's MCP tool names are undocumented and the
+ * bash tool's input keys are unknown (the generated package ships no MCP server).
  */
 import { harnessHooks, hookTimeout, type Catalog, type HarnessHooks } from "../catalog.ts";
 import {

@@ -4,11 +4,18 @@
  * `plugin.json` but never registers its hooks, and a root `plugin.json` would
  * take precedence over this manifest, so the Codex plugin has none.
  * Codex registers plugin hooks only after the user trusts them in `/hooks`.
+ *
+ * Without the CLI its hooks run the bundled nudge script. Contract relied on
+ * (https://developers.openai.com/codex/hooks): snake_case stdin with
+ * `tool_input.command` for Bash, `hookSpecificOutput.additionalContext` out,
+ * `{"decision":"block"}` on Stop, plugin root in `PLUGIN_ROOT`. apply_patch has
+ * no documented file-path key, so plan-file edits are not nudged on Codex.
  */
 import { harnessHooks } from "../catalog.ts";
 import {
   agentPluginMcp,
   jsonFile,
+  nudgeScriptFile,
   pascalHooksFile,
   skillFiles,
   type GeneratedFile,
@@ -40,6 +47,7 @@ export function build({ repoRoot, catalog }: Context): GeneratedFile[] {
     ...(hooks
       ? [jsonFile(`${root}/hooks/hooks.json`, pascalHooksFile(catalog, hooks))]
       : []),
+    ...(hooks?.nudge ? [nudgeScriptFile(repoRoot, root)] : []),
     ...skillFiles(repoRoot, catalog, `${root}/skills`),
   ];
 }
