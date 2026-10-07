@@ -1,9 +1,17 @@
-/** Claude Code: `.claude-plugin/plugin.json`, `.mcp.json`, `hooks/hooks.json`. */
+/**
+ * Claude Code: `.claude-plugin/plugin.json`, `.mcp.json`, `hooks/hooks.json`.
+ * Without the CLI its hooks run the bundled nudge script. Contract relied on
+ * (https://code.claude.com/docs/en/hooks): stdout is added as context for
+ * SessionStart and UserPromptSubmit, `hookSpecificOutput.additionalContext`
+ * for PostToolUse, `{"decision":"block"}` for Stop, `CLAUDE_PLUGIN_ROOT` and
+ * `CLAUDE_PLUGIN_DATA` in the hook environment.
+ */
 import { harnessHooks } from "../catalog.ts";
 import {
   claudeManifest,
   claudeMcp,
   jsonFile,
+  nudgeScriptFile,
   pascalHooksFile,
   skillFiles,
   type GeneratedFile,
@@ -20,6 +28,7 @@ export function build({ repoRoot, catalog }: Context): GeneratedFile[] {
     ...(hooks
       ? [jsonFile(`${root}/hooks/hooks.json`, pascalHooksFile(catalog, hooks))]
       : []),
+    ...(hooks?.nudge ? [nudgeScriptFile(repoRoot, root)] : []),
     ...skillFiles(repoRoot, catalog, `${root}/skills`),
   ];
 }

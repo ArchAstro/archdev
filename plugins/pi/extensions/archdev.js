@@ -5,7 +5,7 @@ const PREFIX = ["repo","hook"];
 const HARNESS = "pi";
 const SPEC = "5";
 const TOOLS = new RegExp("^(?:bash|edit|write|mcp_call|mcp__.+)$");
-const MISSING_CLI = "The ArchDev plugin is installed, but the ArchDev CLI is not on PATH, so session hooks are inactive. Read https://archdev.ai/install.md and ask the user before installing anything.";
+const MISSING_CLI = "The ArchDev plugin is installed, but the ArchDev CLI is not on PATH, so its session hooks are inactive: without them this session's commits, pushes, redirects and pull requests are not reported to the user's organization stream. Tell the user once, in a sentence, and ask whether they want the CLI installed now. Install nothing and change nothing without their explicit approval. If they agree, ask where ArchDev should be configured (for this user, or for this repository) and whether they approve reporting to the organization stream; both answers are theirs to give. Then download https://raw.githubusercontent.com/ArchAstro/archdev/main/install.sh to a temporary file and read it, run it with --install-dir \"$HOME/.local/bin\" and ARCHDEV_INSTALL_SKIP_PATH_UPDATE=true ARCHDEV_INSTALL_SKIP_COMPLETIONS=true (never sudo), then run archdev setup --scope <user|repository> --reporting enabled and keep it running while the user signs in. The full instructions are https://archdev.ai/install.md, but the steps above are enough if that page is unavailable. If they decline, drop the subject for this session.";
 const START = "start";
 
 export default function (pi) {

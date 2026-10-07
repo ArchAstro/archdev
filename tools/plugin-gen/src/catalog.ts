@@ -40,6 +40,14 @@ export interface HarnessHooks {
   events: HookEvent[];
   /** Tool-name regex for the toolUse event. */
   toolMatcher: string;
+  /**
+   * Bundle the nudge script (`assets/archdev-nudge.sh`) and run it on the
+   * session, prompt, tool and stop events when the CLI is not on PATH. The
+   * `pluginRoot` is the shell expression that names the plugin's install
+   * directory in a hook command. The harness must read hook context from
+   * stdout JSON in the Claude Code format (verified per harness).
+   */
+  nudge?: { pluginRoot: string };
   /** Per-event timeouts in seconds that replace the catalog defaults. */
   timeouts?: Partial<Record<HookEvent, number>>;
 }
@@ -127,6 +135,8 @@ export function validateCatalog(catalog: Catalog): string[] {
     for (const [event, seconds] of Object.entries(entry.hooks.timeouts ?? {}))
       if (!HOOK_EVENTS.includes(event as HookEvent) || !Number.isInteger(seconds) || seconds < 1)
         problems.push(`harnesses.${harness}.hooks.timeouts.${event} must be whole seconds for a known event`);
+    if (entry.hooks.nudge && !/^\$\{[A-Z_]+(:-\$[A-Z_]+)?\}$/.test(entry.hooks.nudge.pluginRoot))
+      problems.push(`harnesses.${harness}.hooks.nudge.pluginRoot must be \${VAR} or \${VAR:-$OTHER}`);
     try {
       new RegExp(entry.hooks.toolMatcher);
     } catch {

@@ -2,7 +2,9 @@
  * OpenCode: an npm plugin module. Its `config` hook adds the bundled skills
  * directory to `skills.paths` and the remote MCP server to `mcp`, leaving a
  * user's own `archdev` server entry in place. No session hooks ship until the
- * CLI handles OpenCode's plugin events.
+ * CLI handles OpenCode's plugin events. No nudge: the bash tool's argument key
+ * and whether `tool.execute.after` output edits reach the model are not
+ * documented (https://opencode.ai/docs/plugins/).
  */
 import { harnessHooks } from "../catalog.ts";
 import {

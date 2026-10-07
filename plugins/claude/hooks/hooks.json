@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook start --harness claude --spec 5",
+            "command": "if command -v archdev >/dev/null 2>&1; then exec archdev repo hook start --harness claude --spec 5; fi; exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/archdev-nudge.sh\" start",
             "timeout": 30
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook prompt --harness claude --spec 5",
+            "command": "if command -v archdev >/dev/null 2>&1; then exec archdev repo hook prompt --harness claude --spec 5; fi; exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/archdev-nudge.sh\" prompt",
             "timeout": 30
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook post-tool --harness claude --spec 5",
+            "command": "if command -v archdev >/dev/null 2>&1; then exec archdev repo hook post-tool --harness claude --spec 5; fi; exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/archdev-nudge.sh\" post-tool",
             "timeout": 10
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v archdev >/dev/null 2>&1 || exit 0; exec archdev repo hook stop --harness claude --spec 5",
+            "command": "if command -v archdev >/dev/null 2>&1; then exec archdev repo hook stop --harness claude --spec 5; fi; exec sh \"${CLAUDE_PLUGIN_ROOT}/hooks/archdev-nudge.sh\" stop",
             "timeout": 30
           }
         ]

@@ -2,7 +2,10 @@
  * Google Antigravity (2.0, IDE and `agy` CLI): a closed `plugin.json` with only
  * `$schema`, `name` and `description`, and `mcp_config.json` whose remote
  * servers use `serverUrl`. Antigravity has no SessionStart event, so no hooks
- * ship until the CLI handles its PreInvocation contract.
+ * ship until the CLI handles its PreInvocation contract. No nudge: only
+ * PreInvocation/PostInvocation `injectSteps` can add context, and the hook
+ * input has no prompt text, shell command or MCP tool names
+ * (https://antigravity.google/docs/hooks/).
  */
 import { harnessHooks } from "../catalog.ts";
 import { jsonFile, skillFiles, type GeneratedFile } from "../files.ts";
