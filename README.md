@@ -3,24 +3,54 @@
 Review coding-agent changes by risk and share what your team learns through
 ArchDev's organization stream.
 
-## Install through your coding agent
+## Install
+
+macOS and Linux:
+
+```sh
+curl -fsSL https://archdev.ai/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://archdev.ai/install.ps1 | iex
+```
+
+On macOS and Linux the installer does three things in order:
+
+1. Installs the `archdev` CLI and verifies its SHA-256 against the release.
+2. Signs you in with GitHub in your browser.
+3. Asks where to configure ArchDev, then runs `archdev setup`:
+   - **For me on this machine:** personal setup across repositories.
+   - **For this repository:** shareable setup files for your teammates.
+
+Before setup changes anything, the installer explains organization stream
+visibility and asks whether to enable activity reporting. Setup does not run
+without that approval. Each teammate installs and signs in for themselves; no
+credentials are shared through the repository, and nothing is committed or
+pushed.
+
+Without a terminal (CI, or a coding agent running the command) the installer
+only installs the CLI. Pass the answers to run setup as well:
+
+```sh
+curl -fsSL https://archdev.ai/install.sh | bash -s -- --scope user --reporting enabled
+```
+
+`bash -s -- --help` lists every option. Homebrew users can run
+`brew install ArchAstro/tools/archdev` and then `archdev setup`.
+
+### Through your coding agent
 
 Paste this prompt into your agent:
 
 ```text
-Read https://archdev.ai/install.md and set up ArchDev for me.
+Install ArchDev with the installer at https://archdev.ai/install.sh and set it up for me.
 ```
 
-Your agent checks the required software, installs ArchDev, and helps you sign
-in. It asks where to configure the setup and waits for your answer:
-
-- **For me on this machine:** personal setup across repositories.
-- **For this repository:** shareable setup files for your teammates.
-
-Before enabling activity reporting, it explains organization stream visibility
-and asks for your approval. Each teammate installs software and signs in for
-themselves. No credentials are shared through the repository, and the agent
-won't commit or push setup files without permission.
+Your agent installs the CLI, then asks where to configure the setup and whether
+to enable activity reporting before it runs `archdev setup`.
 
 See the [installation guide](https://docs.archdev.ai/docs/start-here/install)
 for what to expect, then ask your agent to review your changes with ArchDev.
