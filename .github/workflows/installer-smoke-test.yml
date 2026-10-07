@@ -66,6 +66,27 @@ jobs:
           ./install.sh --version 0.31.0 --base-url "file://$RUNNER_TEMP/release-nocompletion" --install-dir "$HOME/.local/bin"
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
           test ! -e "$HOME/${{ matrix.completion_file }}"
+      - name: Setup runs only with placement and reporting consent
+        env:
+          ARCHDEV_RELEASE_BASE_URL: http://127.0.0.1:8123
+          ARCHDEV_VERSION: 0.31.0
+          HOME: ${{ runner.temp }}/home-setup
+          SHELL: /bin/${{ matrix.shell_name }}
+          ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home-setup/.local/bin
+        run: |
+          # The documented one-liner: the script arrives on stdin and there is
+          # no terminal, so the installer must not prompt or assume consent.
+          mkdir -p "$HOME"
+          cat install.sh | bash >"$RUNNER_TEMP/unattended.log" 2>&1
+          grep -F 'placement needs your answer' "$RUNNER_TEMP/unattended.log"
+          ! grep -F 'Skill and hooks installed' "$RUNNER_TEMP/unattended.log"
+          cat install.sh | bash -s -- --scope user --reporting disabled >"$RUNNER_TEMP/declined.log" 2>&1
+          ! grep -F 'Skill and hooks installed' "$RUNNER_TEMP/declined.log"
+          cat install.sh | bash -s -- --scope user --reporting enabled >"$RUNNER_TEMP/consented.log" 2>&1
+          grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/consented.log"
+          # A script cut off mid-transfer must not run any of it.
+          if head -c 20000 install.sh | bash >"$RUNNER_TEMP/truncated.log" 2>/dev/null; then exit 1; fi
+          test ! -s "$RUNNER_TEMP/truncated.log"
       - name: Stop fixture server
         if: always()
         run: test ! -f "$RUNNER_TEMP/server.pid" || kill "$(cat "$RUNNER_TEMP/server.pid")" || true
