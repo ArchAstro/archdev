@@ -16,8 +16,7 @@ Follow the `archdev` skill for activity reporting. Plan/task lifecycle events
 retain their `risk.plan` / `risk.task` assessments. Server automation owns hosted
 PR and code-region grading: report PR events without fetching, waiting for,
 reusing, or attaching a server grade. No local assessment, annotation or stop
-hold is required. Offline Evals remain supported. Absent capture stays off;
-preserve explicit on/off and existing eligibility and session-link gates.
+hold is required.
 
 ## Epic and project membership
 

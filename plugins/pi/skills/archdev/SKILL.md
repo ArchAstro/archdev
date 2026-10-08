@@ -5,11 +5,11 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.49.6 or newer for assessment-free PR reporting and default-off
-capture. Server automation owns hosted PR and code-region grading. Report PR
+Requires CLI 0.49.6 or newer for assessment-free PR reporting.
+Server automation owns hosted PR and code-region grading. Report PR
 activity without fetching, waiting for, reusing, or attaching a server grade.
 Do not author local PR/region assessments or require annotations or a stop gate.
-Plan/task risk and explicit offline Evals remain supported. Hook setup must
+Plan/task risk remains required. Hook setup must
 expose `--local`; preserve installation scope and personal opt-outs.
 
 The CLI is an implementation tool invoked by agents. Give users prompts and
@@ -178,22 +178,6 @@ payload summary.
 
 Missing server grades remain unassessed. They do not block publication or
 activity reporting. Optional author notes are context, not authoritative risk.
-Do not restore historical author grades or add a capture bridge to report a PR.
-
-Capture is off when `corpus.capture` is absent. Preserve explicit `on` and
-`off`; on still requires server eligibility and a valid subject/session link.
-Activity reporting is separate from transcript capture. Removing local PR
-assessment triggers does not promise working PR capture.
-
-Skills come from the public ArchAstro/archdev root directories. An actual
-`archdev upgrade` refreshes installed user/current-checkout skills; an
-already-latest upgrade returns before refresh. With the normal installation
-consent, use `archdev setup --skills --scope user --refresh` or the repository
-scope for that checkout, and scoped hook repair when needed. Other checkouts,
-plugin caches, and already-loaded sessions are not swept: use the harness's
-plugin update path and restart sessions carrying old instructions. Check the
-installed content; a version number alone does not establish inclusion.
-
 
 During staggered releases, check `tasks create --help` for `--project`
 before authoring tasks with this guidance. If unavailable, upgrade the CLI;
