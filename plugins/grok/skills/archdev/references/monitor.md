@@ -281,12 +281,9 @@ Rules:
 - `--dry-run` prints the exact post without sending. `-a <file>` attaches
   a screenshot.
 - Use only kinds that actually happened. Skip routine progress.
-- CLI older than 0.46.5 (`archdev log post --help` does not list
-  `--project`, `archdev projects` is an unknown command, or `archdev
-  extract finalize --help` does not list `--publish`): the
-  bootstrap script upgrades it; if bootstrap was skipped or could not
-  install, post without the flag and do not retry with it. The post goes
-  out untagged, and the untagged warning is expected until the upgrade.
+- Run the bootstrap script to ensure CLI 0.49.6 or newer before reporting.
+  If bootstrap cannot install or upgrade it, report the blocker; do not
+  omit project tagging.
 - CLI older than the release that added `log post`: use
   `"$archdev" rooms <kind> "<headline>"` with the same `-b/-r/--risk`
   flags, and read with `rooms search` / `rooms messages <room-id>`
