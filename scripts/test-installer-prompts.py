@@ -42,6 +42,13 @@ case "$1 ${{2:-}}" in
     fi
     ;;
   "auth login")
+    if [ "${{3:-}}" = --help ]; then
+      echo '      --headless    Use the copy/paste flow instead of opening a local browser'
+      [ -n "${{FAKE_NO_ONBOARDING:-}}" ] || echo '      --onboarding  Open the workspace in the browser after sign-in'
+      exit 0
+    fi
+    if [ -n "${{FAKE_NO_ONBOARDING:-}}" ] && [ $# -gt 2 ]; then echo "error: unknown option '$3'" >&2; exit 1; fi
+    printf '%s\n' "$*" >"$state/login"
     # Stands in for the copy/paste flow: the code is typed at the terminal.
     printf 'Paste the code from your browser: '
     IFS= read -r code
@@ -191,6 +198,10 @@ class InstallerPromptTest(unittest.TestCase):
         self.assertIn("TTY-RESTORED", self.text())
         return os.waitstatus_to_exitcode(status)
 
+    def login_call(self):
+        path = self.state / "login"
+        return path.read_text().strip() if path.exists() else None
+
     def setup_call(self):
         path = self.state / "setup"
         return path.read_text().splitlines() if path.exists() else None
@@ -211,6 +222,21 @@ class InstallerPromptTest(unittest.TestCase):
         self.assertIn("Skill and hooks installed for this user", self.text())
         self.assertIn("is ready", self.text())
         self.assertIn("Set up this repository with ArchDev.", self.text())
+        # The browser lands in the workspace, not on a "return to your
+        # terminal" page, because this is a first-time-setup sign-in.
+        self.assertEqual(self.login_call(), "auth login --onboarding")
+        # The summary ends at the agent prompt; it lists no sample commands.
+        for command in ("archdev tasks", "archdev review", "archdev upgrade"):
+            self.assertNotIn(command, self.text())
+
+    def test_a_release_without_the_onboarding_flag_signs_in_without_it(self):
+        self.start(FAKE_NO_ONBOARDING="1")
+        self.answer("Sign in now?", ENTER)
+        self.expect("Paste the code")
+        os.write(self.fd, b"good\r")
+        self.expect("Signed in as dev@example.test")
+        self.assertEqual(self.finish(), 0)
+        self.assertEqual(self.login_call(), "auth login")
 
     def test_repository_placement_runs_setup_in_the_repository(self):
         (self.state / "signed-in").touch()
