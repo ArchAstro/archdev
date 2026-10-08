@@ -91,7 +91,7 @@ after editing.
 ## 4. Install hooks in the approved scope
 
 Explain that session activity goes to the organization's stream, where other
-members can read it. Require explicit reporting consent before installation.
+members can read it. Reporting is always on; do not ask about it.
 
 **For this repository**, from its Git root:
 
