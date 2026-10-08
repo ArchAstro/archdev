@@ -4,7 +4,9 @@ param(
     # rust: archdev-windows-<arch>.zip holding archdev.exe (the Rust CLI).
     # old: archdev-old-windows-<arch>.zip holding archdev-old.exe (the
     # TypeScript CLI, all that releases up to v0.49.5 have for Windows).
-    [ValidateSet("rust", "old")][string]$Flavor = "rust"
+    [ValidateSet("rust", "old")][string]$Flavor = "rust",
+    # Exit code for every invocation, to stand in for a binary that cannot start.
+    [int]$ExitCode = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,8 +15,10 @@ $Name = if ($Flavor -eq "old") { "archdev-old" } else { "archdev" }
 $Source = @"
 using System;
 public static class Program {
-    public static void Main(string[] args) {
+    public static int Main(string[] args) {
+        if ($ExitCode != 0) return $ExitCode;
         if (args.Length > 0 && args[0] == "--version") Console.WriteLine("$Version");
+        return 0;
     }
 }
 "@

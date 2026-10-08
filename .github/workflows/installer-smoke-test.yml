@@ -198,6 +198,9 @@ jobs:
           # before them, holding only the TypeScript CLI as archdev-old.
           ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release\rust" -Version 0.31.0
           ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release\old" -Version 0.30.0 -Flavor old
+          # /nodll is a release whose binary exits as Windows does when a DLL
+          # it imports is missing (STATUS_DLL_NOT_FOUND).
+          ./scripts/create-windows-fixtures.ps1 -OutputDir "$env:RUNNER_TEMP\release\nodll" -Version 0.31.0 -ExitCode -1073741515
       - name: Install CLI-only release
         shell: pwsh
         run: |
@@ -239,6 +242,13 @@ jobs:
             if ($repository -notmatch "Skill and hooks installed for " -or $repository -match "for this user") { throw "Setup did not install for the repository: $repository" }
             $declined = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Reporting disabled *>&1 | Out-String)
             if ($declined -notmatch "declines setup" -or $declined -match "Skill and hooks installed") { throw "-Reporting disabled did not decline setup: $declined" }
+            # A binary that cannot start fails the install with the fix, not a
+            # silent "installed" followed by a sign-in that never begins.
+            $noDll = $null
+            try {
+              ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/nodll -InstallDir "$env:RUNNER_TEMP\bin-nodll" -SkipPathUpdate -SkipLogin -SkipSetup *>&1 | Out-Null
+            } catch { $noDll = "$_" }
+            if ($noDll -notmatch "Visual C\+\+ Redistributable") { throw "A binary missing its DLLs did not fail the install: $noDll" }
             $skipped = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -SkipSetup *>&1 | Out-String)
             if ($skipped -match "Skill and hooks installed") { throw "-SkipSetup still ran setup: $skipped" }
           } catch {
