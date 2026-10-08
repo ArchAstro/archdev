@@ -938,10 +938,17 @@ sign_in() {
     return 0
   fi
 
+  # Releases that have --onboarding open the workspace in the browser after
+  # sign-in instead of a "return to your terminal" page; older ones reject it.
+  local onboarding=""
+  if cli auth login --help 2>/dev/null | grep -e '--onboarding' >/dev/null; then
+    onboarding="--onboarding"
+  fi
+
   # The CLI owns the browser and copy/paste flows; give it the real terminal.
   printf '\n'
   tty_restore
-  if cli auth login </dev/tty; then
+  if cli auth login ${onboarding:+"$onboarding"} </dev/tty; then
     tty_quiet
     printf '\n'
   else
@@ -1083,9 +1090,6 @@ summary() {
     fi
     printf '\n      %s%s%s\n\n' "$BOLD" "$AGENT_PROMPT" "$RESET"
   fi
-  next_command "archdev tasks" "plan, claim and complete shared work"
-  next_command "archdev review" "review local changes in ArchCode"
-  next_command "archdev upgrade" "update the CLI, skills and hooks"
   printf '\n    %sDocs  %s%s%s\n\n' "$C_DIM" "$C_LINK" "$DOCS_URL" "$RESET"
 }
 

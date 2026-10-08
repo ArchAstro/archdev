@@ -188,8 +188,13 @@ if ($SkipLogin) {
     if ($Answer -match '^\s*n') {
         Write-Host "Skipped. Sign in later with: archdev auth login"
     } else {
+        # Releases that have --onboarding open the workspace in the browser
+        # after sign-in instead of a "return to your terminal" page; older
+        # ones reject it.
+        $LoginArgs = @("auth", "login")
+        if ((Invoke-Archdev auth login --help) -and ($script:CliOutput -match '--onboarding')) { $LoginArgs += "--onboarding" }
         # The CLI owns the browser and copy/paste flows; give it the console.
-        & $Bin auth login
+        & $Bin @LoginArgs
         if (($LASTEXITCODE -eq 0) -and (Invoke-Archdev auth status)) {
             $SignedIn = $true
             Show-SignedIn
@@ -285,9 +290,6 @@ if (-not $SetupDone) {
     Write-Host "      $AgentPrompt"
     Write-Host ""
 }
-Write-NextCommand "archdev tasks" "plan, claim and complete shared work"
-Write-NextCommand "archdev review" "review local changes in ArchCode"
-Write-NextCommand "archdev upgrade" "update the CLI, skills and hooks"
 Write-Host ""
 Write-Host "    Docs  $DocsUrl"
 Write-Host ""
