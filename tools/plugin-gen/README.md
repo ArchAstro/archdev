@@ -45,3 +45,11 @@ One-time npm setup by an `@archastro` owner: publish the first version by hand
 connect this workflow with
 `npm trust github @archastro/archdev-opencode --repository ArchAstro/archdev --file publish-opencode.yml`
 or the package's Trusted Publisher settings on npmjs.com.
+
+## Agent instruction scope
+
+Describe the actions an agent needs for its workflow. Do not introduce unrelated
+capabilities merely to tell the agent not to use them; that adds distracting
+context and can prompt unwanted exploration. Keep capture configuration and
+release constraints in their dedicated documentation. Remove obsolete
+obligations when behavior changes.

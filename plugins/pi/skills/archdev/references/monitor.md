@@ -395,26 +395,6 @@ Missing grades remain unassessed; historical author/publish assessments and
 annotation labels are not authoritative fallbacks. No backfill or partial-head
 repair is part of this workflow.
 
-Explicit offline Evals, frozen packet collectors, file-sink assessments,
-definitions, historical rows and datasets remain supported. They are separate
-from hosted PR reporting; do not publish a new client PR/region assessment.
-
-## Capture and installed instructions
-
-Absent `corpus.capture` means off. Preserve explicit `on` and `off`. Even on
-requires a valid subject/session link and server eligibility before transcript
-bytes are read or uploaded. Activity/presence metadata is separate from capture.
-Removing the local PR assessment trigger does not restore PR capture; no new
-PR capture bridge is included. Plan/task capture retains its existing gates.
-
-An actual CLI upgrade refreshes installed skills for the user and current
-checkout. Already-latest upgrade exits before that refresh. With normal consent,
-use `archdev setup --skills --scope user --refresh` or `--scope repository`
-for the intended checkout, plus scoped hook repair when necessary. Other
-checkouts and plugin caches require their own supported update paths. Restart
-loaded sessions after updating; their previous contract remains in context.
-Verify installed files and the release source, not only a version bump.
-
 ## Factory sessions
 
 Check the environment once at session start. Any of
