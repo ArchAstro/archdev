@@ -284,11 +284,6 @@ Rules:
 - Run the bootstrap script to ensure CLI 0.49.6 or newer before reporting.
   If bootstrap cannot install or upgrade it, report the blocker; do not
   omit project tagging.
-- CLI older than the release that added `log post`: use
-  `"$archdev" rooms <kind> "<headline>"` with the same `-b/-r/--risk`
-  flags, and read with `rooms search` / `rooms messages <room-id>`
-  (the `id` from `rooms connect`). `archdev log post --help` shows whether
-  `--kind` and the `messages` / `search` subcommands exist.
 
 ## Report
 
