@@ -62,7 +62,9 @@ class InstallerPromptTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        # Resolved: on macOS the temp directory is under /var, a symlink to
+        # /private/var, and the installer reports the physical path.
+        self.root = Path(self.tmp.name).resolve()
         self.home = self.root / "home"
         self.state = self.root / "state"
         self.tools = self.root / "tools"
@@ -104,11 +106,18 @@ class InstallerPromptTest(unittest.TestCase):
         """Run the one-liner in a pty. The wrapper reports whether the
         terminal settings came back unchanged, then exits with the
         installer's status."""
+        # `pendin` is left out of the comparison: macOS sets it when a raw
+        # read returns the terminal to canonical mode with input pending, and
+        # the next line read clears it. Every other setting must come back.
         command = (
-            'before="$(stty -g)"; trap ":" INT; '
+            'settings() { stty -a | tr " ;\t" "\n\n\n" | grep -v -x -e pendin -e -pendin -e "" | sort; }; '
+            'before="$(settings)"; trap ":" INT; '
             f'cat {ROOT / "install.sh"} | bash -s -- --base-url file://{self.release} '
             f'--version {VERSION} --install-dir "$HOME/.local/bin" "$@"; status=$?; '
-            '[ "$(stty -g)" = "$before" ] && echo TTY-RESTORED || echo TTY-CHANGED; exit $status'
+            'after="$(settings)"; '
+            'if [ "$after" = "$before" ]; then echo TTY-RESTORED; '
+            'else echo TTY-CHANGED; diff <(printf "%s\n" "$before") <(printf "%s\n" "$after"); fi; '
+            'exit $status'
         )
         pid, fd = pty.fork()
         if pid == 0:
