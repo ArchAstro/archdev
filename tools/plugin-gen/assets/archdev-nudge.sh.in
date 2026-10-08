@@ -184,7 +184,7 @@ post_bash() {
     if [ -n "$b" ] && [ -f "$st/pr-branch" ] && [ "$(cut -d' ' -f1 "$st/pr-branch")" = "$b" ]; then
       n=$(cut -d' ' -f2 "$st/pr-branch")
       pend "pr.updated $n"
-      extra=" This push is to the branch of pull request #$n, so also report pr.updated for it with archdev_post_risk_event (value {\"repository\":\"$(cut -d' ' -f3 "$st/pr-branch")\",\"number\":$n,\"summary\":\"<what changed>\"}; sealed whole-PR assessment: $RISK_STEPS, resource_type \"pr\", subject source archdev:pr:<owner>/<repo>#$n, full 40-character head and base SHAs)."
+      extra=" This push is to the branch of pull request #$n, so also report pr.updated for it with archdev_post_risk_event (value {\"repository\":\"$(cut -d' ' -f3 "$st/pr-branch")\",\"number\":$n,\"summary\":\"<what changed>\"}; omit sealed and digest; server automation owns grading, so do not fetch, wait for, reuse, or attach a server grade)."
     fi
     emit PostToolUse "@@push@@"
     return 0

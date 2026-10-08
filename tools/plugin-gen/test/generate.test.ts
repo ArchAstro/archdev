@@ -102,6 +102,26 @@ describe("generation", () => {
     }
   });
 
+  test("every distributed skill teaches server ownership while preserving plan/task risk", () => {
+    for (const skill of catalog.skills) {
+      const text = readFileSync(path.join(repoRoot, skill.path, "SKILL.md"), "utf8");
+      assert.match(text, /[Ss]erver automation owns hosted/);
+      assert.match(text, /risk\.plan/);
+      assert.match(text, /risk\.task/);
+      assert.doesNotMatch(text, /store that head.s review annotations|pr\.\*.*carries a sealed/);
+    }
+    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
+    assert.match(monitor, /PR reporting must not fetch, wait for, reuse, or attach/);
+    assert.match(monitor, /Absent `corpus.capture` means off/);
+    assert.match(monitor, /Already-latest upgrade exits before/);
+    assert.doesNotMatch(monitor, /## Focus range seals|## PR review annotations/);
+    for (const name of ["prCreated", "prUpdated", "prClosed"] as const) {
+      assert.match(NUDGE_TEXT[name], /without fetching, waiting for, reusing, or attaching/);
+      assert.doesNotMatch(NUDGE_TEXT[name], /RISK_STEPS|archdev_get_pr_risk|archdev_finalize_risk/);
+    }
+    assert.match(NUDGE_TEXT.plan, /RISK_STEPS/);
+  });
+
   test("only the catalog's hook harnesses ship hook files", () => {
     for (const harness of HARNESSES) {
       const hookFiles = under(ADAPTERS[harness].root).filter((f) =>

@@ -10,6 +10,15 @@ browser handoff, feedback collection, revisions, and save verification; the
 human reviews the plan in the web UI. This works from any coding harness and
 does not require Factory, a daemon, a resident agent, or `archdev setup`.
 
+## Activity and risk ownership
+
+Follow the `archdev` skill for activity reporting. Plan/task lifecycle events
+retain their `risk.plan` / `risk.task` assessments. Server automation owns hosted
+PR and code-region grading: report PR events without fetching, waiting for,
+reusing, or attaching a server grade. No local assessment, annotation or stop
+hold is required. Offline Evals remain supported. Absent capture stays off;
+preserve explicit on/off and existing eligibility and session-link gates.
+
 ## Epic and project membership
 
 Before creating Tasks, search `archdev projects list --query "<epic>"` for an
@@ -27,7 +36,7 @@ include both. Project membership does not change task visibility.
 
 Resolve the absolute directory containing this loaded `SKILL.md`, independently
 of the current repository. Its bootstrap installs ArchDev when missing and
-updates a CLI older than 0.47.0 or lacking review commands. Get approval
+updates a CLI older than 0.49.6 or lacking review commands. Get approval
 before installing or upgrading software. The scripts never install or
 refresh hooks or change configuration scope. For initial ArchDev setup,
 follow [the agent installation guide](https://archdev.ai/install.md) and

@@ -71,7 +71,7 @@ supports_tasks() {
   raw="$("$1" --version 2>/dev/null | head -n 1)"
   version="$(printf '%s' "$raw" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
   [[ -n "$version" ]] || return 1
-  [[ "$(printf '%s\n%s\n' 0.47.0 "$version" | sort -V | head -n 1)" == 0.47.0 ]] &&
+  [[ "$(printf '%s\n%s\n' 0.49.6 "$version" | sort -V | head -n 1)" == 0.49.6 ]] &&
     "$1" tasks review update --help 2>/dev/null | grep -F 'Usage: archdev tasks review update ' >/dev/null &&
     # Executing a task needs a lease heartbeat the agent can run in the background.
     "$1" tasks heartbeat --help 2>/dev/null | grep -F 'Usage: archdev tasks heartbeat ' >/dev/null &&
@@ -80,7 +80,7 @@ supports_tasks() {
 }
 
 if ! supports_tasks "$executable"; then
-  printf 'Updating ArchDev: task execution requires 0.47.0+, tasks heartbeat, web review commands, and consent-safe repository hook support.\n' >&2
+  printf 'Updating ArchDev: task execution requires 0.49.6+, tasks heartbeat, web review commands, and consent-safe repository hook support.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi

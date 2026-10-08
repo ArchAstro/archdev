@@ -36,7 +36,7 @@ $archdev = if ($existing) { Resolve-ArchDevPath $existing.Source } else { Instal
 function Test-Tasks([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
     try {
-        if ([Version]$raw -lt [Version]"0.47.0") { return $false }
+        if ([Version]$raw -lt [Version]"0.49.6") { return $false }
     } catch { return $false }
     $helpText = & $Binary tasks review update --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "(?m)^Usage: archdev tasks review update ")) { return $false }
@@ -46,7 +46,7 @@ function Test-Tasks([string]$Binary) {
 }
 
 if (-not (Test-Tasks $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev: Tasks requires 0.47.0+, web review commands, and consent-safe repository hook support.")
+    [Console]::Error.WriteLine("Updating ArchDev: Tasks requires 0.49.6+, web review commands, and consent-safe repository hook support.")
     $archdev = Install-ArchDev
 }
 
@@ -55,7 +55,7 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Tasks $archdev)) { throw "Installed ArchDev lacks Tasks web review commands or consent-safe repository hook support on 0.47.0+" }
+if (-not (Test-Tasks $archdev)) { throw "Installed ArchDev lacks Tasks web review commands or consent-safe repository hook support on 0.49.6+" }
 
 # Tasks executable resolution does not authorize changing hook configuration.
 Write-Output $archdev

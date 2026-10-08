@@ -159,7 +159,8 @@ for (const harness of HARNESSES) describe(`${harness.name}: archdev-nudge.sh wit
     const created = bash(s, "gh pr create --title t --body b", { stdout: "https://github.com/acme/app/pull/7\n" });
     assert.match(created.context ?? "", /pr\.created/);
     assert.ok(created.context?.includes('"repository":"acme/app","number":7'));
-    assert.ok(created.context?.includes("archdev_finalize_risk"));
+    assert.match(created.context ?? "", /Server automation owns PR and code-region grading/);
+    assert.doesNotMatch(created.context ?? "", /archdev_finalize_risk|archdev_get_pr_risk/);
     assert.equal(bash(s, "gh pr create --title t", { stdout: "https://github.com/acme/app/pull/7\n" }).stdout, "");
     const edited = bash(s, "gh pr edit 7 --body more");
     assert.ok(edited.context?.includes('"event \\"pr.updated\\"') === false);
@@ -168,6 +169,7 @@ for (const harness of HARNESSES) describe(`${harness.name}: archdev-nudge.sh wit
     const merged = bash(s, "gh pr merge 7 --squash");
     assert.match(merged.context ?? "", /archdev_post_pr_closed/);
     assert.ok(merged.context?.includes("pull_number 7"));
+    assert.doesNotMatch(merged.context ?? "", /archdev_get_pr_risk|seal you finalized/);
     assert.equal(bash(s, "gh pr merge 7").stdout, "");
   });
 
@@ -181,6 +183,7 @@ for (const harness of HARNESSES) describe(`${harness.name}: archdev-nudge.sh wit
     const r = bash(s, "git push", { stderr: "main -> main" });
     assert.match(r.context ?? "", /commit\.pushed/);
     assert.match(r.context ?? "", /pr\.updated/);
+    assert.doesNotMatch(r.context ?? "", /sealed whole-PR assessment|archdev_finalize_risk/);
   });
 
   test("a failed Bash tool call (is_error) nudges nothing", () => {

@@ -6,7 +6,7 @@ installer_revision="a530d21dd04eaed5742b8ad7daf9140a3ee2ef0f"
 installer_url="https://raw.githubusercontent.com/ArchAstro/archdev/${installer_revision}/install.sh"
 installer_sha256="f838ca858f7db526cdf2a2697001ae1d404edf3df93617e525efa9d171be7e64"
 install_dir="${ARCHDEV_INSTALL_DIR:-$HOME/.local/bin}"
-min_version="0.47.0"
+min_version="0.49.6"
 
 absolute_path() {
   local candidate="$1"
@@ -82,12 +82,11 @@ supports_skill() {
     "$1" repo status --help 2>/dev/null | grep -F "Probe CLI, login, model access" >/dev/null &&
     "$1" projects list --help 2>/dev/null | grep -F "Usage: archdev projects list " >/dev/null &&
     "$1" log post --help 2>/dev/null | grep -F -- "--project <id>" >/dev/null &&
-    "$1" extract finalize --help 2>/dev/null | grep -F -- "--publish <pull>" >/dev/null &&
     "$1" repo hook setup --help 2>/dev/null | grep -F -- "--local" >/dev/null
 }
 
 if ! supports_skill "$executable"; then
-  printf 'Updating ArchDev: this skill requires 0.47.0+ and repository hook setup with --local.\n' >&2
+  printf 'Updating ArchDev: this skill requires 0.49.6+ and repository hook setup with --local.\n' >&2
   install_archdev || exit 1
   executable="$(absolute_path "$install_dir/archdev")"
 fi
@@ -99,7 +98,7 @@ fi
 
 "$executable" --version >&2
 supports_skill "$executable" || {
-  printf 'Installed ArchDev lacks required commands or --local hook setup (need 0.47.0+); stopping without a global fallback.\n' >&2
+  printf 'Installed ArchDev lacks required commands or --local hook setup (need 0.49.6+); stopping without a global fallback.\n' >&2
   exit 1
 }
 
