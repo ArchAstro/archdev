@@ -648,9 +648,51 @@ download_asset() {
   return "$rc"
 }
 
+# Download $ASSET_URL, check it against the release's SHA256SUMS and unpack it
+# into <dir>.
+download_release() {
+  local extract="$1" archive="$TEMP_DIR/$ASSET_NAME" sums="$TEMP_DIR/SHA256SUMS" expected actual
+
+  if ! download_asset "$archive"; then
+    die "Could not download ${ASSET_NAME}." "Tried ${ASSET_URL}. Check your connection, or pin a release with --version."
+  fi
+  ok "Downloaded ${ASSET_NAME}  ${C_DIM}$(human_mb "$(wc -c <"$archive" | tr -d '[:space:]')")${RESET}"
+
+  if ! fetch "$CHECKSUM_URL" "$sums" 2>"$LOG"; then
+    die "Could not download the release checksums." "Tried ${CHECKSUM_URL}."
+  fi
+  expected="$(awk -v asset="$ASSET_NAME" '$2 == asset { print $1 }' "$sums")"
+  [ -n "$expected" ] || die "The release has no checksum for ${ASSET_NAME}."
+  actual="$(sha256_of "$archive")" || die "No SHA-256 tool found." "Install sha256sum, shasum or openssl."
+  if [ "$actual" != "$expected" ]; then
+    die "Checksum mismatch for ${ASSET_NAME}; nothing was installed." "expected ${expected}, got ${actual}"
+  fi
+  ok "Verified SHA-256  ${C_DIM}${expected:0:12}$(glyph '…' '...')${RESET}"
+
+  rm -rf "$extract"
+  mkdir -p "$extract"
+  tar -xzf "$archive" -C "$extract" || die "Could not unpack ${ASSET_NAME}."
+  [ -f "$extract/$BINARY_NAME" ] || die "The archive does not contain ${BINARY_NAME}."
+  chmod 0755 "$extract/$BINARY_NAME"
+}
+
+# The newest GLIBC_x.y symbol version a binary failed to load because the
+# system glibc is older, or nothing when that is not why it failed.
+missing_glibc() {
+  local out
+  out="$(ARCHDEV_NO_UPDATE_CHECK=1 "$1" --version 2>&1 </dev/null || true)"
+  # Only numbered versions; GLIBC_PRIVATE means a mismatched libc, not an old one.
+  case "$out" in
+    *"version \`GLIBC_"[0-9]*"' not found"*)
+      printf '%s\n' "$out" | grep -o "GLIBC_[0-9.]*' not found" | cut -d"'" -f1 |
+        sort -t. -k2,2n | tail -n 1 || true
+      ;;
+  esac
+}
+
 install_binary() {
-  local archive="$TEMP_DIR/$ASSET_NAME" sums="$TEMP_DIR/SHA256SUMS" extract="$TEMP_DIR/extract"
-  local expected actual staged current="" command_name
+  local extract="$TEMP_DIR/extract"
+  local staged current="" command_name needed
 
   for command_name in curl tar mktemp awk; do
     have "$command_name" || die "Missing required command: ${command_name}" "Install it and run the installer again."
@@ -681,29 +723,37 @@ install_binary() {
       "Choose another directory with --install-dir, for example --install-dir \"\$HOME/.local/bin\"."
   fi
 
-  if ! download_asset "$archive"; then
-    die "Could not download ${ASSET_NAME}." "Tried ${ASSET_URL}. Check your connection, or pin a release with --version."
-  fi
-  ok "Downloaded ${ASSET_NAME}  ${C_DIM}$(human_mb "$(wc -c <"$archive" | tr -d '[:space:]')")${RESET}"
-
-  if ! fetch "$CHECKSUM_URL" "$sums" 2>"$LOG"; then
-    die "Could not download the release checksums." "Tried ${CHECKSUM_URL}."
-  fi
-  expected="$(awk -v asset="$ASSET_NAME" '$2 == asset { print $1 }' "$sums")"
-  [ -n "$expected" ] || die "The release has no checksum for ${ASSET_NAME}."
-  actual="$(sha256_of "$archive")" || die "No SHA-256 tool found." "Install sha256sum, shasum or openssl."
-  if [ "$actual" != "$expected" ]; then
-    die "Checksum mismatch for ${ASSET_NAME}; nothing was installed." "expected ${expected}, got ${actual}"
-  fi
-  ok "Verified SHA-256  ${C_DIM}${expected:0:12}$(glyph '…' '...')${RESET}"
-
-  mkdir -p "$extract"
-  tar -xzf "$archive" -C "$extract" || die "Could not unpack ${ASSET_NAME}."
-  [ -f "$extract/$BINARY_NAME" ] || die "The archive does not contain ${BINARY_NAME}."
-  chmod 0755 "$extract/$BINARY_NAME"
+  download_release "$extract"
 
   if [ "$SKIP_VERIFY" != true ]; then
     INSTALLED_VERSION="$(binary_version "$extract/$BINARY_NAME")"
+    if [ -z "$INSTALLED_VERSION" ] && [ "$PLATFORM" = linux ]; then
+      needed="$(missing_glibc "$extract/$BINARY_NAME")"
+      # The glibc build needs the glibc it was linked against. On x64 the
+      # static musl build runs on any glibc, so install that instead.
+      if [ -n "$needed" ] && [ "$ARCH_LABEL" = x64 ]; then
+        warn "This system's glibc is older than ${needed#GLIBC_}; installing the static musl build."
+        ARCH_LABEL="x64-musl"
+        PLATFORM_NAME="Linux x64 (musl)"
+        ASSET_NAME="archdev-${PLATFORM}-${ARCH_LABEL}.tar.gz"
+        # The SHA256SUMS just downloaded lists the same release's archives.
+        if ! awk -v asset="$ASSET_NAME" '$2 == asset { found = 1 } END { exit !found }' "$TEMP_DIR/SHA256SUMS"; then
+          die "This release has no static build for older glibc." \
+            "Install a newer release, or use a distribution with glibc ${needed#GLIBC_} or later."
+        fi
+        # Fetch the musl archive from the same release, even if a newer one
+        # was published since the first download.
+        if [ "$REQUESTED_VERSION" = latest ] && [ -z "$RELEASE_BASE_URL" ] && [ -n "$TARGET_VERSION" ]; then
+          REQUESTED_VERSION="$TARGET_VERSION"
+        fi
+        resolve_urls
+        download_release "$extract"
+        INSTALLED_VERSION="$(binary_version "$extract/$BINARY_NAME")"
+      elif [ -n "$needed" ]; then
+        die "The downloaded ${BINARY_NAME} needs glibc ${needed#GLIBC_} or later." \
+          "This system's glibc is older. ${PLATFORM_NAME} has no static build; use a newer distribution."
+      fi
+    fi
     [ -n "$INSTALLED_VERSION" ] || die "The downloaded ${BINARY_NAME} does not run on this machine." \
       "Platform detected: ${PLATFORM_NAME}."
   else
@@ -866,6 +916,15 @@ sign_in() {
     signed_in_line
     return 0
   fi
+  # A non-blank ARCHDEV_TOKEN takes precedence over stored credentials, so a
+  # rejected one would also defeat `archdev auth login`; show why instead.
+  case "${ARCHDEV_TOKEN:-}" in *[![:space:]]*)
+    warn "ARCHDEV_TOKEN did not sign you in:"
+    grep -v '^[[:space:]]*$' "$LOG" | quote_block || true
+    info "Set ARCHDEV_TOKEN to a valid personal access token, or unset it and run: archdev auth login"
+    return 0
+    ;;
+  esac
   if [ "$INTERACTIVE" != true ]; then
     skip "No terminal to sign in from. Run: archdev auth login"
     info "For CI, set ARCHDEV_TOKEN to a personal access token."
@@ -983,10 +1042,13 @@ run_setup() {
 # ---------------------------------------------------------------------------
 
 next_command() {
-  if [ $((${#2} + 28)) -gt "$COLUMNS_WIDE" ]; then
+  # A command wider than the column (a long profile path) keeps a gap.
+  local gap=" "
+  if [ "${#1}" -gt 22 ]; then gap="  "; fi
+  if [ $((${#1} + ${#2} + 7)) -gt "$COLUMNS_WIDE" ] || [ $((${#2} + 28)) -gt "$COLUMNS_WIDE" ]; then
     printf '    %s%s%s\n' "$BOLD" "$1" "$RESET"
   else
-    printf '    %s%-22s%s %s%s%s\n' "$BOLD" "$1" "$RESET" "$C_DIM" "$2" "$RESET"
+    printf '    %s%-22s%s%s%s%s%s\n' "$BOLD" "$1" "$RESET" "$gap" "$C_DIM" "$2" "$RESET"
   fi
 }
 

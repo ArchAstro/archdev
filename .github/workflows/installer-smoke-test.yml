@@ -28,6 +28,9 @@ jobs:
       - name: Cloud installer process contracts
         if: matrix.shell_name == 'bash'
         run: python3 scripts/test-cloud-installer.py
+      - name: Sign-in and setup prompts in a terminal
+        if: matrix.shell_name != 'fish'
+        run: python3 scripts/test-installer-prompts.py -v
       - name: Build fixture release
         run: |
           chmod +x install.sh scripts/create-unix-fixtures.sh
@@ -83,20 +86,104 @@ jobs:
           grep -F 'Set up this repository with ArchDev.' "$RUNNER_TEMP/unattended.log"
           cat install.sh | bash -s -- --scope repository >"$RUNNER_TEMP/repository.log" 2>&1
           grep -F 'Skill and hooks installed for' "$RUNNER_TEMP/repository.log"
-          ! grep -F 'for this user' "$RUNNER_TEMP/repository.log"
+          if grep -F 'for this user' "$RUNNER_TEMP/repository.log"; then exit 1; fi
           # Older documented commands still pass --reporting. Reporting is
           # always on, so `disabled` declines setup instead of being ignored.
           cat install.sh | bash -s -- --scope user --reporting enabled >"$RUNNER_TEMP/legacy.log" 2>&1
           grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/legacy.log"
           cat install.sh | bash -s -- --scope user --reporting disabled >"$RUNNER_TEMP/declined.log" 2>&1
           grep -F 'declines setup' "$RUNNER_TEMP/declined.log"
-          ! grep -F 'Skill and hooks installed' "$RUNNER_TEMP/declined.log"
+          if grep -F 'Skill and hooks installed' "$RUNNER_TEMP/declined.log"; then exit 1; fi
           # A script cut off mid-transfer must not run any of it.
           if head -c 20000 install.sh | bash >"$RUNNER_TEMP/truncated.log" 2>/dev/null; then exit 1; fi
           test ! -s "$RUNNER_TEMP/truncated.log"
       - name: Stop fixture server
         if: always()
         run: test ! -f "$RUNNER_TEMP/server.pid" || kill "$(cat "$RUNNER_TEMP/server.pid")" || true
+
+  # The jobs above install fixture binaries. This one installs the published
+  # release on each distribution and runs it, which is the only way to catch
+  # a build that does not start there (ubuntu:20.04 has glibc 2.31, older
+  # than the glibc build needs, so x64 must fall back to the musl build).
+  linux-release:
+    name: Linux release install (${{ matrix.image }}, ${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, image: "ubuntu:20.04", musl_fallback: "1" }
+          - { runner: ubuntu-latest, image: "ubuntu:24.04" }
+          - { runner: ubuntu-latest, image: "debian:12-slim" }
+          - { runner: ubuntu-latest, image: "fedora:41" }
+          - { runner: ubuntu-latest, image: "alpine:3.20" }
+          - { runner: ubuntu-24.04-arm, image: "ubuntu:24.04" }
+          - { runner: ubuntu-24.04-arm, image: "ubuntu:20.04", glibc_floor: "1" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install and run the latest release
+        run: |
+          docker run --rm -e EXPECT_GLIBC_FLOOR="${{ matrix.glibc_floor }}" \
+            -e EXPECT_MUSL_FALLBACK="${{ matrix.musl_fallback }}" \
+            -v "$PWD:/src:ro" "${{ matrix.image }}" sh /src/scripts/test-linux-release-install.sh
+
+  # The published release on both Mac architectures, through the documented
+  # one-liner shape. Sign-in is skipped: CI has no account to sign in with.
+  macos-release:
+    name: macOS release install (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install and run the latest release
+        env:
+          HOME: ${{ runner.temp }}/home
+          SHELL: /bin/zsh
+        run: |
+          mkdir -p "$HOME"
+          cat install.sh | bash -s -- --skip-login >"$RUNNER_TEMP/out.log" 2>&1 || { cat "$RUNNER_TEMP/out.log"; exit 1; }
+          cat "$RUNNER_TEMP/out.log"
+          # The installer picks /usr/local/bin when it is writable, else ~/.local/bin.
+          bin="$(PATH="$HOME/.local/bin:/usr/local/bin:$PATH" command -v archdev)"
+          version="$("$bin" --version)"
+          echo "$bin $version"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          # The binary matches the CPU, not a Rosetta guess.
+          case "$(uname -m)" in
+            arm64) file "$bin" | grep -q arm64 ;;
+            x86_64) file "$bin" | grep -q x86_64 ;;
+          esac
+          codesign --verify --strict "$bin"
+          # A new zsh finds it, and a second run changes nothing.
+          zsh -ic 'command -v archdev'
+          cat install.sh | bash -s -- --skip-login >"$RUNNER_TEMP/again.log" 2>&1 || { cat "$RUNNER_TEMP/again.log"; exit 1; }
+          grep -q "already installed" "$RUNNER_TEMP/again.log"
+
+  # Windows installs the TypeScript CLI (archdev-old) until the Rust Windows
+  # build ships; this installs the published zip and runs it.
+  windows-release:
+    name: Windows release install (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-11-arm]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install and run the latest release
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "archdev-bin"
+          ./install.ps1 -InstallDir $dir -SkipLogin -SkipSetup
+          $version = (& (Join-Path $dir "archdev.exe") --version | Out-String).Trim()
+          Write-Host "installed $version"
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected version output: $version" }
+          # New shells find it through the user PATH the installer updated.
+          $userPath = [Environment]::GetEnvironmentVariable("Path", "User") -split ';'
+          if ($userPath -notcontains $dir) { throw "$dir was not added to the user PATH" }
 
   windows-installer:
     name: Windows Installer
