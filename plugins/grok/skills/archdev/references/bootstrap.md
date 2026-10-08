@@ -23,7 +23,7 @@ bypass the guide's consent steps.
 
 ## Version and login
 
-1. `"$archdev" --version` (need 0.47.0+) and
+1. `"$archdev" --version` (need 0.49.6+) and
    `"$archdev" repo hook setup --help` (must include `--local`). If the
    published release lacks repository setup, stop; never fall back globally.
 2. `"$archdev" auth status`. For approved stream reporting, if unauthenticated,

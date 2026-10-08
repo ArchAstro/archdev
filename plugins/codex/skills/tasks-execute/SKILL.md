@@ -26,6 +26,15 @@ Use the `archdev` CLI for every Tasks operation. Prefer `--json` for output
 you parse. The CLI is the authority when it disagrees with this file:
 read `"$archdev" tasks guide` once per session.
 
+## Activity and risk ownership
+
+Follow the `archdev` skill for activity reporting. Plan/task lifecycle events
+retain their `risk.plan` / `risk.task` assessments. Server automation owns hosted
+PR and code-region grading: report PR events without fetching, waiting for,
+reusing, or attaching a server grade. No local assessment, annotation or stop
+hold is required. Offline Evals remain supported. Absent capture stays off;
+preserve explicit on/off and existing eligibility and session-link gates.
+
 ## 0. Connect
 
 Resolve the absolute directory containing this `SKILL.md` and run its

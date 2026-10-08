@@ -5,6 +5,7 @@ set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/archdev-bootstrap-test.XXXXXX")"
+work="$(cd -P "$work" && pwd)"
 trap 'rm -rf "$work"' EXIT
 failures=0
 
@@ -51,7 +52,7 @@ done
 for skill in archdev tasks tasks-execute; do
   run_bootstrap "$skill-verbose-help" "$skill" ARCHDEV_FAKE_VERBOSE_HELP=1
   # Both skills reject older releases that could silently opt in global hooks.
-  rejections=(ARCHDEV_FAKE_NO_LOCAL=1 ARCHDEV_FAKE_VERSION=0.46.0)
+  rejections=(ARCHDEV_FAKE_NO_LOCAL=1 ARCHDEV_FAKE_VERSION=0.46.0 ARCHDEV_FAKE_VERSION=0.49.5)
   # Task execution also needs the lease heartbeat command.
   [[ "$skill" == tasks-execute ]] && rejections+=(ARCHDEV_FAKE_NO_HEARTBEAT=1)
   for rejection in "${rejections[@]}"; do

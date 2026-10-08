@@ -9,18 +9,14 @@ tailing. The session runs in three beats:
    the moment they occur — `start` once scope is clear, `lesson` right
    away, `abandoned` when an approach dies. Do not hold them for a
    stopping point. Re-read the stream before committing or opening a PR.
-   After `gh pr create` and after every push that moves a PR head,
-   store that head's review annotations first (see PR review
-   annotations).
+
 3. **Every stopping point:** self-check against the taxonomy, report
-   events, post any lifecycle moment you missed, and confirm every PR
-   head you pushed has its annotations.
+   events, post any lifecycle moment you missed, report PR activity without an assessment.
 
 In any Git checkout, the hooks deliver the ArchDev contract at session
 start (on Grok, with the first tool call, because Grok drops session-start
 output) and, in Claude Code, at subagent start (`repo hook
-subagent-start`): load the `archdev` skill, store review annotations after
-each push that moves a PR head, and, for a subagent, leave stream posts
+subagent-start`): load the `archdev` skill and, for a subagent, leave stream posts
 to the top-level session. Harnesses without a subagent hook get none of
 this in spawned agents, so the parent puts it in their prompt (SKILL.md,
 Subagents and spawned agents). In a mapped repo, the start hook (`repo hook start`)
@@ -39,11 +35,8 @@ if it is a real hit. The note clears once the stream accepts (or queues) an
 it pending. A note left unreported is repeated once at your next prompt.
 On current CLIs, commits and pushes of the current branch that you make
 with `git` in this checkout are posted for you and raise no note. Report a
-commit or push only when a note names it. In Claude Code the
-stop and subagent-stop hooks hold the stop once for each pull request head
-you pushed that has no review annotations, naming the commands to store
-them. Other harnesses never block a stop, and Factory and daemon sessions
-are exempt.
+commit or push only when a note names it. PR activity reporting does not wait for grading, require annotations, or hold
+a session's stop. Server automation owns hosted PR and code-region grading.
 
 ## Current attention
 
@@ -196,15 +189,9 @@ out), ask:
 4. Was a commit created or pushed? (commit `detection`: …) → git commits
    and pushes of the current branch are posted for you; report one only
    when a note names it
-5. Was a PR created, updated, or closed? (pr `detection`: …) → on
-   created, or updated with a new head, store its review annotations
-   first (see PR review annotations; not in Factory sessions). Then, for
-   every PR you pushed to this session, run `"$archdev" extract show
-   pr.review-annotations <num> --json` from that PR's checkout at its
-   head: an `ExtractionNotFoundError` means the current head has no
-   row, so store it now, before any `done` or `handoff` post and before
-   you stop. Any other error means the checkout is not at the PR head,
-   not that the row is missing.
+5. Was a PR created, updated, or closed? → report the matching `pr.*`
+   event without an assessment. Do not fetch, wait for, reuse, or attach a
+   server grade. Missing server results do not block reporting.
 6. Did substantial work start, finish, fail, or teach something reusable?
    → it should already be posted; if not, post it now with `--kind`
    (see below). When the same moment is also an event, put both on one
@@ -248,7 +235,7 @@ files posts by project lists it under Unfiled.
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
 | `lesson` | right away, on a reusable root cause, failure, or fix | symptom, cause, fix; the exact command, error, or file |
 | `abandoned` | an approach failed and should not be repeated | what was tried, why it failed |
-| `done` | a meaningful outcome is finished, and the PR's current head already has its review annotations | intent, externally visible result, actual verification; `-r` PR URL. Anything reusable the work taught goes in its own `lesson`, not inside the done |
+| `done` | a meaningful outcome is finished | intent, externally visible result, actual verification; `-r` PR URL. Anything reusable the work taught goes in its own `lesson`, not inside the done |
 | `handoff` | someone else owns the next action | headline starts `@firstname`; current state |
 | `question` | a decision only a teammate can make | headline starts `@firstname`; evidence and options |
 
@@ -276,7 +263,7 @@ Rules:
 - When an event marks the outcome, add the kind to the event's own
   call — never post twice —
   `"$archdev" log post --project <id> --kind done "<outcome>" -r <PR URL> --event pr.closed
-  --payload-file <dir>/event.json --assessment <dir>/sealed/result.json`.
+  --payload-file <dir>/event.json`.
   It counts as a `done` for teammates and carries the validated event
   for activity readers.
 - `--answers <msg_id>` links a post to the teammate `question` it
@@ -310,8 +297,8 @@ Rules:
 
 - Free text: `"$archdev" log post --project <id> "<text>"` — posts to the organization stream as event
   `agent.message`.
-- Structured: `plan.*`, `task.*`, and `pr.*` events carry a sealed risk
-  assessment under the CLI's pinned risk definitions; `commit.*` and
+- Structured: `plan.*` and `task.*` events carry a sealed risk
+  assessment under the CLI's pinned risk definitions; `pr.*`, `commit.*`, and
   `agent.*` events carry none, and the CLI rejects either mistake. The
   risk definition is the resource type, never the event name:
   `task.started` seals under `risk.task`, not `risk.task.started`.
@@ -320,10 +307,8 @@ Rules:
   |---|---|---|---|---|
   | task | `risk.task` | `task.lifecycle <task id>` | `archdev:task:<task id>` | `task.created`, `task.started`, `task.updated`, `task.closed` |
   | plan | `risk.plan` | `plan.created <plan path>` | `archdev:plan:<plan path>` | `plan.created`, `plan.started`, `plan.updated` |
-  | pr | `risk.pr` | `pr.lifecycle <owner/repo>#<num>` | `archdev:pr:<owner/repo>#<num>` | `pr.created`, `pr.updated`, `pr.closed` |
 
-  The PR subject source is the `archdev:pr:` form, never a pull request
-  URL. In order, for a task (swap in the plan or pr row; `<dir>` is any
+  In order, for a task (swap in the plan row; `<dir>` is any
   scratch directory outside the checkout), each step spelled out under
   Risk assessments below:
   1. `"$archdev" extract brief risk.task --out <dir>/brief/` — the
@@ -333,9 +318,7 @@ Rules:
   2. Judgment: author `<dir>/judgment.json` as `{input, assessment}`.
      `input.subject.source.source` is the subject source from the table;
      `input.producer.role` is one of `author`, `assessor`, or `human`
-     (`author` when you wrote the work). For a PR, build `input` from
-     `"$archdev" extract context pr.risk <owner/repo>#<num> --json` and
-     replace its URL subject source with the `archdev:pr:` form.
+     (`author` when you wrote the work).
   3. `"$archdev" extract finalize risk.task <dir>/judgment.json
      --out <dir>/sealed/` — validates, derives the combined grade, and
      writes `<dir>/sealed/result.json`. Fix what the named stage reports.
@@ -370,10 +353,7 @@ Rules:
   background worker delivers it with the same key — do not re-send.
   Attachments cap at 64 KB encoded: cite less, or move bodies to
   `missingInputs`, when finalize succeeds but log reports oversize.
-- PR events: on `pr.created`, and on `pr.updated` when the head moved,
-  store the head's review annotations *before* logging the event (see
-  PR review annotations, below).
-- Events without an assessment (`commit.*`, `agent.*`):
+- Events without an assessment (`pr.*`, `commit.*`, `agent.*`):
   `"$archdev" extract context <extractor> <ref> --json` prints the value
   schema; author the value into `<dir>/event.json` and post it with
   `"$archdev" log post --project <id> --event <event> --payload-file <dir>/event.json --message "<one-line summary>"`.
@@ -387,306 +367,61 @@ Rules:
   the envelope value file first:
   `jq .value <envelope.json> > <dir>/event.json`.
 
-## Risk assessments
+## Plan and task risk assessments
 
-Every `plan.*`, `task.*`, and `pr.*` event you post carries a risk
-assessment of that subject, graded under the versioned definitions that
-ship inside the CLI (`risk.plan`, `risk.task`, `risk.pr`, pinned at
-1.0.0; source `src/ts/cli-foundations/src/risk/`, readable catalogue
-`src/ts/archdev/docs/risk-resource-catalogue.md` in firstlanding). You
-are the producer: you collect the evidence and grade it; the CLI
-supplies the rubric, validates every schema, derives the combined
-grade, and seals the result. Brief, finalize, and the plan and task
-`extract context` calls run offline without login; the PR calls
-(`pr.lifecycle`, `pr.risk`) need Git and a `gh` session, and `log
-post` needs your ArchDev session. Do not paraphrase the rubric from memory and do
-not grade from a different one: the brief is the definition.
+Every `plan.*` and `task.*` event retains its required assessment under
+`risk.plan` or `risk.task`. Follow the sequence under Report: read the pinned
+brief, author `{input, assessment}`, finalize, embed the complete result in
+`risk`, and post with `--assessment`. The resource type determines the rubric,
+never the event name. Read `DEFINITION.md`; do not grade from memory.
 
-Two components, graded separately, each `low`, `medium`, or `high`, or
-left `unassessed` with the missing fact named:
+Keep versioned subject evidence, producer identity, prior-answer exposure,
+coverage and limitations. Distinguish inspected source, test source, observed
+execution and attributed claims. Assess uncertainty and consequence separately;
+the CLI derives combined risk. Missing evidence is unassessed, never low.
+Mitigate within scope and recompute at most twice; do not lower a grade by
+editing the assessment alone.
 
-- **Uncertainty**: how much remains unproven about whether the change or
-  proposal works. Established pattern plus strong, relevant passing tests
-  points low; a new approach or a coverage gap on important behavior
-  points medium; essential behavior that is unproven and hard to test
-  points high. Passing tests you did not run and see are claims.
-- **Consequence**: what a supported failure would do to people or assets.
-  Internal-only tooling and documentation default low. User-perceptible
-  degradation, or a disrupted fundamental development capability with a
-  practical recovery path (a broken shared build, CI blocking work, a
-  recoverable deployment failure), is medium. Loss of product access,
-  damaged authoritative customer data, wrong charges, or unauthorized
-  disclosure is high even when few people are affected and recovery is
-  easy; infrastructure damage is high when diagnosis or recovery is
-  difficult.
+## PR activity and server grading
 
-The CLI derives the combined grade from its own table. Never author a
-combined grade, and never let `unassessed` stand in for low.
+Server automation owns hosted PR and code-region grading and default review
+annotations. There is no local assessment, annotation, focus-range coverage or
+stop-gate obligation. Optional author notes/grouping remain context, not grades.
 
-The flow, per event:
+For `pr.created`, `pr.updated`, or `pr.closed`:
 
-1. **Brief, once per definition per session.**
-   `"$archdev" extract brief risk.<resource> --out <dir>/brief/` writes
-   `DEFINITION.md` (shared and resource-specific instructions, the
-   combination table), `INPUT_SCHEMA.json`, `OUTPUT_SCHEMA.json`,
-   `example.json` (a worked pair whose `output` is the `assessment`),
-   and `brief.json` (definition id, version, digest). `<dir>` is any
-   scratch directory outside the checkout. Read `DEFINITION.md` before
-   your first assessment of that resource; reuse it for the rest of the
-   session while `brief.json`'s digest is unchanged. `<resource>` is the
-   resource being judged, never the event name: `task` for every
-   `task.*` event, `plan` for `plan.*`, `pr` for `pr.*` (the table under
-   Report). `code-region` grades one changed range and is published per
-   focus range instead of posted (Focus range seals, below).
-2. **Judgment.** Author one JSON file with `input` and `assessment`
-   matching the two schemas in the brief.
-   - `input.subject.source.source` names the event subject exactly:
-     `archdev:plan:<path>`, `archdev:task:<id>`,
-     `archdev:pr:<owner/repo>#<num>` (`archdev:pr:local#<num>` with no
-     repository), never a pull request URL. `log post` binds the seal
-     to the event value's `repository` and `number`, so set
-     `repository` in the value (step 5) and make the seal's subject
-     match it. For a PR, collect the packet
-     first: `"$archdev" extract context pr.risk <owner/repo>#<num>
-     --json` prints, inside the `user` string, a JSON object whose
-     `input` is a complete frozen packet — `subject` (`base`, `head`,
-     `reportedBase`, `diffIdentity`), `checkpoint`, `evidence[]` (the
-     diff at the head, edited symbols and their callers, checks) with
-     ids and kinds already set, and the collector's `missingInputs`.
-     Copy `subject` from it (set `source.source` to the `archdev:pr:`
-     form) and build `evidence[]` from its items, keeping their ids,
-     kinds, and sources; add what you observed yourself (a test run, a
-     review pass) as your own items. The whole collected packet is far
-     larger than the 64 KB the post can attach, so keep the items your
-     reasons cite, trim `content` to what each establishes, and carry
-     the collector's `missingInputs` forward. Say in
-     `exposure.ambientContext` whether `input` is the collected packet
-     trimmed or was hand-built, and why. Do not author `subject` from
-     memory: when the collector cannot run (no GitHub session), take
-     `base_sha`, `head_sha`, and `diff_sha256` from the stored
-     annotation row (`extract show pr.review-annotations <num> --json`,
-     under `value.git`) and say so. `localContentIdentity` is `null`
-     unless you have it. `intent` and `diff` are what the subject says,
-     in your words, or `null`.
-   - `evidence[]`: each item has an `id` you cite later, a versioned
-     `source`, a `kind`, a `content` body saying what it establishes,
-     and `attribution`. Kinds are honest: `source` for code you read at
-     the assessed revision, `test-source` for test code you read,
-     `execution-result` for an execution you observed (a command you
-     ran in this session, or a check result you fetched, with its
-     limitations stated), `attributed-claim` for what someone told you
-     or wrote (a PR description, a teammate's post, a remembered pass),
-     `inference` for your own reasoning, `later-history` for facts from
-     after the checkpoint.
-   - `producer`: `role` is one of `author`, `assessor`, or `human`;
-     it is `author` when you wrote the work under assessment (the usual
-     case), whatever your harness calls you. `implementation` is your
-     harness and `model` your model id, or `null` when unknown.
-   - `exposure`: `priorAnswers` (`none-reported`, `unknown`, or `seen`
-     with ids), `ambientContext` listing what shaped you — the repo
-     instructions, memory, and "unfrozen, agent-supplied input" — and
-     `limitations` such as "author-produced; independence not
-     established".
-   - `missingInputs`: what you did not have. `assessment.coverage.
-     unassessed`: what you did not judge. Both are honest gaps, not
-     low grades.
-   - `assessment`: `objective`, `scope`, `uncertainty`, `consequence`
-     (assessed: `{state: "assessed", grade, reason, evidence}`;
-     unassessed: `{state: "unassessed", reason, evidence}` with no
-     `grade` key at all; `evidence` cites only ids from your
-     `evidence[]`), `coverage` (`wholeResource`, `assessed`,
-     `unassessed`, `contextRead`), and `limitations`. A habit the
-     rubric does not require but that keeps grades honest: before
-     settling one, write the strongest supported reason it could be
-     higher and say why you kept or moved it.
-3. **Seal.** `"$archdev" extract finalize risk.<resource> <dir>/judgment.json
-   --out <dir>/sealed/` validates input, output, and derived
-   result against the pinned definition, runs the derivation, writes
-   `result.json` and `digest.txt`, and prints `combinedRisk`. A failure
-   names its stage (`input-validation`, `output-validation`,
-   `derivation`, `result-validation`) followed by the schema errors or
-   the rule that failed (duplicate evidence ids, a citation of an
-   unknown id); fix the judgment file and rerun. Never edit
-   `result.json` by hand: `log post` re-validates it.
-4. **Mitigate, then recompute.** For each medium or high risk driver
-   the assessment names, reduce the risk in the subject itself: fix the
-   code, add the missing test or guard, split the unverifiable step,
-   tighten the plan. Then re-author `{input, assessment}` from the
-   changed subject and finalize again; the grade must follow the work,
-   never an edit to the assessment alone. At most two rounds, then post
-   what remains. Mitigate only within the work's existing scope; a fix
-   that would expand scope stays a residual risk, stated plainly. Name
-   what you mitigated and what remains in `--message`.
-5. **Event value.** `"$archdev" extract context <extractor> <ref> --json`
-   prints the event value's `jsonSchema` and the frozen subject:
-   `plan.created <plan path>`, `task.lifecycle <task id>`,
-   `pr.lifecycle <owner/repo>#<num>`. Current CLIs also print the whole
-   sequence filled in for that subject under `authoring`: the exact
-   risk definition, subject source, and allowed input values. Spell the PR
-   ref with its repository: a bare number resolves through the
-   checkout's GitHub origin, and a checkout without one yields
-   `local#<num>` with no repository, which the seal's subject then has
-   to match. Author `<dir>/event.json` from that schema — for a PR,
-   `repository`, `number`, `lifecycle` (`created` / `updated` /
-   `closed`), and a one-sentence `summary` — with its lifecycle matching
-   the event name and its `"risk"` field set to the whole JSON object in
-   `<dir>/sealed/result.json`. The value schema and `extract run`
-   require `risk`; leaving it out is the usual cause of "`<extractor>`
-   requires a risk assessment" after a successful finalize. `log post`
-   takes the seal from `--assessment` and attaches it in place of the
-   value's `risk`. The file you pass to `log post` is this value
-   object, not an extraction envelope.
-6. **Post.** `"$archdev" log post --project <id> --event <event>
-   --payload-file <dir>/event.json --assessment <dir>/sealed/result.json
-   --message "<full sentence: what happened and why it matters>"`, where
-   `<event>` is the event name (`task.started`, `pr.created`), adding
-   `--kind done` on the same call when the event is the outcome. The
-   stream post renders the payload and the derived grade; the sealed
-   evidence rides along as an attachment capped at 64 KB encoded, so
-   keep evidence bodies to what they establish and move the rest to
-   `missingInputs`.
+1. `"$archdev" extract context pr.lifecycle <owner/repo>#<number> --json`.
+2. Author the event value from its schema, including the actual repository,
+   number, lifecycle and summary. Do not add `risk`.
+3. `"$archdev" log post --project <id> --event pr.updated --payload-file
+   <dir>/event.json --message "<what changed>"` (use the actual event).
 
-Optional local check between steps 5 and 6: `"$archdev" extract run
-<extractor> <ref> --runner file:<dir>/event.json --sink stdout`
-validates the value with its embedded `risk`. The extractor's default
-deterministic runner produces no value for plan, task, or PR events;
-pass `--runner file:` or skip this step. `log post` performs the same
-validation.
+PR reporting must not fetch, wait for, reuse, or attach a server grade. Omit
+`--assessment`, `--assessment-head`, and `--unsealed-regions`. Pending, missing,
+disabled or failed server grading does not block publication or reporting.
+Missing grades remain unassessed; historical author/publish assessments and
+annotation labels are not authoritative fallbacks. No backfill or partial-head
+repair is part of this workflow.
 
-When to assess: on every `plan.*`, `task.*`, and `pr.*` event, at the
-moment you post it. A `pr.updated` after a push gets a fresh assessment
-of the new head; the CLI checks only that the seal names the same PR,
-not which head it graded, so re-assessing is on you. For a PR, store
-its review annotations first (next section), publish a seal for each
-focus range (the section after), then assess the PR and post.
+Explicit offline Evals, frozen packet collectors, file-sink assessments,
+definitions, historical rows and datasets remain supported. They are separate
+from hosted PR reporting; do not publish a new client PR/region assessment.
 
-Not yours to run:
+## Capture and installed instructions
 
-- `session.risk` grades a coding-agent session from a complete packet
-  the harness assembles (`packet:<path>`); an agent cannot certify its
-  own capture, so do not build one.
-- `"$archdev" extract run pr.risk <ref>` asks a platform model for an
-  independent assessment and saves it under `~/.archdev/extract`
-  (`extract show pr.risk <ref>` reads it). Run it when the user wants a
-  second opinion; it is a different producer and cannot be attached to
-  a `log post`.
+Absent `corpus.capture` means off. Preserve explicit `on` and `off`. Even on
+requires a valid subject/session link and server eligibility before transcript
+bytes are read or uploaded. Activity/presence metadata is separate from capture.
+Removing the local PR assessment trigger does not restore PR capture; no new
+PR capture bridge is included. Plan/task capture retains its existing gates.
 
-## PR review annotations
-
-ArchDev reads a pull request's review annotations from the
-`github_pr_review_annotations` row for its exact head SHA. Rows never
-carry over: a push, a force-push, or a rebase leaves the new head with
-no row, and the PR opens unannotated until one is stored. `archdev
-publish` writes the row for the head it pushes; `gh pr create` and a
-plain `git push` do not.
-
-Store the row at these moments:
-
-- right after `gh pr create`;
-- right after every push that moves an open PR's head, including a
-  format fixup, a review-fix commit, and the last push before you stop.
-  A session that annotated four heads and skipped the fifth leaves the
-  PR unannotated for its reviewers, because the fifth is the head they
-  open.
-
-Skip this section only in a Factory or daemon session (see below).
-
-From the checkout at the PR's head (`HEAD` must equal the PR head, on
-its branch):
-
-1. `"$archdev" extract context pr.review-annotations <num> --json` —
-   copy identity from `key`; read `authoring` for the `auto_reviewed`
-   paths a focus entry may not name.
-2. Author the value from the patches: sparse `risk` / `semantic_group`
-   / `note` ranges covering every changed path, plus an optional
-   `summary` (`intent`, `overall_risk`, up to five `focus` ranges with a
-   `why`). Every focus range must overlap a medium-or-higher risk
-   annotation on the same path and side.
-3. Mitigate, then recompute. For each medium or high `risk` range that
-   is a real defect or gap, fix it in the branch with a test that would
-   have caught it, and push. The push is a new head, so go back to
-   step 1 and author annotations for that head. At most two rounds.
-   Fix only within the PR's scope; a risk whose fix would expand scope
-   stays annotated, stated plainly, and you move forward.
-4. `"$archdev" extract run pr.review-annotations <num> --runner
-   file:<answer.json> --json` — the default sink writes the
-   `github_pr_review_annotations` object for that head. `status:
-   "cached"` means that head already has annotations; do not `--force`
-   over rows you did not write. A validation error names the failing
-   entry: fix the file and rerun.
-5. Confirm with `"$archdev" extract show pr.review-annotations <num>
-   --json`: it prints the stored row; `ExtractionNotFoundError` means
-   nothing is stored for this head; any other error means the checkout
-   is not at the PR head. Then publish the focus range seals (next
-   section) and log the `pr.*` event.
-
-Verify before you stop: at every stopping point, and before any `done`
-or `handoff` post, run step 5 for each PR you pushed to this session.
-From any checkout, `"$archdev" inspect metadata <num> --sha "$(git
-rev-parse HEAD)"` reads the same row and reports "No review annotations
-are published" when it is missing; its `assessments` list shows the
-head's published seals.
-
-If step 4 fails (signed out: `"$archdev" auth status` shows no session;
-no GitHub origin; a validation error), fix what it names or say so in
-the event's `--message` and in your reply to the user; never skip
-silently.
-
-## Focus range seals
-
-ArchDev grades a hunk from the sealed `risk.code-region` assessment
-that covers it: the rail card, the callout, the toolbar badge, the risk
-filter and the index all read the seal's combined grade, with the seal
-named on the badge's hover. Without one they show the annotation
-producer's own `risk` label, which is not a graded assessment. Seals
-are rows in `github_pr_risk_assessments` for the exact head, so they
-vanish on every push exactly as annotations do, and the same session
-that stores the annotations publishes them.
-
-Right after the annotation row is stored (previous section, step 5),
-for each range in the row's `summary.focus`, from the checkout at the
-PR head:
-
-1. **Collect.** `"$archdev" extract context code-region.risk
-   "<owner/repo>#<num>;<path>:<side>:<start>-<end>" --json` freezes the
-   range and collects its evidence (the diff at the head, the edited
-   symbols and their callers, checks). The range must be changed lines
-   only, on one side; the collector refuses a selection that includes
-   unchanged lines, so split a focus range around context and collect
-   each changed run, or select several changed ranges of one behavior
-   in one call by repeating `;<path>:<side>:<start>-<end>`; a nontext
-   file (an image, a binary) is selected whole with `;file=<path>`. The
-   `user` string is a JSON object whose `input` is the complete packet,
-   with `subject.locations` already set.
-2. **Judge.** Author `{input, assessment}` as in Risk assessments step
-   2, with `input` taken from the collected packet: keep `subject` as
-   collected (its `source.source` is the pull request URL, which
-   `--publish` accepts), keep the evidence items you cite with their
-   ids and kinds, add what you observed yourself, and carry the
-   collector's `missingInputs` forward. `--publish` stores the whole
-   seal in the row, so a full collected packet fits here; the 64 KB cap
-   applies to `log post` attachments only. Grade the range, not the PR:
-   `objective` and `scope` name the behavior the range changes.
-3. **Seal and publish.** `"$archdev" extract finalize risk.code-region
-   ./judgment.json --out ./sealed/<num>-<n>/ --publish <owner/repo>#<num>`
-   validates, derives the combined grade, writes `result.json` and
-   `digest.txt`, and stores the row for `input.subject.head`. The
-   result's `published` block echoes `head_sha`, `combined_risk` and
-   `locations`. A seal whose subject names another pull request, or a
-   `risk.pr` seal, is refused; a repeat of the same seal finds its row
-   and exits 0. A store failure exits non-zero: fix what it names
-   (signed out, wrong pull) or say so in the `pr.*` event's `--message`.
-4. **Mitigate, then recompute**, as in Risk assessments step 4: a
-   medium or high grade on a range you can make safer within the PR's
-   scope is a fix and a push, which is a new head, so go back to the
-   annotation row for that head and publish its seals afresh. At most
-   two rounds.
-
-Verify with `"$archdev" inspect metadata <num> --sha <head> --json`:
-`assessments` lists every stored seal for the head with its
-`definition_id`, `combined_risk`, `locations` and `producer`. Every
-focus range should have one covering seal; a range without one shows
-the producer's unsealed label in the review.
+An actual CLI upgrade refreshes installed skills for the user and current
+checkout. Already-latest upgrade exits before that refresh. With normal consent,
+use `archdev setup --skills --scope user --refresh` or `--scope repository`
+for the intended checkout, plus scoped hook repair when necessary. Other
+checkouts and plugin caches require their own supported update paths. Restart
+loaded sessions after updating; their previous contract remains in context.
+Verify installed files and the release source, not only a version bump.
 
 ## Factory sessions
 
@@ -695,14 +430,11 @@ Check the environment once at session start. Any of
 means you are running inside Factory or a daemon pipeline step, and the
 host already automates part of this workflow:
 
-- Do not run `extract context|run pr.review-annotations`. The host's
-  publish step (`archdev publish`) writes the PR's hunk annotations for
-  the exact head it pushes; a second writer races it on the same row.
 - Do not push, open PRs, or run `archdev publish` yourself when the step
   prompt says a later host-owned step owns publication — follow the
   prompt.
 - Still self-check and still `archdev log post` every event you observe,
-  structured ones with their sealed risk assessment and `--message`.
+  with `--message`; only plan/task events require their risk assessment.
   Factory automates publication, not the activity record.
 - Closed `--event` vocabulary: `agent.message`,
   `plan.created|started|updated`, `task.created|started|updated|closed`,

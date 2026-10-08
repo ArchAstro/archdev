@@ -5,15 +5,12 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 # ArchDev
 
-Requires CLI 0.47.0 or newer (the `repo` namespace, `log post` /
-`messages` / `search`, harness hooks, `extract brief`, `extract finalize`
-with `--publish` for sealed code-region assessments on a PR's focus
-ranges, and `log --assessment` for sealed risk assessments on
-plan/task/pr events, plus `projects`, `log post --project`, hooks that
-keep an `--uninstall` opt-out, and the Stop hook that holds a session
-once for a pushed pull request head with no review annotations). Hook setup
-must also expose `--local`. If the published release cannot support it, stop
-and report the release blocker; never substitute user-wide configuration.
+Requires CLI 0.49.6 or newer for assessment-free PR reporting and default-off
+capture. Server automation owns hosted PR and code-region grading. Report PR
+activity without fetching, waiting for, reusing, or attaching a server grade.
+Do not author local PR/region assessments or require annotations or a stop gate.
+Plan/task risk and explicit offline Evals remain supported. Hook setup must
+expose `--local`; preserve installation scope and personal opt-outs.
 
 The CLI is an implementation tool invoked by agents. Give users prompts and
 explain outcomes, not commands they need to run in their terminal. Once
@@ -102,24 +99,12 @@ installation guide's existing skill installer and scoped hook primitives.
 Every agent that does ArchDev-tracked work follows this skill, including
 subagents and agents you spawn.
 
-- **Claude Code with hooks installed:** in a Git checkout, the
-  SubagentStart hook hands each subagent the ArchDev contract: load the
-  `archdev` skill, store review annotations after pushing a PR head
-  (outside Factory and daemon sessions, whose host stores them), and do
-  not post to the organization stream
-  (the top-level session posts lifecycle moments and events). The
-  SubagentStop hook holds the subagent once for a PR head it pushed
-  without review annotations.
-- **Everywhere else** (Codex, Grok, or other harnesses, which have no
-  subagent hook; Claude Code without hooks; or any agent you start by hand):
-  say so in the spawned agent's prompt: "Load the `archdev` skill and follow
-  it. Do not post to the organization stream; report back instead. After any push
-  that moves a PR head, store that head's review annotations." A spawned
-  agent that runs as its own top-level session (`claude -p`, `codex exec`,
-  a new worktree session) gets the SessionStart contract from its
-  harness's hooks, not the subagent one.
-- The parent stays responsible for stream posts and for confirming that every
-  PR head its agents pushed has annotations.
+- Claude Code's SubagentStart hook supplies the ArchDev contract in Git
+  checkouts. Other harnesses may not supply a subagent contract.
+- Tell every helper: "Load the `archdev` skill and follow it. Do not post to
+  the organization stream; report back instead." The parent owns stream posts.
+- PR reporting requires no local grading, annotations, or stop hold, including
+  Factory and daemon sessions. Follow the host's publication ownership.
 
 ## 1. Bootstrap
 
@@ -170,29 +155,11 @@ Three beats, one command
    project covering the work, creating one only if none fits. Pass its ID as
    `--project <id>` on every stream post. Never create a project per PR, task,
    or session. Look it up again when the work changes scope. Re-read the stream
-   before committing or
-   opening a PR. After `gh pr create` and after every push that moves
-   a PR head, store that head's review annotations before doing
-   anything else (see "PR review annotations" in monitor.md).
+   before committing or opening a PR.
 3. **Every stopping point:** self-check against the mapped taxonomy and
-   report hits — free text (`agent.message`) or schema-validated
-   payloads (`log post --event`), with `--kind` on the same call when the
-   event is also a lifecycle moment. Every `plan.*`, `task.*`, and
-   `pr.*` event carries a sealed risk assessment you author under the
-   CLI's pinned risk definitions. The definition is the resource type
-   (`risk.task`, `risk.plan`, `risk.pr`), never the event name:
-   `extract brief risk.task` → judgment (`producer.role` is `author`,
-   `assessor`, or `human`) → `extract finalize risk.task` →
-   `extract context task.lifecycle <id>` → event value with `"risk"`
-   set to the whole sealed `result.json` → `log post --event
-   task.started --assessment <sealed>`; see Report and "Risk
-   assessments" in monitor.md. Outside Factory sessions, for every
-   PR you pushed to this session, confirm its current head has
-   annotations (`extract show pr.review-annotations <num> --json`) and
-   store them if it does not, and confirm each focus range on that head
-   has a published `risk.code-region` seal (`inspect metadata <num>
-   --sha <head>` lists them under `assessments`); publish the missing
-   ones (see "Focus range seals" in monitor.md).
+   report real events with a human-readable `--message`. Plan/task events
+   retain their sealed `risk.plan` / `risk.task` assessments; PR events carry
+   no assessment. See monitor.md for the separate reporting flows.
 
 
 For work with an epic, search active projects for that exact epic name and
@@ -209,18 +176,23 @@ Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
 payload summary.
 
-ArchDev reads a PR's review annotations from the
-`github_pr_review_annotations` row for its exact head SHA. Nothing
-carries over between heads, so every push leaves the PR unannotated
-until a row for the new head exists. `archdev publish` writes one;
-`gh pr create` and `git push` do not. The exception is a Factory or daemon session (`ARCHDEV_FACTORY_AGENT_ROLE`,
-`ARCHDEV_JOB_ID`, or `ARCHDEV_STEP_ID` set), where the host's publish
-step writes the row and the agent only logs. Computing risk (a sealed
-assessment or hunk `risk` annotations) is a loop, not a label: mitigate
-the risks you find within scope, then recompute, at most twice, before
-you post (monitor.md, Report and PR review annotations). No daemon, no
-log tailing: the model is the sensor until an event proves reliable
-enough to promote into the stop hook.
+Missing server grades remain unassessed. They do not block publication or
+activity reporting. Optional author notes are context, not authoritative risk.
+Do not restore historical author grades or add a capture bridge to report a PR.
+
+Capture is off when `corpus.capture` is absent. Preserve explicit `on` and
+`off`; on still requires server eligibility and a valid subject/session link.
+Activity reporting is separate from transcript capture. Removing local PR
+assessment triggers does not promise working PR capture.
+
+Skills come from the public ArchAstro/archdev root directories. An actual
+`archdev upgrade` refreshes installed user/current-checkout skills; an
+already-latest upgrade returns before refresh. With the normal installation
+consent, use `archdev setup --skills --scope user --refresh` or the repository
+scope for that checkout, and scoped hook repair when needed. Other checkouts,
+plugin caches, and already-loaded sessions are not swept: use the harness's
+plugin update path and restart sessions carrying old instructions. Check the
+installed content; a version number alone does not establish inclusion.
 
 
 During staggered releases, check `tasks create --help` for `--project`

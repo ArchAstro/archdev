@@ -184,7 +184,7 @@ post_bash() {
     if [ -n "$b" ] && [ -f "$st/pr-branch" ] && [ "$(cut -d' ' -f1 "$st/pr-branch")" = "$b" ]; then
       n=$(cut -d' ' -f2 "$st/pr-branch")
       pend "pr.updated $n"
-      extra=" This push is to the branch of pull request #$n, so also report pr.updated for it with archdev_post_risk_event (value {\"repository\":\"$(cut -d' ' -f3 "$st/pr-branch")\",\"number\":$n,\"summary\":\"<what changed>\"}; sealed whole-PR assessment: $RISK_STEPS, resource_type \"pr\", subject source archdev:pr:<owner>/<repo>#$n, full 40-character head and base SHAs)."
+      extra=" This push is to the branch of pull request #$n, so also report pr.updated for it with archdev_post_risk_event (value {\"repository\":\"$(cut -d' ' -f3 "$st/pr-branch")\",\"number\":$n,\"summary\":\"<what changed>\"}; omit sealed and digest; server automation owns grading, so do not fetch, wait for, reuse, or attach a server grade)."
     fi
     emit PostToolUse "ArchDev: a git push just succeeded ($s12). Before you reply, call archdev_post_activity_event with event \"commit.pushed\", value {\"sha\":\"$h\"}, the project_id you chose, idempotency_key \"$sid-push-$s12\".$extra $CONSENT"
     return 0
@@ -197,7 +197,7 @@ post_bash() {
     [ -n "$b" ] && printf '%s %s %s' "$b" "$pr_n" "$pr_repo" >"$st/pr-branch"
     printf '%s %s' "$pr_n" "$pr_repo" >"$st/pr-last"
     pend "pr.created $pr_n"
-    emit PostToolUse "ArchDev: you just opened pull request #$pr_n in $pr_repo. Before you reply, report it with archdev_post_risk_event, event \"pr.created\", value {\"repository\":\"$pr_repo\",\"number\":$pr_n,\"summary\":\"<what the PR does>\"}, the project_id you chose, idempotency_key \"$sid-pr-created-$pr_n\". It needs a sealed whole-PR risk assessment: $RISK_STEPS (resource_type \"pr\", subject source archdev:pr:$pr_repo#$pr_n, full 40-character head and base SHAs, which git rev-parse gives you). $CONSENT"
+    emit PostToolUse "ArchDev: you just opened pull request #$pr_n in $pr_repo. Before you reply, report it with archdev_post_risk_event, event \"pr.created\", value {\"repository\":\"$pr_repo\",\"number\":$pr_n,\"summary\":\"<what the PR does>\"}, the project_id you chose, idempotency_key \"$sid-pr-created-$pr_n\". Server automation owns PR and code-region grading. Report without fetching, waiting for, reusing, or attaching a server grade; omit sealed and digest. $CONSENT"
     return 0
   fi
   if ghpr 'edit|ready|reopen'; then
@@ -237,11 +237,11 @@ pr_notice() { # pr_notice <updated|closed>
   if [ "$1" = updated ]; then
     k=$(counter pr-edits)
     pend "pr.updated $pr_n"
-    emit PostToolUse "ArchDev: you just updated pull request #$pr_n. Before you reply, report it with archdev_post_risk_event, event \"pr.updated\", value {\"repository\":\"$pr_repo\",\"number\":$pr_n,\"summary\":\"<what changed>\"}, the project_id you chose, idempotency_key \"$sid-pr-updated-$pr_n-$k\". It needs a fresh sealed whole-PR risk assessment: $RISK_STEPS (resource_type \"pr\", subject source archdev:pr:$pr_repo#$pr_n, full 40-character head and base SHAs). $CONSENT"
+    emit PostToolUse "ArchDev: you just updated pull request #$pr_n. Before you reply, report it with archdev_post_risk_event, event \"pr.updated\", value {\"repository\":\"$pr_repo\",\"number\":$pr_n,\"summary\":\"<what changed>\"}, the project_id you chose, idempotency_key \"$sid-pr-updated-$pr_n-$k\". Server automation owns PR and code-region grading. Report without fetching, waiting for, reusing, or attaching a server grade; omit sealed and digest. $CONSENT"
   else
     seen "pr.closed $pr_n" && return 0
     pend "pr.closed $pr_n"
-    emit PostToolUse "ArchDev: you just merged or closed pull request #$pr_n. Before you reply, report it with archdev_post_pr_closed (repository \"$pr_repo\", pull_number $pr_n, head_sha the PR's last head, digest of the whole-PR seal you finalized for its last pr.created or pr.updated report, or read it back with archdev_get_pr_risk, the project_id you chose, idempotency_key \"$sid-pr-closed-$pr_n\"). $CONSENT"
+    emit PostToolUse "ArchDev: you just merged or closed pull request #$pr_n. Before you reply, report it with archdev_post_pr_closed (repository \"$pr_repo\", pull_number $pr_n, head_sha the PR's last head, the project_id you chose, idempotency_key \"$sid-pr-closed-$pr_n\"). Report without fetching, waiting for, reusing, or attaching a server grade; omit digest. $CONSENT"
   fi
 }
 
