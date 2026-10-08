@@ -17,25 +17,37 @@ Windows (PowerShell):
 irm https://archdev.ai/install.ps1 | iex
 ```
 
-On macOS and Linux the installer does three things in order:
+The installer does three things in order:
 
 1. Installs the `archdev` CLI and verifies its SHA-256 against the release.
 2. Signs you in with GitHub in your browser.
-3. Asks where to configure ArchDev, then runs `archdev setup`:
-   - **For me on this machine:** personal setup across repositories.
-   - **For this repository:** shareable setup files for your teammates.
+3. Runs `archdev setup` to install the ArchDev skill and session hooks.
+   Inside a Git repository it asks where they go; anywhere else they are
+   installed globally:
+   - **Globally:** personal setup across every repository you work in.
+   - **This repository:** shareable setup files for your teammates.
 
-Before setup changes anything, the installer explains organization stream
-visibility and asks whether to enable activity reporting. Setup does not run
-without that approval. Each teammate installs and signs in for themselves; no
-credentials are shared through the repository, and nothing is committed or
-pushed.
+Session hooks report activity and findings to your organization's shared
+stream, visible to its members; the installer says so before setup runs. Each
+teammate installs and signs in for themselves; no credentials are shared
+through the repository, and nothing is committed or pushed.
+
+When it finishes, go to a repository you work in and tell your coding agent:
+
+```text
+Set up this repository with ArchDev.
+```
 
 Without a terminal (CI, or a coding agent running the command) the installer
-only installs the CLI. Pass the answers to run setup as well:
+never prompts: once signed in (`ARCHDEV_TOKEN`), it installs globally. Pass
+`--scope repository` to install into the current repository instead:
 
 ```sh
-curl -fsSL https://archdev.ai/install.sh | bash -s -- --scope user --reporting enabled
+curl -fsSL https://archdev.ai/install.sh | bash -s -- --scope repository
+```
+
+```powershell
+$env:ARCHDEV_INSTALL_SCOPE = "repository"; irm https://archdev.ai/install.ps1 | iex
 ```
 
 `bash -s -- --help` lists every option. Homebrew users can run
@@ -49,8 +61,8 @@ Paste this prompt into your agent:
 Install ArchDev with the installer at https://archdev.ai/install.sh and set it up for me.
 ```
 
-Your agent installs the CLI, then asks where to configure the setup and whether
-to enable activity reporting before it runs `archdev setup`.
+Your agent installs the CLI, then asks where to install the skill and hooks
+before it runs `archdev setup`.
 
 See the [installation guide](https://docs.archdev.ai/docs/start-here/install)
 for what to expect, then ask your agent to review your changes with ArchDev.
