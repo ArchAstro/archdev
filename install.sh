@@ -4,8 +4,10 @@
 #
 #   curl -fsSL https://archdev.ai/install.sh | bash
 #
-# Installs the archdev CLI, signs you in, and runs `archdev setup` with the
-# placement and reporting choices you make here. Pass flags after `bash -s --`:
+# Installs the archdev CLI, signs you in, and runs `archdev setup`. Inside a
+# Git repository it asks whether to install the skill and hooks there or
+# globally; anywhere else it installs them globally. Pass flags after
+# `bash -s --`:
 #
 #   curl -fsSL https://archdev.ai/install.sh | bash -s -- --help
 #
@@ -18,6 +20,7 @@ OWNER="ArchAstro"
 REPO="archdev"
 BINARY_NAME="archdev"
 DOCS_URL="https://docs.archdev.ai"
+AGENT_PROMPT="Set up this repository with ArchDev."
 HELP_URL="https://github.com/${OWNER}/${REPO}/issues"
 
 INSTALL_DIR="${ARCHDEV_INSTALL_DIR:-}"
@@ -30,6 +33,7 @@ SKIP_LOGIN="${ARCHDEV_INSTALL_SKIP_LOGIN:-false}"
 SKIP_SETUP="${ARCHDEV_INSTALL_SKIP_SETUP:-false}"
 NONINTERACTIVE="${ARCHDEV_INSTALL_NONINTERACTIVE:-${NONINTERACTIVE:-false}}"
 SETUP_SCOPE="${ARCHDEV_INSTALL_SCOPE:-}"
+# Reporting is always on. The option stays for older callers; `disabled` declines setup.
 SETUP_REPORTING="${ARCHDEV_INSTALL_REPORTING:-}"
 SYSTEM_INSTALL="false"
 DRY_RUN="false"
@@ -60,14 +64,16 @@ Install options:
   --no-modify-path          Do not add the install directory to your shell profile
 
 Sign-in and setup options:
-  --scope <user|repository> Where `archdev setup` installs the skill and hooks
+  --scope <user|repository> Where `archdev setup` installs the skill and hooks:
+                            globally for you (user) or in this repository.
+                            Asked inside a Git repository; otherwise user.
   --reporting <enabled|disabled>
-                            Your answer to organization activity reporting.
-                            Setup only runs with `enabled`.
+                            Deprecated: reporting is always enabled.
+                            `disabled` declines setup.
   --skip-login              Install only; do not sign in
   --skip-setup              Do not run `archdev setup`
-  -y, --yes                 Never prompt. Sign-in and setup then run only when
-                            ARCHDEV_TOKEN, --scope and --reporting provide the answers.
+  -y, --yes                 Never prompt. Sign-in then needs ARCHDEV_TOKEN, and
+                            setup installs globally unless --scope says otherwise.
 
 Other:
   --dry-run                 Print the resolved install plan without downloading
@@ -79,7 +85,7 @@ Environment:
   ARCHDEV_INSTALL_SKIP_PATH_UPDATE, ARCHDEV_INSTALL_SKIP_COMPLETIONS
   ARCHDEV_INSTALL_SKIP_VERIFY
   ARCHDEV_INSTALL_SKIP_LOGIN, ARCHDEV_INSTALL_SKIP_SETUP
-  ARCHDEV_INSTALL_SCOPE, ARCHDEV_INSTALL_REPORTING, ARCHDEV_INSTALL_NONINTERACTIVE
+  ARCHDEV_INSTALL_SCOPE, ARCHDEV_INSTALL_NONINTERACTIVE
   ARCHDEV_TOKEN             Personal access token; signs in without a browser
   NO_COLOR                  Disable colors
 
@@ -205,7 +211,7 @@ banner() {
     printf '%s%s      ▄████▄     %s\n' "$BOLD" "$C_LIGHT" "$RESET"
     printf '%s%s   ▄████▀▀████▄  %s\n' "$BOLD" "$C_LIGHT" "$RESET"
     printf '%s%s  ███▀▀▄▄▄▄▀▀███ %s   %sArchDev%s  %s%s%s\n' "$BOLD" "$C_BRAND" "$RESET" "$BOLD" "$RESET" "$C_DIM" "$subtitle" "$RESET"
-    printf '%s%s  ████████████▄  %s   %sInstalls the CLI, signs you in and sets up your agents%s\n' "$BOLD" "$C_BRAND" "$RESET" "$C_DIM" "$RESET"
+    printf '%s%s  ████████████▄  %s   %sInstalls the CLI, signs you in and adds skills and hooks%s\n' "$BOLD" "$C_BRAND" "$RESET" "$C_DIM" "$RESET"
     printf '%s%s  █████▀  ▀█████ %s\n' "$BOLD" "$C_DEEP" "$RESET"
     printf '%s%s   ▀▀        ▀▀  %s\n' "$BOLD" "$C_DEEP" "$RESET"
   else
@@ -893,17 +899,17 @@ sign_in() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 3: set up this machine
+# Step 3: install the skill and hooks
 # ---------------------------------------------------------------------------
 
-REPORTING_NOTICE="Setup posts a one-time installation announcement, and session hooks can report activity and findings to your organization's shared stream, visible to its members."
+REPORTING_NOTICE="Setup posts a one-time installation announcement, and session hooks report activity and findings to your organization's shared stream, visible to its members."
 
 repository_root() {
   have git && git rev-parse --show-toplevel 2>/dev/null || true
 }
 
 run_setup() {
-  local repo_root scope="$SETUP_SCOPE" reporting="$SETUP_REPORTING" label announcement
+  local repo_root scope="$SETUP_SCOPE" label announcement
 
   if [ "$SKIP_SETUP" = true ]; then
     skip "Skipped. Finish later with: archdev setup"
@@ -913,37 +919,23 @@ run_setup() {
     skip "Sign in first, then run: archdev setup"
     return 0
   fi
+  if [ "$SETUP_REPORTING" = disabled ]; then
+    skip "Nothing changed: setup always enables activity reporting, so --reporting disabled declines setup."
+    return 0
+  fi
 
   repo_root="$(repository_root)"
 
+  # The only question: inside a repository, the skill and hooks can live there
+  # instead of globally. Everywhere else, and without a terminal, they are
+  # global. Repository hooks need Node.js, so without it the answer is global.
   if [ -z "$scope" ]; then
-    if [ "$INTERACTIVE" != true ]; then
-      skip "Not configured: placement needs your answer. Run: archdev setup"
-      return 0
-    fi
-    info "Setup installs the ArchDev skill and session hooks for your coding agents."
-    if [ -n "$repo_root" ] && have node; then
-      choose "Where should ArchDev be configured?" 0 \
-        "For me on this machine|every repository you work in" \
-        "For this repository|$(pretty_path "$repo_root")" \
-        "Skip|run archdev setup later"
-      case "$CHOICE" in
-        0) scope="user" ;;
-        1) scope="repository" ;;
-        *) scope="" ;;
-      esac
-    else
-      choose "Where should ArchDev be configured?" 0 \
-        "For me on this machine|every repository you work in" \
-        "Skip|run archdev setup later"
-      case "$CHOICE" in
-        0) scope="user" ;;
-        *) scope="" ;;
-      esac
-    fi
-    if [ -z "$scope" ]; then
-      skip "Skipped. Finish later with: archdev setup"
-      return 0
+    scope="user"
+    if [ "$INTERACTIVE" = true ] && [ -n "$repo_root" ] && have node; then
+      choose "Where should ArchDev install its skill and hooks?" 0 \
+        "Globally|every repository you work in" \
+        "This repository|$(pretty_path "$repo_root")"
+      if [ "$CHOICE" -eq 1 ]; then scope="repository"; fi
     fi
   fi
 
@@ -952,23 +944,7 @@ run_setup() {
     have node || die "Repository hooks need Node.js on PATH." "Install Node.js, or use --scope user."
   fi
 
-  if [ -z "$reporting" ]; then
-    if [ "$INTERACTIVE" != true ]; then
-      skip "Not configured: activity reporting needs your answer. Run: archdev setup"
-      return 0
-    fi
-    printf '%s\n' "$REPORTING_NOTICE" | quote_block
-    # Reporting is shared with the organization, so Enter alone does not opt in.
-    choose "Share activity with your organization?" 1 \
-      "Enable reporting|finish setup" \
-      "Not now|leave this machine unconfigured"
-    if [ "$CHOICE" -eq 0 ]; then reporting="enabled"; else reporting="disabled"; fi
-  fi
-
-  if [ "$reporting" != enabled ]; then
-    skip "Nothing changed. Setup requires reporting; run archdev setup when ready."
-    return 0
-  fi
+  printf '%s\n' "$REPORTING_NOTICE" | quote_block
 
   if [ "$scope" = repository ]; then
     label="Configuring $(pretty_path "$repo_root")"
@@ -976,6 +952,7 @@ run_setup() {
   else
     label="Installing the ArchDev skill and hooks for this user"
   fi
+  # Releases before the reporting question was removed require the flag.
   if spin "$label" cli setup --scope "$scope" --reporting enabled; then
     SETUP_DONE="true"
     if [ "$scope" = repository ]; then
@@ -992,11 +969,12 @@ run_setup() {
       *) ok "${announcement%% (*}" ;;
     esac
     info "Restart your coding agents so they load the hooks. Codex and Grok ask you to trust repository hooks; that approval stays with you."
+    SETUP_SCOPE="$scope"
   else
     SETUP_FAILED="true"
     fail "archdev setup did not finish:"
     grep -v '^[[:space:]]*$' "$LOG" | quote_block >&2 || true
-    info "Fix the issue above, then run: archdev setup --scope ${scope} --reporting enabled"
+    info "Fix the issue above, then run: archdev setup --scope ${scope}"
   fi
 }
 
@@ -1034,7 +1012,14 @@ summary() {
   if [ "$SETUP_DONE" != true ]; then
     next_command "archdev setup" "install the skill and hooks for your agents"
   else
-    next_command "archdev repo status" "check this repository's readiness"
+    # The agent finishes the job: it maps the repository's plans, tasks and
+    # review workflow, which the installer cannot know.
+    if [ "$SETUP_SCOPE" = repository ]; then
+      printf '    Start your coding agent in this repository and tell it:\n'
+    else
+      printf '    Go to a repository you work in, start your coding agent and tell it:\n'
+    fi
+    printf '\n      %s%s%s\n\n' "$BOLD" "$AGENT_PROMPT" "$RESET"
   fi
   next_command "archdev tasks" "plan, claim and complete shared work"
   next_command "archdev review" "review local changes in ArchCode"
@@ -1134,7 +1119,7 @@ EOF
   step 2 "Sign in"
   sign_in
 
-  step 3 "Set up your agents"
+  step 3 "Install the skill and hooks"
   run_setup
 
   summary

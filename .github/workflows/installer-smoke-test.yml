@@ -66,7 +66,7 @@ jobs:
           ./install.sh --version 0.31.0 --base-url "file://$RUNNER_TEMP/release-nocompletion" --install-dir "$HOME/.local/bin"
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
           test ! -e "$HOME/${{ matrix.completion_file }}"
-      - name: Setup runs only with placement and reporting consent
+      - name: Setup installs globally without a terminal
         env:
           ARCHDEV_RELEASE_BASE_URL: http://127.0.0.1:8123
           ARCHDEV_VERSION: 0.31.0
@@ -75,15 +75,22 @@ jobs:
           ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home-setup/.local/bin
         run: |
           # The documented one-liner: the script arrives on stdin and there is
-          # no terminal, so the installer must not prompt or assume consent.
+          # no terminal, so the installer must not prompt. The checkout is a
+          # Git repository, and the unasked placement question means global.
           mkdir -p "$HOME"
           cat install.sh | bash >"$RUNNER_TEMP/unattended.log" 2>&1
-          grep -F 'placement needs your answer' "$RUNNER_TEMP/unattended.log"
-          ! grep -F 'Skill and hooks installed' "$RUNNER_TEMP/unattended.log"
+          grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/unattended.log"
+          grep -F 'Set up this repository with ArchDev.' "$RUNNER_TEMP/unattended.log"
+          cat install.sh | bash -s -- --scope repository >"$RUNNER_TEMP/repository.log" 2>&1
+          grep -F 'Skill and hooks installed for' "$RUNNER_TEMP/repository.log"
+          ! grep -F 'for this user' "$RUNNER_TEMP/repository.log"
+          # Older documented commands still pass --reporting. Reporting is
+          # always on, so `disabled` declines setup instead of being ignored.
+          cat install.sh | bash -s -- --scope user --reporting enabled >"$RUNNER_TEMP/legacy.log" 2>&1
+          grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/legacy.log"
           cat install.sh | bash -s -- --scope user --reporting disabled >"$RUNNER_TEMP/declined.log" 2>&1
+          grep -F 'declines setup' "$RUNNER_TEMP/declined.log"
           ! grep -F 'Skill and hooks installed' "$RUNNER_TEMP/declined.log"
-          cat install.sh | bash -s -- --scope user --reporting enabled >"$RUNNER_TEMP/consented.log" 2>&1
-          grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/consented.log"
           # A script cut off mid-transfer must not run any of it.
           if head -c 20000 install.sh | bash >"$RUNNER_TEMP/truncated.log" 2>/dev/null; then exit 1; fi
           test ! -s "$RUNNER_TEMP/truncated.log"
@@ -125,6 +132,17 @@ jobs:
             ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
             $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
             if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
+            # No terminal in CI, so the installer must not prompt. The checkout
+            # is a Git repository, and the unasked placement question means global.
+            $unattended = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate *>&1 | Out-String)
+            if ($unattended -notmatch "Skill and hooks installed for this user") { throw "Setup did not install globally: $unattended" }
+            if ($unattended -notmatch "Set up this repository with ArchDev\.") { throw "Missing the agent prompt: $unattended" }
+            $repository = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Scope repository *>&1 | Out-String)
+            if ($repository -notmatch "Skill and hooks installed for " -or $repository -match "for this user") { throw "Setup did not install for the repository: $repository" }
+            $declined = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Reporting disabled *>&1 | Out-String)
+            if ($declined -notmatch "declines setup" -or $declined -match "Skill and hooks installed") { throw "-Reporting disabled did not decline setup: $declined" }
+            $skipped = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123 -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -SkipSetup *>&1 | Out-String)
+            if ($skipped -match "Skill and hooks installed") { throw "-SkipSetup still ran setup: $skipped" }
           } catch {
             Get-Content $serverLog, $serverError -ErrorAction SilentlyContinue
             throw
