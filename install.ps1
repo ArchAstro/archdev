@@ -39,44 +39,63 @@ switch ($env:PROCESSOR_ARCHITECTURE.ToLowerInvariant()) {
     "arm64" { $ArchLabel = "arm64" }
     default { throw "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
 }
-# The Rust archdev has no Windows build yet, so Windows installs the
-# TypeScript CLI, released as archdev-old under the archdev-old-v<version> tag.
-# releases/latest belongs to the Rust CLI and has no Windows zips.
-$ReleaseTagPrefix = "archdev-old-v"
-$AssetPrefix = "archdev-old"
-$SourceExe = "archdev-old.exe"
 $ReleasesUrl = "https://github.com/$Owner/$Repo/releases"
-$ReleaseTag = $null
-if ($Version -eq "latest") {
-    if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
-        # The Atom feed lists the newest releases without API rate limits.
-        $Feed = (Invoke-WebRequest "$ReleasesUrl.atom" -UseBasicParsing).Content
-        $Newest = [regex]::Matches($Feed, "/releases/tag/$([Regex]::Escape($ReleaseTagPrefix))(\d+\.\d+\.\d+)(?=[`"'<\s])") |
-            ForEach-Object { [Version]$_.Groups[1].Value } |
-            Sort-Object -Descending |
-            Select-Object -First 1
-        if ($Newest) {
-            $ReleaseTag = "$ReleaseTagPrefix$Newest"
-        } else {
-            # No archdev-old release is published yet: latest is still the
-            # TypeScript CLI, with its original asset and binary names.
-            $AssetPrefix = "archdev"
-            $SourceExe = "archdev.exe"
-        }
+$Bare = if ($Version -eq "latest") { "" } else { $Version -replace "^(archdev-old-v|v)", "" }
+
+# SHA256SUMS of the release at $Base, or $null when that release does not exist.
+function Get-Checksums([string]$Base) {
+    try {
+        $Content = (Invoke-WebRequest "$Base/SHA256SUMS" -UseBasicParsing).Content
+    } catch {
+        $Response = $_.Exception.Response
+        if ($Response -and ([int]$Response.StatusCode -eq 404)) { return $null }
+        throw
     }
-} else {
-    $Bare = $Version -replace "^($([Regex]::Escape($ReleaseTagPrefix))|v)", ""
-    $ReleaseTag = "$ReleaseTagPrefix$Bare"
+    # GitHub serves the file as application/octet-stream, which arrives as bytes.
+    if ($Content -is [byte[]]) { $Content = [Text.Encoding]::UTF8.GetString($Content) }
+    return "$Content"
 }
-$AssetName = "$AssetPrefix-windows-$ArchLabel.zip"
-if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
-    $ResolvedBaseUrl = if ($ReleaseTag) {
-        "$ReleasesUrl/download/$ReleaseTag"
-    } else {
-        "$ReleasesUrl/latest/download"
-    }
+
+function Get-ExpectedHash([string]$Checksums, [string]$Name) {
+    $Line = "$Checksums" -split "`r?`n" | Where-Object { $_ -match ('\s\*?' + [Regex]::Escape($Name) + '$') } | Select-Object -First 1
+    if ($Line) { return ($Line.Trim() -split '\s+')[0] }
+    return $null
+}
+
+# The Rust CLI is released under v<version>, and releases/latest points at it.
+$ReleaseTag = if ($Bare) { "v$Bare" } else { $null }
+$AssetName = "archdev-windows-$ArchLabel.zip"
+$SourceExe = "archdev.exe"
+$ResolvedBaseUrl = if (-not [string]::IsNullOrWhiteSpace($BaseUrl)) {
+    $BaseUrl.TrimEnd('/')
+} elseif ($ReleaseTag) {
+    "$ReleasesUrl/download/$ReleaseTag"
 } else {
-    $ResolvedBaseUrl = $BaseUrl.TrimEnd('/')
+    "$ReleasesUrl/latest/download"
+}
+$Checksums = Get-Checksums $ResolvedBaseUrl
+$TypeScriptFallback = -not (Get-ExpectedHash $Checksums $AssetName)
+if ($TypeScriptFallback) {
+    # Rust releases up to v0.49.5 have no Windows zips. For those, install the
+    # TypeScript CLI, released as archdev-old under archdev-old-v<version>.
+    $AssetName = "archdev-old-windows-$ArchLabel.zip"
+    $SourceExe = "archdev-old.exe"
+    if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+        if ($Bare) {
+            $ReleaseTag = "archdev-old-v$Bare"
+        } else {
+            # The Atom feed lists the newest releases without API rate limits.
+            $Feed = (Invoke-WebRequest "$ReleasesUrl.atom" -UseBasicParsing).Content
+            $Newest = [regex]::Matches($Feed, "/releases/tag/archdev-old-v(\d+\.\d+\.\d+)(?=[`"'<\s])") |
+                ForEach-Object { [Version]$_.Groups[1].Value } |
+                Sort-Object -Descending |
+                Select-Object -First 1
+            if (-not $Newest) { throw "No ArchDev release with a Windows build was found at $ReleasesUrl" }
+            $ReleaseTag = "archdev-old-v$Newest"
+        }
+        $ResolvedBaseUrl = "$ReleasesUrl/download/$ReleaseTag"
+        $Checksums = $null
+    }
 }
 $AssetUrl = "$ResolvedBaseUrl/$AssetName"
 $ChecksumUrl = "$ResolvedBaseUrl/SHA256SUMS"
@@ -87,23 +106,22 @@ if ($DryRun) {
 }
 
 Write-Host "==> 1. Install the CLI"
-Write-Host "Windows installs the TypeScript ArchDev CLI until the Rust Windows build ships."
+if ($TypeScriptFallback) { Write-Host "This release has no Windows build of the Rust CLI. Installing the TypeScript CLI (archdev-old) instead." }
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("archdev-install-" + [Guid]::NewGuid().ToString("N"))
 $ArchivePath = Join-Path $TempRoot $AssetName
-$ChecksumPath = Join-Path $TempRoot "SHA256SUMS"
 $ExtractDir = Join-Path $TempRoot "extract"
 New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 try {
+    if (-not $Checksums) { $Checksums = Get-Checksums $ResolvedBaseUrl }
+    if (-not $Checksums) { throw "Release not found: $ChecksumUrl" }
+    $ExpectedHash = Get-ExpectedHash $Checksums $AssetName
+    if (-not $ExpectedHash) { throw "Checksum missing for $AssetName" }
     Invoke-WebRequest $AssetUrl -OutFile $ArchivePath
-    Invoke-WebRequest $ChecksumUrl -OutFile $ChecksumPath
-    $ExpectedLine = Select-String -Path $ChecksumPath -Pattern ([Regex]::Escape($AssetName) + '$') | Select-Object -First 1
-    if (-not $ExpectedLine) { throw "Checksum missing for $AssetName" }
-    $ExpectedHash = ($ExpectedLine.Line -split '\s+')[0]
     $ActualHash = (Get-FileHash $ArchivePath -Algorithm SHA256).Hash
     if ($ActualHash.ToLowerInvariant() -ne $ExpectedHash.ToLowerInvariant()) { throw "Checksum mismatch for $AssetName" }
     Expand-Archive -Path $ArchivePath -DestinationPath $ExtractDir -Force
-    # The TypeScript build ships as archdev-old.exe; install it as archdev.exe.
+    # The TypeScript fallback ships as archdev-old.exe; install it as archdev.exe.
     $Source = Join-Path $ExtractDir $SourceExe
     if (-not (Test-Path $Source)) { throw "Archive is missing $SourceExe" }
     Copy-Item $Source (Join-Path $InstallDir "archdev.exe") -Force
