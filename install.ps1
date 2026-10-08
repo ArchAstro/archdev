@@ -19,6 +19,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Under `irm | iex` this runs in the caller's scope. With PowerShell 7.4's
+# opt-in set, a failing native command would throw a generic error before the
+# installer's own exit-code checks could explain it.
+$PSNativeCommandUseErrorActionPreference = $false
 $Owner = "ArchAstro"
 $Repo = "archdev"
 $AgentPrompt = "Set up this repository with ArchDev."
@@ -124,6 +128,21 @@ try {
     # The TypeScript fallback ships as archdev-old.exe; install it as archdev.exe.
     $Source = Join-Path $ExtractDir $SourceExe
     if (-not (Test-Path $Source)) { throw "Archive is missing $SourceExe" }
+    # Run the binary before it replaces anything on PATH, as install.sh does. A
+    # native command's exit code never trips $ErrorActionPreference, so a binary
+    # that cannot start would otherwise install "successfully" and every later
+    # step would fail without output.
+    if (-not $SkipVerify) {
+        $VerifiedVersion = "$(& $Source --version)".Trim()
+        Write-Host $VerifiedVersion
+        if ($LASTEXITCODE -eq -1073741515) {
+            # STATUS_DLL_NOT_FOUND: older Rust CLI releases need the Visual
+            # C++ runtime, which a fresh Windows install does not have.
+            throw "archdev.exe could not start because a DLL it needs is missing. Install the Microsoft Visual C++ Redistributable (https://aka.ms/vs/17/release/vc_redist.$ArchLabel.exe) and run this installer again."
+        }
+        if ($LASTEXITCODE -ne 0) { throw "archdev.exe --version exited with code $LASTEXITCODE" }
+        if (-not $VerifiedVersion) { throw "archdev.exe --version printed nothing; it does not run on this machine" }
+    }
     Copy-Item $Source (Join-Path $InstallDir "archdev.exe") -Force
     if (-not $SkipPathUpdate) {
         $CurrentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -133,7 +152,6 @@ try {
             [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
         }
     }
-    if (-not $SkipVerify) { & (Join-Path $InstallDir "archdev.exe") --version }
     Write-Host "Installed archdev to $InstallDir"
 } finally {
     Remove-Item $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
