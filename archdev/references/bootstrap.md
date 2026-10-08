@@ -23,9 +23,11 @@ bypass the guide's consent steps.
 
 ## Version and login
 
-1. `"$archdev" --version` (need 0.47.0+) and
-   `"$archdev" repo hook setup --help` (must include `--local`). If the
-   published release lacks repository setup, stop; never fall back globally.
+1. `"$archdev" --version` (need 0.47.0+),
+   `"$archdev" repo hook setup --help` (must include `--local`), and
+   `"$archdev" inspect regions --help` with `extract finalize --help`
+   listing `--region` (the source-group seal commands). If the published
+   release lacks any of them, stop; never fall back globally.
 2. `"$archdev" auth status`. For approved stream reporting, if unauthenticated,
    run `"$archdev" auth login` and keep the interactive process available while
    the user signs in. Do not request tokens in chat or copy another user's

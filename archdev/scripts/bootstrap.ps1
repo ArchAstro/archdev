@@ -58,12 +58,15 @@ function Test-Skill([string]$Binary) {
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "--project <id>")) { return $false }
     $helpText = & $Binary extract finalize --help 2>$null
     if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "--publish <pull>")) { return $false }
+    if (($helpText -join "`n") -notmatch "--region <group>") { return $false }
+    $helpText = & $Binary inspect regions --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or (($helpText -join "`n") -notmatch "Usage: archdev inspect regions ")) { return $false }
     $helpText = & $Binary repo hook setup --help 2>$null
     return ($LASTEXITCODE -eq 0 -and (($helpText -join "`n") -match "--local"))
 }
 
 if (-not (Test-Skill $archdev)) {
-    [Console]::Error.WriteLine("Updating ArchDev: this skill requires 0.47.0+ and repository hook setup with --local.")
+    [Console]::Error.WriteLine("Updating ArchDev: this skill requires 0.47.0+, repository hook setup with --local, and the source-group seal commands (inspect regions, extract finalize --region).")
     $archdev = Install-ArchDev
 }
 
@@ -72,7 +75,7 @@ if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
 }
 & $archdev --version *> $null
 if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Skill $archdev)) { throw "Installed ArchDev lacks required commands or --local hook setup (need 0.47.0+); stopping without a global fallback" }
+if (-not (Test-Skill $archdev)) { throw "Installed ArchDev lacks required commands, --local hook setup, or the source-group seal commands (inspect regions, extract finalize --region); stopping without a global fallback" }
 
 # Resolving the executable must not choose configuration scope. Install and
 # repair hooks only through the approved branch in https://archdev.ai/install.md.

@@ -7,8 +7,9 @@ description: Core ArchDev workflow — use for anything involving ArchDev. Cover
 
 Requires CLI 0.47.0 or newer (the `repo` namespace, `log post` /
 `messages` / `search`, harness hooks, `extract brief`, `extract finalize`
-with `--publish` for sealed code-region assessments on a PR's focus
-ranges, and `log --assessment` for sealed risk assessments on
+with `--publish`, `--region` and `--carried-from` for sealed code-region
+assessments on a PR's source groups, `inspect regions` to list those
+groups, and `log --assessment` for sealed risk assessments on
 plan/task/pr events, plus `projects`, `log post --project`, hooks that
 keep an `--uninstall` opt-out, and the Stop hook that holds a session
 once for a pushed pull request head with no review annotations). Hook setup
@@ -189,10 +190,11 @@ Three beats, one command
    assessments" in monitor.md. Outside Factory sessions, for every
    PR you pushed to this session, confirm its current head has
    annotations (`extract show pr.review-annotations <num> --json`) and
-   store them if it does not, and confirm each focus range on that head
-   has a published `risk.code-region` seal (`inspect metadata <num>
-   --sha <head>` lists them under `assessments`); publish the missing
-   ones (see "Focus range seals" in monitor.md).
+   store them if it does not, and confirm each source group of that
+   head (`inspect regions <num> --sha <head>`) has a published
+   `risk.code-region` seal (`inspect metadata <num> --sha <head>` lists
+   them under `assessments` with their `region`); publish the missing
+   ones (see "Source group seals" in monitor.md).
 
 
 For work with an epic, search active projects for that exact epic name and
