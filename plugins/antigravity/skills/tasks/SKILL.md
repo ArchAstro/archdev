@@ -31,7 +31,7 @@ updates a CLI older than 0.47.0 or lacking review commands. Get approval
 before installing or upgrading software. The scripts never install or
 refresh hooks or change configuration scope. For initial ArchDev setup,
 follow [the agent installation guide](https://archdev.ai/install.md) and
-wait for explicit placement and reporting consent. Capture bootstrap stdout,
+wait for the user's explicit placement choice. Capture bootstrap stdout,
 which is the executable's absolute path; diagnostics go to stderr.
 
 Bash/Zsh:
