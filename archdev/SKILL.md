@@ -106,6 +106,13 @@ subagents and agents you spawn.
 - PR reporting requires no local grading, annotations, or stop hold, including
   Factory and daemon sessions. Follow the host's publication ownership.
 
+## Rule corrections during a session
+
+On a standing never/always correction or a repeated correction, follow
+[rule candidate capture](references/rule-candidates.md): draft a Markdown/Jev
+pair and capture only the supplied correction with the public CLI. Candidates
+remain inert until the user authorizes policy adoption through a PR.
+
 ## 1. Bootstrap
 
 Read [bootstrap.md](references/bootstrap.md). Goal: the binary is current,
