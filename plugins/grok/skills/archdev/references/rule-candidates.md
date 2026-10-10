@@ -1,14 +1,19 @@
 # Rule candidate capture
 
 When the user gives a standing never/always correction or repeats a correction,
-draft a reusable rule pair from that correction. Follow the repository's
-`rules/README.md` when present. Otherwise use Markdown frontmatter containing
-`name`, `description`, and `date`, with cited good/bad examples. Its sibling
-`.jev` uses `jev-latest`, exactly the Noul questions `applicable` and `complies`,
-and `state.diff` and `state.context` placeholders starting `REPLACE_BEFORE_USE:`.
-Keep the supplied constraint and examples; do not infer unrelated policy.
+draft a reusable Markdown/Jev rule pair from that correction. Read
+`.archdev/rules.yaml` and inspect existing `.md` + `.jev` pairs matched by its
+`include` patterns. Use those pairs as format examples. The `adopt_to` directory
+(default `.archdev/rules/`) is the destination for the proposed pair.
 
-Read `.archdev/rules.yaml` for `adopt_to` (default `.archdev/rules/`). Choose
+When no existing pairs are available, use this default format: Markdown
+frontmatter containing `name`, `description`, and `date`, with cited good/bad
+examples; a sibling `.jev` using `jev-latest`, exactly the Noul questions
+`applicable` and `complies`, and `state.diff` and `state.context` placeholders
+starting `REPLACE_BEFORE_USE:`. Keep the supplied constraint and examples;
+do not infer unrelated policy.
+
+Under `adopt_to`, choose
 its appropriate language folder: `elixir`, `go`, `typescript`, `python`, `rust`,
 or `technologies`, and a lowercase hyphenated Markdown filename. Offer to add
 the pair at that path, then capture the supplied correction:
