@@ -92,7 +92,18 @@ try {
         & $binary repo hook setup --local
         Assert-Proof ($LASTEXITCODE -eq 0) "Repository setup failed"
         Assert-Proof ((Snapshot $homeDir) -eq $before) "Repository setup changed personal configuration"
-        foreach ($file in @('.claude/settings.json', '.codex/hooks.json', '.grok/hooks/archdev.json', '.pi/extensions/archdev.js', '.archdev/hooks.json')) {
+        foreach ($file in @('.claude/settings.json', '.archdev/hooks.json')) {
+            Assert-Proof (Test-Path (Join-Path $checkout $file)) "Missing detected hook $file"
+        }
+        foreach ($file in @('.codex/hooks.json', '.agents/hooks.json', '.grok/hooks/archdev.json', '.pi/extensions/archdev.js')) {
+            Assert-Proof (-not (Test-Path (Join-Path $checkout $file))) "Undetected harness installed: $file"
+        }
+
+        # Scope alone does not select absent tools; prepare all only when asked.
+        & $binary repo hook setup --local --all-harnesses
+        Assert-Proof ($LASTEXITCODE -eq 0) "Explicit all-harness setup failed"
+        Assert-Proof ((Snapshot $homeDir) -eq $before) "All-harness setup changed personal configuration"
+        foreach ($file in @('.claude/settings.json', '.codex/hooks.json', '.agents/hooks.json', '.grok/hooks/archdev.json', '.pi/extensions/archdev.js', '.archdev/hooks.json')) {
             Assert-Proof (Test-Path (Join-Path $checkout $file)) "Missing shared hook $file"
         }
         $settings = Get-Content (Join-Path $checkout '.claude/settings.json') -Raw | ConvertFrom-Json
