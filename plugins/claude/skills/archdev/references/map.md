@@ -99,12 +99,15 @@ members can read it. Reporting is always on; do not ask about it.
 "$archdev" repo hook setup --local
 ```
 
-This prepares Claude Code, Codex, Grok, Pi, and ArchDev, even if those tools are
-not installed yet. It preserves other tools' settings and user-wide hooks.
+This prepares harnesses detected from user or repository configuration
+directories, plus ArchDev's runtime. To prepare every supported harness,
+including tools not installed yet, obtain that explicit selection and use
+`repo hook setup --local --all-harnesses`. Both forms preserve other tools'
+settings and user-wide hooks.
 Claude uses shareable `.claude/settings.json`; the other paths are
 `.codex/hooks.json`, `.grok/hooks/archdev.json`, `.pi/extensions/archdev.js`,
-and `.archdev/hooks.json`. Missing-binary callbacks provide installation
-guidance without downloads. Node.js is required for shared JSON callbacks.
+`.agents/hooks.json` for Gemini, and `.archdev/hooks.json`. Missing-binary
+callbacks provide installation guidance without downloads. Node.js is required for shared JSON callbacks.
 Codex and Grok require project trust; never approve it automatically. Reload
 Pi after installing its extension. Share files only through approved code
 review, never automatic commits.

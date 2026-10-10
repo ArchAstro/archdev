@@ -68,11 +68,22 @@ printf 'ok   core and Tasks resolve the real CLI without changing personal confi
 # files may be written.
 (cd "$checkout" && in_home archdev repo hook setup --local)
 [[ "$(snapshot "$home")" == "$before" ]]
-for file in .claude/settings.json .codex/hooks.json .grok/hooks/archdev.json .pi/extensions/archdev.js .archdev/hooks.json; do
-  [[ -f "$checkout/$file" ]]
+for file in .claude/settings.json .archdev/hooks.json; do
+  [[ -f "$checkout/$file" ]] || { printf 'Missing detected hook %s\n' "$file" >&2; exit 1; }
+done
+for file in .codex/hooks.json .agents/hooks.json .grok/hooks/archdev.json .pi/extensions/archdev.js; do
+  [[ ! -e "$checkout/$file" ]] || { printf 'Undetected harness installed: %s\n' "$file" >&2; exit 1; }
+done
+printf 'ok   default repository placement prepares detected harnesses only\n'
+
+# Preparing absent tools is a separate explicit selection, not implied by scope.
+(cd "$checkout" && in_home archdev repo hook setup --local --all-harnesses)
+[[ "$(snapshot "$home")" == "$before" ]]
+for file in .claude/settings.json .codex/hooks.json .agents/hooks.json .grok/hooks/archdev.json .pi/extensions/archdev.js .archdev/hooks.json; do
+  [[ -f "$checkout/$file" ]] || { printf 'Missing explicitly selected hook %s\n' "$file" >&2; exit 1; }
 done
 [[ ! -e "$checkout/.claude/settings.local.json" ]]
-printf 'ok   approved repository placement prepares all five harnesses and leaves personal settings alone\n'
+printf 'ok   explicit all-harness placement prepares every harness and leaves personal settings alone\n'
 
 # Run the actual installed Claude callback as a harness would. The binary is
 # present; its existing workflow contract must survive the shared launcher.
