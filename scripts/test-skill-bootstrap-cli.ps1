@@ -20,7 +20,9 @@ function Assert-Proof([bool]$Condition, [string]$Message) {
 function Snapshot([string]$Root) {
     return ((Get-ChildItem -LiteralPath $Root -File -Recurse -Force | Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($Root.Length + 1)
-        if ($relative -notmatch '^(\.archdev[\\/]logs|\.cache[\\/]archdev)[\\/]') {
+        # Logs, caches and the hook event queue (drained by a background
+        # worker on its own schedule) are process state, not configuration.
+        if ($relative -notmatch '^(\.archdev[\\/]logs|\.cache[\\/]archdev|\.archdev[\\/]hooks[\\/][^\\/]+[\\/]queue)[\\/]') {
             "$relative $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
         }
     }) -join "`n")
@@ -89,12 +91,35 @@ try {
         }
 
         # Explicit repository/reporting approval crosses the real CLI boundary.
-        & $binary repo hook setup --local
+        # Plain repository setup configures the harnesses it detects: Claude,
+        # whose config directory exists in this HOME, and ArchDev.
+        $detected = (& $binary --json repo hook setup --local | Out-String) | ConvertFrom-Json
         Assert-Proof ($LASTEXITCODE -eq 0) "Repository setup failed"
+        Assert-Proof ((Snapshot $homeDir) -eq $before) "Repository setup changed personal configuration"
+        $status = @{}
+        foreach ($outcome in $detected.harnesses) { $status[$outcome.harness] = $outcome.status }
+        foreach ($harness in @('claude', 'archdev')) {
+            Assert-Proof ($status[$harness] -eq 'installed') "Detected harness $harness was not installed"
+        }
+        foreach ($harness in @('codex', 'grok', 'pi')) {
+            Assert-Proof ($status[$harness] -eq 'absent') "Undetected harness $harness was not reported absent"
+        }
+        foreach ($file in @('.claude/settings.json', '.archdev/hooks.json')) {
+            Assert-Proof (Test-Path (Join-Path $checkout $file)) "Missing shared hook $file"
+        }
+        foreach ($dir in @('.codex', '.grok', '.pi', '.agents')) {
+            Assert-Proof (-not (Test-Path (Join-Path $checkout $dir))) "Undetected harness wrote $dir"
+        }
+
+        # Teammates may use agents this machine lacks. --all-harnesses
+        # prepares every supported harness, still without personal files.
+        & $binary repo hook setup --local --all-harnesses
+        Assert-Proof ($LASTEXITCODE -eq 0) "Repository setup for all harnesses failed"
         Assert-Proof ((Snapshot $homeDir) -eq $before) "Repository setup changed personal configuration"
         foreach ($file in @('.claude/settings.json', '.codex/hooks.json', '.grok/hooks/archdev.json', '.pi/extensions/archdev.js', '.archdev/hooks.json')) {
             Assert-Proof (Test-Path (Join-Path $checkout $file)) "Missing shared hook $file"
         }
+        Assert-Proof (-not (Test-Path (Join-Path $checkout '.claude/settings.local.json'))) "Repository setup wrote personal Claude settings"
         $settings = Get-Content (Join-Path $checkout '.claude/settings.json') -Raw | ConvertFrom-Json
         $command = @($settings.hooks.SessionStart | ForEach-Object { $_.hooks } | Where-Object { $_.command -match 'archdev repo hook ' })[0].command
         $payload = @{ hook_event_name = 'SessionStart'; source = 'startup'; cwd = $checkout } | ConvertTo-Json -Compress

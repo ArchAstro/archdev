@@ -2,7 +2,7 @@
 # Canonical proof: an agent resolves ArchDev without configuring hooks, then
 # applies only an explicitly chosen placement. Real CLI and shell callbacks;
 # no coding-agent trust or browser authentication is simulated as verified.
-# Usage: scripts/test-skill-bootstrap-cli.sh (ArchDev 0.47.0+ and Node on PATH)
+# Usage: scripts/test-skill-bootstrap-cli.sh (ArchDev 0.50.1+ and Node on PATH)
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,6 +30,10 @@ for path in sorted(root.rglob('*')):
     relative = path.relative_to(root)
     # Process logs/cache/crash records are not hook or user configuration.
     if relative.parts[:2] in [('.archdev', 'logs'), ('.cache', 'archdev')]:
+        continue
+    # Nor is the hook event queue, which a background worker drains on its
+    # own schedule after an installed callback runs.
+    if relative.parts[:2] == ('.archdev', 'hooks') and relative.parts[3:4] == ('queue',):
         continue
     if path.is_file():
         print(relative, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -65,14 +69,33 @@ printf 'ok   core and Tasks resolve the real CLI without changing personal confi
 
 # The agent has received explicit repository/reporting consent. Cross the real
 # CLI process boundary into the isolated Git fixture; only shareable project
-# files may be written.
-(cd "$checkout" && in_home archdev repo hook setup --local)
+# files may be written. Plain repository setup configures the harnesses it
+# detects: Claude, whose config directory exists in this HOME, and ArchDev.
+detected="$(cd "$checkout" && in_home archdev --json repo hook setup --local)"
+[[ "$(snapshot "$home")" == "$before" ]]
+for file in .claude/settings.json .archdev/hooks.json; do
+  [[ -f "$checkout/$file" ]]
+done
+for dir in .codex .grok .pi .agents; do
+  [[ ! -e "$checkout/$dir" ]]
+done
+python3 - "$detected" <<'PY'
+import json, sys
+status = {h['harness']: h['status'] for h in json.loads(sys.argv[1])['harnesses']}
+assert status['claude'] == status['archdev'] == 'installed', status
+assert all(status[h] == 'absent' for h in ('codex', 'grok', 'pi')), status
+PY
+printf 'ok   approved repository placement configures detected harnesses and reports the rest absent\n'
+
+# Teammates may use agents this machine lacks. --all-harnesses prepares every
+# supported harness in the repository, still without touching personal files.
+(cd "$checkout" && in_home archdev repo hook setup --local --all-harnesses)
 [[ "$(snapshot "$home")" == "$before" ]]
 for file in .claude/settings.json .codex/hooks.json .grok/hooks/archdev.json .pi/extensions/archdev.js .archdev/hooks.json; do
   [[ -f "$checkout/$file" ]]
 done
 [[ ! -e "$checkout/.claude/settings.local.json" ]]
-printf 'ok   approved repository placement prepares all five harnesses and leaves personal settings alone\n'
+printf 'ok   --all-harnesses prepares all five harnesses and leaves personal settings alone\n'
 
 # Run the actual installed Claude callback as a harness would. The binary is
 # present; its existing workflow contract must survive the shared launcher.
