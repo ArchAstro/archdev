@@ -109,12 +109,13 @@ subagents and agents you spawn.
 - PR reporting requires no local grading, annotations, or stop hold, including
   Factory and daemon sessions. Follow the host's publication ownership.
 
-## Rule corrections during a session
+## Rule candidates from a session
 
-On a standing never/always correction or a repeated correction, follow
-[rule candidate capture](references/rule-candidates.md): draft a Markdown/Jev
-pair and capture only the supplied correction with the public CLI. Candidates
-remain inert until the user authorizes policy adoption through a PR.
+When a user asks to turn a correction into a repository rule, follow
+[rule candidate capture](references/rule-candidates.md). Discuss a checkable
+obligation before drafting. Propose the pair only when the user asks; open a
+rules PR only on a separate explicit request. Candidates remain inert until
+the user merges a rules PR.
 
 ## 1. Bootstrap
 
