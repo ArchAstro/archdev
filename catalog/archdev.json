@@ -10,12 +10,13 @@
   "homepage": "https://archdev.ai",
   "repository": "https://github.com/ArchAstro/archdev",
   "license": "MIT",
-  "keywords": ["archdev", "code-review", "tasks", "activity", "mcp"],
+  "keywords": ["archdev", "code-review", "tasks", "activity", "mcp", "screenshots"],
   "category": "Developer Tools",
   "skills": [
     { "name": "archdev", "path": "archdev" },
     { "name": "tasks", "path": "tasks" },
-    { "name": "tasks-execute", "path": "tasks-execute" }
+    { "name": "tasks-execute", "path": "tasks-execute" },
+    { "name": "shots", "path": "shots" }
   ],
   "mcp": {
     "name": "archdev",
