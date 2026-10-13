@@ -2,6 +2,8 @@
 
 Use this flow when a user wants to brainstorm a repository rule from a correction. A useful rule states one obligation a reviewer can see violated in a PR diff. A mechanical check may instead inspect the PR title or description. Ask for the concrete failure and expected change when they are missing. Push back on session-process instructions and pure style preferences: a diff reviewer cannot reliably check them. Do not turn an inferred preference into policy.
 
+The checker judges each rule from the PR diff, its title and description, and the list of changed file paths. It does not read unchanged repository files such as CI workflows, build targets, or test runner configuration. Write the obligation so a violation is visible in those inputs. If compliance depends on files the PR usually leaves untouched, or only on what the description claims, narrow the rule to what the diff shows or push back on it.
+
 ## Draft the pair
 
 Read `.archdev/rules.yaml` in the target repository. Its `adopt_to` directory defaults to `.archdev/rules/`; choose a language or topic folder under it and follow an existing `.md`/`.jev` pair in that folder if available. Keep drafts in a temporary directory, not in the repository. The proposed path is where a later human-approved PR would place the Markdown file.
