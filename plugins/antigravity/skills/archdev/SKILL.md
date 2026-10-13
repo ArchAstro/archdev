@@ -77,9 +77,12 @@ not consent; preserve uninstall opt-outs and request permission when needed.
 | Repository | `"$archdev" repo hook setup --local` |
 | User-wide | `"$archdev" repo hook setup` |
 
-Repository setup prepares Claude Code, Codex, Grok, Pi, and ArchDev, even
-before those tools are installed. User-wide setup detects installed harnesses.
-Use `--harness claude codex` only when the user selects particular tools.
+Both scopes configure ArchDev and the harnesses they detect: a harness whose
+user config directory exists on this machine or, for repository setup, whose
+directory is already in the repository. Use `--harness claude codex` only when
+the user selects particular tools. To prepare every supported harness in the
+repository for teammates who use other tools, add `--all-harnesses` (CLI
+0.50.1+).
 These are first-install commands, not repair commands. Repair existing hooks
 with `--refresh`, retaining `--local` for repository placement; this preserves
 personal uninstall opt-outs. Reinstall an opted-out tool only with separate
