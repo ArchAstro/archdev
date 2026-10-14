@@ -1,6 +1,6 @@
 ---
 name: shots
-description: Use when an agent should capture, publish or read screenshots and movies with `archdev shots` — checking whether Shots is on, publishing stills of UI work into `.astroshot/<feature>/`, rendering React, Ink or PTY fixtures to PNG, recording browser, terminal, macOS window or frame-sequence movies, reading a person's Astroshots review comments (`review.json`), uploading a run for web review, or authoring and reading user stories. Triggers include "take a screenshot", "capture shots", "record a movie of this flow", "what did the reviewer say", ".astroshot", "user story", "upload the shots", and the "ArchDev shots" hook reminder.
+description: Use when an agent should capture, publish or read screenshots and movies with `archdev shots` — checking whether Shots is on, publishing stills of UI work into `.astroshot/<feature>/`, rendering React, Ink or PTY fixtures to PNG, recording browser, terminal, macOS window or frame-sequence movies, reading a person's Astroshots review comments (`review.json`), uploading a run for web review (which also posts the stills to the Company Room), or authoring and reading user stories. Triggers include "take a screenshot", "capture shots", "record a movie of this flow", "what did the reviewer say", ".astroshot", "user story", "upload the shots", and the "ArchDev shots" hook reminder.
 ---
 
 # Shots
@@ -449,20 +449,49 @@ turn off images, live reload and the index cache.
 ## 6. Upload for web review
 
 ```sh
-archdev shots upload --feature account-settings --root "$(git rev-parse --show-toplevel)"
+archdev shots upload --feature account-settings --project <prj_id> \
+  --root "$(git rev-parse --show-toplevel)"
 ```
 
 Uploads the feature's current run (the shots in `manifest.json`, with movie
-videos) to ArchDev so it can be reviewed on the web. It needs `archdev auth
-login` with a user session (agent-only sessions cannot upload), a Git
-`origin` remote, and a manifest with `"version": 1`. It prints one
-`<file> <media-id>` line per uploaded file, then the group key and the review
-URL; `--json` prints `{group_key, url, uploads}`. Unchanged files are
+videos) to ArchDev so it can be reviewed on the web, then posts the run's
+stills once to the organization's Company Room so teammates see the images in
+the stream. It needs `archdev auth login` with a user session (agent-only
+sessions cannot upload), a Git `origin` remote, and a manifest with
+`"version": 1`. It prints one `<file> <media-id>` line per uploaded file, then
+the group key and the review URL, then `stream <status> [<message-id>]`;
+`--json` prints `{group_key, url, uploads, stream_post}`. Unchanged files are
 skipped, and `uploads.json` in the feature directory remembers what was sent.
 Exit 1 means at least one file failed; the errors are on stderr.
 
 `--root` defaults to the current directory, not the Git top level, so pass it
 when you are not at the worktree root.
+
+### The Company Room post (ArchDev 0.53.0 or newer)
+
+Pass `--project <prj_id>` so the post is filed under the project the work
+belongs to, the same ID you use on `archdev log post`. Find it with
+`archdev projects list --query "<subject>"`; the `archdev` skill explains how
+to choose one. Without `--project` the stills are still posted, and the CLI
+prints the usual untagged warning.
+
+The post is an ordinary stream note that links the Shots page and attaches up
+to ten stills by their uploaded Media id (movie video rows are not attached;
+their poster still is). Its `stream_post.status` tells you what happened:
+
+- `posted`: a new message was made.
+- `unchanged`: these exact stills were already posted; nothing was sent.
+- `retagged`: an earlier post for these stills now carries the given
+  `--project`. This is how to fix an upload you ran without one: rerun the
+  same command with `--project`.
+- `no_room`: the organization has no Company Room yet; the upload still
+  succeeded.
+
+A post that fails leaves the upload complete, is reported on stderr with exit
+1, and is retried by rerunning the same command; the retry lands on one
+message, never two. A recapture (new bytes) posts again. Do not also attach
+the PNGs to a `done` or `start` post with `-a`; the upload post is the
+stream's copy.
 
 Upload only when the person asked for it, or when their `shots-upload`
 setting is `auto`.
