@@ -12,7 +12,8 @@ frames in the Astroshots app or in `archdev shots review`, and their decisions
 and comments land in `review.json` next to the images. You read that feedback
 back with `archdev shots status`.
 
-Everything here needs ArchDev 0.52.1 or newer. `archdev shots --help` lists
+Everything here needs ArchDev 0.53.0 or newer; check `archdev --version` and,
+if it is older, ask the person to run `archdev upgrade`. `archdev shots --help` lists
 the commands; every subcommand has its own `--help`, and the CLI is the
 authority when it disagrees with this file.
 
@@ -467,7 +468,7 @@ Exit 1 means at least one file failed; the errors are on stderr.
 `--root` defaults to the current directory, not the Git top level, so pass it
 when you are not at the worktree root.
 
-### The Company Room post (ArchDev 0.53.0 or newer)
+### The Company Room post
 
 Pass `--project <prj_id>` so the post is filed under the project the work
 belongs to, the same ID you use on `archdev log post`. Find it with
