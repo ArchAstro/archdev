@@ -120,6 +120,25 @@ describe("generation", () => {
     assert.match(NUDGE_TEXT.plan, /RISK_STEPS/);
   });
 
+  test("review queries expose exact-head risk and scope without making reporting wait", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    assert.match(skill, /references\/monitor\.md#read-pr-risk-scope-and-rules/);
+    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
+    const queries = monitor.split("## Read PR risk, scope, and rules\n")[1]?.split("## Factory sessions")[0];
+    assert.ok(queries, "query guidance has its own section, separate from PR reporting");
+    assert.match(queries, /inspect metadata <owner\/repo>#<number> --sha <head-sha>/);
+    assert.match(queries, /newest published revision, which may lag behind the PR/);
+    assert.match(queries, /`intent`.*`amendments`/s);
+    assert.match(queries, /Unknown coverage is unassessed, not a pass/);
+    assert.match(queries, /inspect risk-input <digest> --pull <owner\/repo>#<number> --head <head-sha>/);
+    assert.match(queries, /`kept: false`/);
+    assert.match(queries, /null `hash_ok` \/ `digest_ok` do not mean\nverification passed/);
+    assert.match(queries, /rules candidates --repository <owner\/repo>/);
+    assert.match(queries, /--after-cursor <cursor>/);
+    assert.match(queries, /not a query for a PR's applicable\nrules or rule-check results/);
+    assert.doesNotMatch(queries, /extract (?:run|finalize)|--assessment\b/);
+  });
+
   test("only the catalog's hook harnesses ship hook files", () => {
     for (const harness of HARNESSES) {
       const hookFiles = under(ADAPTERS[harness].root).filter((f) =>
