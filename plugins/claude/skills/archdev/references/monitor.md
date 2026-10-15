@@ -191,7 +191,9 @@ out), ask:
    when a note names it
 5. Was a PR created, updated, or closed? → report the matching `pr.*`
    event without an assessment. Do not fetch, wait for, reuse, or attach a
-   server grade. Missing server results do not block reporting.
+   server grade. Missing server results do not block reporting. Separately, for
+   each PR opened or pushed this session, follow [Pull Requests](../SKILL.md#pull-requests)
+   before declaring verification complete, or state the blocker.
 6. Did substantial work start, finish, fail, or teach something reusable?
    → it should already be posted; if not, post it now with `--kind`
    (see below). When the same moment is also an event, put both on one
@@ -393,12 +395,17 @@ PR reporting must not fetch, wait for, reuse, or attach a server grade. Omit
 disabled or failed server grading does not block publication or reporting.
 Missing grades remain unassessed; historical author/publish assessments and
 annotation labels are not authoritative fallbacks. No backfill or partial-head
-repair is part of this workflow.
+repair is part of this reporting workflow.
+
+Reporting a PR event does not complete PR verification; follow
+[Pull Requests](../SKILL.md#pull-requests) separately.
 
 ## Read PR risk, scope, and rules
 
-These are optional reads when the user asks for review context, not steps in
-PR activity reporting. Do not substitute a local grade.
+Use these reads for the required PR completion workflow in
+[Pull Requests](../SKILL.md#pull-requests) or a user's review question, not as
+prerequisites for PR activity reporting. For a read-only question, do not poll
+or start repairs. Do not substitute a local grade.
 
 ### Published PR risk and scope
 
@@ -426,7 +433,8 @@ published revisions; it does not prove which one is the current GitHub head.
   no annotations. Missing annotations alone do not prove missing assessments.
   Missing results are unassessed, never low risk or proof of compliance. Report
   lookup/authentication failures as failures, not as absent results. Do not
-  backfill annotations, run local grading, or poll for completion just to answer.
+  backfill annotations or run local grading. For a read-only answer, do not
+  poll; for PR completion, follow Pull Requests.
 
 For the evidence behind a returned assessment, use its actual digest:
 

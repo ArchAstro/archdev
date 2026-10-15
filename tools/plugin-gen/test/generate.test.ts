@@ -139,6 +139,42 @@ describe("generation", () => {
     assert.doesNotMatch(queries, /extract (?:run|finalize)|--assessment\b/);
   });
 
+  test("PR completion requires current-head CI and server risk follow-through in the existing skill", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    const completion = skill.split("## Pull Requests\n")[1]?.split("\n## ")[0];
+    assert.ok(completion, "the existing core skill owns PR completion");
+    for (const requirement of [
+      /After opening a PR or pushing a new head/,
+      /you must follow through on CI and risk/,
+      /without waiting for another user request/,
+      /inspect metadata <owner\/repo>#<number> --sha <head-sha>/,
+      /both `risk\.pr` and `risk\.code-region`/,
+      /Risk is not a defect checklist/,
+      /regression test/,
+      /Missing results are unassessed, never low/,
+      /stop if someone else\n   moves the head/,
+      /existing permissions and publication ownership/,
+      /Do not merge/,
+      /A read-only PR question does not start a repair loop/,
+    ]) assert.match(completion, requirement);
+    assert.doesNotMatch(completion, /Factory|daemon|Jobs registration|model setup/);
+    assert.doesNotMatch(completion, /budget|\d+ (?:minutes|seconds)|fix-and-push rounds/i);
+    for (const harness of HARNESSES) {
+      const text = byPath.get(`${ADAPTERS[harness].root}/skills/archdev/SKILL.md`)?.content.toString("utf8");
+      assert.equal(text, skill, `${harness} receives the required workflow`);
+    }
+  });
+
+  test("PR reporting stays immediate while completion requires risk reads", () => {
+    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
+    assert.match(monitor, /SKILL\.md#pull-requests/);
+    assert.match(monitor, /Reporting a PR event does not complete PR verification/);
+    assert.match(monitor, /required PR completion workflow/);
+    assert.doesNotMatch(monitor, /These are optional reads when the user asks/);
+    assert.match(monitor, /For a read-only question, do not poll/);
+    assert.match(monitor, /PR reporting must not fetch, wait for, reuse, or attach/);
+  });
+
   test("only the catalog's hook harnesses ship hook files", () => {
     for (const harness of HARNESSES) {
       const hookFiles = under(ADAPTERS[harness].root).filter((f) =>

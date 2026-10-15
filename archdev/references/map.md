@@ -15,10 +15,8 @@ repository placement or separate mapping was explicitly approved.
 2. If absent: `"$archdev" repo map init` (§2) creates `archdev.json`
    along with the activity skeleton. A CLI that refuses here predates
    this; request an approved software upgrade, then check `--local` support.
-3. Do not run `repo init` (`jobs repo enable`) for onboarding. It
-   clones a private repository and registers it with the local daemon,
-   which only jobs, Factory, and PR watching need. `repo status` does
-   not check it.
+3. Do not run `repo init` (`jobs repo enable`) for onboarding; use
+   `repo map init` instead.
 4. Personal/model overrides (`modelAliases`, `factory.model`, provider
    accounts) belong in gitignored `archdev.local.json`, never in the
    checked-in file. Re-run `"$archdev" check` after editing.

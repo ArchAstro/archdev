@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the organization stream for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); observing agent activity (repo monitor); and querying published PR risk/scope (inspect metadata) and repository rule candidates (rules candidates). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the organization stream for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); observing agent activity (repo monitor); mandatory PR CI and risk follow-through after opening or updating PRs; and querying published PR risk/scope (inspect metadata) and repository rule candidates (rules candidates). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -19,6 +19,36 @@ this skill.
 
 Three phases: Bootstrap → Map (when approved) → Monitor. Each has an agent
 reference with the concrete commands.
+
+## Pull Requests
+
+After opening a PR or pushing a new head, you must follow through on CI and risk
+without waiting for another user request:
+
+1. Watch CI and, in parallel, read ArchDev's server assessments for the current
+   GitHub PR head, not the checkout's `HEAD`:
+
+   ```sh
+   "$archdev" --json inspect metadata <owner/repo>#<number> --sha <head-sha>
+   ```
+
+2. Review both `risk.pr` and `risk.code-region` assessments and their concerns.
+   Risk is not a defect checklist: investigate the evidence, not just the grade.
+   Fix substantiated bugs and meaningful coverage gaps within scope; explain
+   concerns left unchanged. Add a regression test for behavioral fixes.
+3. Test, push fixes to the same branch, and recheck CI and risk for the new head.
+   Respect existing permissions and publication ownership; stop if someone else
+   moves the head. Do not merge without separate authorization.
+4. Continue until required CI passes and current-head risk concerns are handled,
+   or report a blocker. Missing results are unassessed, never low; disclose
+   partial coverage and unavailable grading rather than claiming the PR is ready.
+
+Finish with the PR/head, CI results, fixes/tests, remaining risks, and
+blockers—not just a link to the PR.
+
+Report PR activity immediately, independently of this verification. See
+[the risk read guidance](references/monitor.md#read-pr-risk-scope-and-rules) for
+assessment details. A read-only PR question does not start a repair loop.
 
 ## 0. Installation consent and executable resolution
 
@@ -189,7 +219,8 @@ payload summary.
 
 ## Read PR risk, scope, and rules
 
-When asked about a PR's published risk or scope, follow
+For the required [Pull Requests](#pull-requests) workflow, or when asked about
+a PR's published risk or scope, follow
 [Read PR risk, scope, and rules](references/monitor.md#read-pr-risk-scope-and-rules).
 Use `inspect metadata <owner/repo>#<number> --sha <head-sha>` for the exact
 revision; its JSON includes assessments and scope intent/history/assessment.
