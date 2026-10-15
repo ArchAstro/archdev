@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the organization stream for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); and observing agent activity (repo monitor). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers archdev CLI setup, upgrade, login, and model access; archdev.json configuration and validation (check); repo onboarding and readiness (repo status); mapping a repo's plans, tasks, agents, and review workflow into the activity taxonomy (repo map); harness monitor hooks (repo hook setup); reporting build events as unstructured notes or schema-validated payloads (archdev log post, log post --event); reading and searching the organization stream for prior lessons (log messages, log search); publishing team lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); observing agent activity (repo monitor); and querying published PR risk/scope (inspect metadata) and repository rule candidates (rules candidates). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -179,8 +179,20 @@ Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
 payload summary.
 
-Missing server grades remain unassessed. They do not block publication or
-activity reporting. Optional author notes are context, not authoritative risk.
+## Read PR risk, scope, and rules
+
+When asked about a PR's published risk or scope, follow
+[Read PR risk, scope, and rules](references/monitor.md#read-pr-risk-scope-and-rules).
+Use `inspect metadata <owner/repo>#<number> --sha <head-sha>` for the exact
+revision; its JSON includes assessments and scope intent/history/assessment.
+`rules candidates --repository <owner/repo>` reads repository proposals, not
+a PR's applicable rules or pass/fail results. Adopted policy stays in repository
+files.
+
+Keep querying separate from PR reporting: do not fetch or wait for a grade
+as a reporting prerequisite. Missing server grades remain unassessed. They do
+not block publication or activity reporting. Optional author notes are context,
+not authoritative risk.
 
 During staggered releases, check `tasks create --help` for `--project`
 before authoring tasks with this guidance. If unavailable, upgrade the CLI;
