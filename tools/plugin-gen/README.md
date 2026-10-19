@@ -25,24 +25,36 @@ npm run e2e        # installs each plugin with the real harness CLI (local; skip
 ```
 
 The hook wiring mirrors the CLI's `src/ts/archdev/src/reviews/hooks/harnesses.ts`
-in firstlanding: `hooks.spec`, the actions and the matchers must match the
-release named by `version`.
+in firstlanding: `hooks.spec`, the actions and the matchers must be supported
+by the tagged CLI. The catalog's `version` versions the generated bundle;
+it does not need to advance for CLI releases that leave that bundle unchanged.
 
 ## Release
 
-Set `version` in the catalog to the CLI release, run `npm run build`, and
-merge before the CLI release tags `v<version>` on main. Install commands pin
-that tag.
+The CLI release process creates `v<version>` on this repository's current main
+without updating the catalog. Install commands pin that tag. Change the catalog
+and run `npm run build` when the bundle needs updating, not for every CLI tag.
 
-The tag push runs `.github/workflows/publish-opencode.yml`, which checks that
-the tag matches the catalog, reruns the plugin CI, and publishes
-`plugins/opencode` as `@archastro/archdev-opencode@<version>` through npm
-trusted publishing with provenance. Run it by hand with `dry_run` to pack and
-validate without publishing.
+The tag push runs `.github/workflows/publish-opencode.yml`. It requires a
+commit from main, a valid version tag, and committed package/catalog consistency,
+then reruns the plugin CI. Only after those checks pass does
+`scripts/opencode-release-version.mjs --prepare` set the npm artifact's version
+to the release tag's version. The catalog and bundled code/skills stay unchanged.
+It publishes `@archastro/archdev-opencode@<version>` through npm trusted
+publishing with provenance.
 
-One-time npm setup by an `@archastro` owner: publish the first version by hand
-(`npm publish plugins/opencode --access public` from the release tag), then
-connect this workflow with
+Run the workflow by hand with `dry_run` to pack and validate without publishing.
+On a branch, dry runs use the catalog version; on a tag, they use the tag version.
+Both get an unpublished `-dryrun.<run>.<attempt>` version before registry checks.
+Non-dry-run publication requires a tag. Rerunning an old failed run still uses
+that tag's old workflow; merging a workflow fix applies to future release tags,
+not retroactively to existing tags.
+
+One-time npm setup by an `@archastro` owner: from the repository root at the
+release tag, run `node scripts/opencode-release-version.mjs --prepare` with
+`GITHUB_REF=refs/tags/v<version>` and `GITHUB_REF_TYPE=tag`, then publish the
+prepared package (`npm publish ./plugins/opencode --access public`). Connect
+this workflow with
 `npm trust github @archastro/archdev-opencode --repository ArchAstro/archdev --file publish-opencode.yml`
 or the package's Trusted Publisher settings on npmjs.com.
 
