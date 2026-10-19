@@ -120,6 +120,26 @@ describe("generation", () => {
     assert.match(NUDGE_TEXT.plan, /RISK_STEPS/);
   });
 
+  test("Ask dashboards are discoverable and distinguish personal saves from team sharing", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    const ask = skill.split("## Ask dashboards\n")[1]?.split("\n## ")[0];
+    assert.ok(ask, "Ask has agent-facing guidance in the core skill");
+    assert.match(skill.split("---")[1]!, /live Ask dashboards \(archdev ask\)/);
+    for (const command of ["create", "generate", "list", "show", "update", "delete", "share"]) {
+      assert.ok(ask.includes(`ask ${command}`), `documents ask ${command}`);
+    }
+    assert.match(ask, /archdev_ask_views/);
+    assert.match(ask, /older releases do not have this command group/);
+    assert.match(ask, /no Company Room post/);
+    assert.match(ask, /Ask permission before publishing/);
+    assert.match(ask, /each viewer's own live data/);
+    assert.match(ask, /does not update or delete earlier shared copies/);
+    assert.match(ask, /retry `ask share`, not `ask create`/);
+    for (const harness of HARNESSES) {
+      assert.equal(byPath.get(`${ADAPTERS[harness].root}/skills/archdev/SKILL.md`)?.content.toString("utf8"), skill);
+    }
+  });
+
   test("review queries expose exact-head risk and scope without making reporting wait", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     assert.match(skill, /references\/monitor\.md#read-pr-risk-scope-and-rules/);
