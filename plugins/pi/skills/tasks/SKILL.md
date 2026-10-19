@@ -97,6 +97,46 @@ review: approval owns saving this plan.
    criteria, and verification. For implementation work, name the planned
    end-to-end test file/scenario and the boundary and observable outcome it
    proves; identify any missing prerequisites honestly.
+
+   **Integration matrix.** A boundary is any place two sides run separately:
+   process, pod or replica, service, network or load balancer, queue,
+   database, external API, client/server version, OS. For any task that
+   touches a boundary, `verification` must contain three entries:
+
+   - `Integration matrix:` entry points x variations. Entry points are every
+     way in: endpoints, sockets, messages, jobs, CLI verbs, callbacks.
+     Variations are the ones that change behavior: placement (same or
+     different instance), concurrency (one or many), ordering (in order,
+     reordered, retried), failure (dependency down, timeout, restart or
+     deploy mid-flight), version skew (old to new, new to old). State which
+     cells the canonical e2e covers and which it does not.
+   - `Fidelity:` what the test runs for real, what it fakes, and what the
+     fakes share that production does not (a registry, a cache, a clock, one
+     process). Code at the boundary under test must be the production code,
+     not a test reimplementation of it.
+   - `Not proven here:` each uncovered cell, with the task that proves it.
+     That task must be a `depends_on` of the rollout or enablement node, or
+     of the node that closes the epic, so the gap gates something.
+
+   Write one `acceptance` bullet per matrix cell that matters, not one per
+   feature. Example, a webhook consumer behind a queue with 2 workers:
+
+   ```text
+   Integration matrix:
+     entry points: POST /webhooks, queue redelivery, replay CLI verb
+     covered by tests/webhook.e2e.test.ts: POST on worker A, one event, in order
+     not covered: delivery to worker B, duplicate delivery, worker restart
+       mid-handler, consumer v1 reading a v2 payload
+   Fidelity: real HTTP server, Postgres and queue; both workers run the
+     production handler. The test uses one dedupe cache for both workers;
+     production has one per worker.
+   Not proven here: worker B and duplicate delivery -> task
+     `webhook-multi-worker-e2e`, a depends_on of `webhook-enable`.
+   ```
+
+   Motivating incident: a relay accept socket routed correctly only on the
+   pod that owned it; the single-VM test shared the registry, the soak gated
+   nothing, and the bug was found in production.
 4. Add `depends_on` only where a task needs another task's result. Explain each
    edge with `dependency_reasons`. Leave independent tasks parallel. Every
    dependency must reference a node key in this graph; no self-edges or cycles.
@@ -177,6 +217,10 @@ node fields also include `context`, `scope`, `exclusions`, `deliverables`,
 `depends_on`, `dependency_reasons`, `priority` (0–4), and `kind`
 (`"human"` or `"post_deploy"`, which exempts the node from the
 pre-merge-unsatisfiable plan lint).
+A `human` or `post_deploy` node that holds deferred production proof must be
+a `depends_on` of the rollout or enablement node, or of the node that closes
+the epic. The feature node closes on local proof; the deferred node is what
+keeps the rollout from proceeding without the rest.
 Keep context concise and omit secrets and customer data. The CLI validates the
 preview and computes its hash; do not manufacture `plan_hash`.
 
@@ -224,6 +268,12 @@ test each node with a reader that has only that node. Run exactly one round.
    depends_on provides. blocking is true when you could not start
    implementing without an answer; false when you could start but would have
    to guess partway through.
+
+   If the task touches a boundary (separately running sides), also report as
+   gaps: List every entry point the change exposes. Which matrix cells does
+   the canonical e2e not exercise, does its fixture share state production
+   doesn't, and which task proves each uncovered cell, and does that task gate
+   rollout?
 
    Report a gap when you would have to guess: which files or components to
    change, the expected behavior or interface, an acceptance criterion you
@@ -443,6 +493,8 @@ user's direction on decisions and scope.
      credentials) → split off a separate Task tagged `human` (add
      `needs-access` if applicable), blocked-by the implementation Task.
      The implementation Task closes on local proof only.
+     Make that Task a dependency of the rollout/enablement Task or the
+     epic-closing Task so it gates them.
    - **Needs access/credentials** → leave paused, tag `needs-access`,
      comment the exact human action required.
    - **Duplicate or superseded** → cancel with a comment pointing at the
