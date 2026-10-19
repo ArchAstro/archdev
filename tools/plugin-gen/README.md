@@ -20,7 +20,7 @@ the install guide.
 npm ci
 npm run build      # regenerate after changing the catalog or a skill (git add new skill files first: only tracked files are copied)
 npm run check      # CI: fails when committed output differs from the catalog
-npm test           # contracts for every harness's files, the hook guard, Pi and OpenCode code
+npm test           # harness contracts, hooks, Pi/OpenCode code, and all SKILL.md descriptions (<=1024 characters)
 npm run e2e        # installs each plugin with the real harness CLI (local; skips missing CLIs)
 ```
 
