@@ -330,6 +330,19 @@ spin() {
 # ---------------------------------------------------------------------------
 
 CHOICE=0
+KEY=""
+
+# Read one key into KEY. bash 3.2 (macOS /bin/bash) restarts a read that a
+# trapped SIGINT interrupts and runs the trap only once the read returns, so
+# Ctrl-C at a menu would wait for another key. A one-second timeout lets the
+# INT trap run between reads. End of input reads as Enter.
+read_key() {
+  KEY=""
+  while :; do
+    IFS= read -rsn1 -t 1 KEY </dev/tty && return 0
+    [ "$?" -gt 128 ] || { KEY=""; return 0; }
+  done
+}
 
 # choose <question> <default index> <"Label|hint">...
 # Arrow keys or j/k move, Enter selects, digits jump. Sets CHOICE.
@@ -375,8 +388,8 @@ choose() {
     done
     printf '\033[2K%s%s%s move  %s select%s' "$PAD" "$C_DIM" "$(glyph '↑↓' 'j/k')" "$(glyph '↵' 'enter')" "$RESET"
 
-    key=""
-    IFS= read -rsn1 key </dev/tty || key=""
+    read_key
+    key="$KEY"
     case "$key" in
       "")
         break
