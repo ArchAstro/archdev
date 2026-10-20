@@ -159,6 +159,39 @@ and `risk`.
   payments, or data-integrity is high. State the reason for the grade in
   `notes` (markdown, or a string array rendered as bullets).
 
+### Write fields the review page can draw
+
+The review page renders Mermaid fences, Markdown tables, and leading labels as
+visuals. A reviewer scans those faster than paragraphs, so use them wherever the
+content already has that shape:
+
+| Content | Write it as | Field |
+|---|---|---|
+| A flow across actors: request path, lifecycle, retry, handoff | A ```` ```mermaid ```` `sequenceDiagram` of the failing path in `context`, and of the target path in `implementation`. When nothing fails today, draw only the target path | `context`, `implementation` |
+| A state change: status machine, lease, rollout | A `stateDiagram-v2` | `implementation` |
+| Components or data that depend on each other | A `flowchart LR` whose nodes are real modules, services, or tables | `context` or `implementation` |
+| A matrix or comparison: integration matrix, before/after, option trade-offs, config flags | A Markdown table, not nested bullets | any |
+| One item of evidence, a decision, or a precedent | A list item that starts with `Observed <YYYY-MM-DD>:` (runtime evidence; omit the date when unknown), `Current code:` (what the code does today), `Decision (<who>, <YYYY-MM-DD>):`, `Precedent:`, `Hypothesis:`, or `Prerequisite status:` | `context` |
+
+- Keep a diagram to the actors and messages this task changes: at most 5
+  participants with labels of a few words, and about 4–8 messages. A wider
+  diagram shrinks to fit the column and its text becomes unreadable. Draw one diagram instead of a paragraph that narrates the same
+  sequence.
+- Keep each implementation step to one or two lines. List touched files once
+  in `scope` instead of repeating paths in every step.
+- Label a guess as `Hypothesis:`, not as an observation.
+- Write a field that holds a fence or a table as a string array, one line per
+  entry, as in the example below. Such an array is joined as raw markdown, so
+  start each list item in it with `- ` or `1. `.
+- Diagrams are optional. A one-file change, or a short linear procedure, needs
+  none; a table or the numbered steps already show it.
+
+Mermaid that renders: declare `participant <id> as <Label>` with a plain id,
+never `Actor`, `end`, `alt`, `loop`, `opt`, or `Note`. Leave parentheses out
+of labels, and leave a second colon, braces, and `?` out of message text:
+write `POST /v1/hosts/ID/drain`, not `{id}`. A diagram that fails to parse
+shows as source, so prefer the simple form.
+
 The review command also accepts optional `major_decisions` (not part of
 `tasks graph schema`).
 
@@ -175,6 +208,16 @@ The review command also accepts optional `major_decisions` (not part of
       "verification": ["Planned tests/export-api.e2e.test.ts: filtered export crosses HTTP and database boundaries and asserts returned rows."],
       "implementation": [
         "### Endpoint",
+        "```mermaid",
+        "sequenceDiagram",
+        "  participant Page as Results page",
+        "  participant Api as Export API",
+        "  participant Query as Filtered query",
+        "  Page->>Api: GET /api/export with active filters",
+        "  Api->>Query: Run the existing filtered query",
+        "  Query-->>Api: Rows, streamed",
+        "  Api-->>Page: CSV download",
+        "```",
         "1. Add `GET /api/export` reusing the existing filtered-query builder.",
         "2. Stream rows to CSV instead of loading the full result set.",
         "3. Enforce the same authorization the results page already applies."
