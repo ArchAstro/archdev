@@ -178,9 +178,10 @@ describe("generation", () => {
     assert.match(queries, /inspect risk-input <digest> --pull <owner\/repo>#<number> --head <head-sha>/);
     assert.match(queries, /`kept: false`/);
     assert.match(queries, /null `hash_ok` \/ `digest_ok` do not mean\nverification passed/);
-    assert.match(queries, /rules candidates --repository <owner\/repo>/);
-    assert.match(queries, /--after-cursor <cursor>/);
-    assert.match(queries, /not a query for a PR's applicable\nrules or rule-check results/);
+    assert.match(queries, /--json rules --repository <owner\/repo>/);
+    assert.match(queries, /Rules are active as soon as\nthey are added/);
+    assert.match(queries, /not a query for a PR's applicable rules or\nrule-check results/);
+    assert.doesNotMatch(queries, /rules candidates|rules pr\b|inert/);
     assert.doesNotMatch(queries, /extract (?:run|finalize)|--assessment\b/);
   });
 

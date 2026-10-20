@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); generating, saving, and sharing live Ask dashboards (archdev ask); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rule candidates (rules candidates). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); generating, saving, and sharing live Ask dashboards (archdev ask); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -188,13 +188,13 @@ artifact ID from the error and retry `ask share`, not `ask create`.
 Inspect the Ask board before retrying an unconfirmed room write: a timeout
 can happen after the post was accepted, and a new share can duplicate it.
 
-## Rule candidates from a session
+## Rules from a session
 
 When a user asks to turn a correction into a repository rule, follow
-[rule candidate capture](references/rule-candidates.md). Discuss a checkable
-obligation before drafting. Propose the pair only when the user asks; open a
-rules PR only on a separate explicit request. Candidates remain inert until
-the user merges a rules PR.
+[adding a rule from a session](references/rule-candidates.md). Discuss a
+checkable obligation before drafting. Add the pair only when the user asks:
+`rules add` makes the rule active at once, and later PRs are checked against
+it.
 
 ## 1. Bootstrap
 
@@ -288,9 +288,8 @@ a PR's published risk or scope, follow
 [Read PR risk, scope, and rules](references/monitor.md#read-pr-risk-scope-and-rules).
 Use `inspect metadata <owner/repo>#<number> --sha <head-sha>` for the exact
 revision; its JSON includes assessments and scope intent/history/assessment.
-`rules candidates --repository <owner/repo>` reads repository proposals, not
-a PR's applicable rules or pass/fail results. Adopted policy stays in repository
-files.
+`rules --repository <owner/repo>` lists the repository's active and disabled
+rules, not a PR's applicable rules or pass/fail results.
 
 Keep querying separate from PR reporting: do not fetch or wait for a grade
 as a reporting prerequisite. Missing server grades remain unassessed. They do
