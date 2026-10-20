@@ -194,10 +194,12 @@ out), ask:
    server grade. Missing server results do not block reporting. Separately, for
    each PR opened or pushed this session, follow [Pull Requests](../SKILL.md#pull-requests)
    before declaring verification complete, or state the blocker.
-6. Did substantial work start, finish, fail, or teach something reusable?
-   → it should already be posted; if not, post it now with `--kind`
-   (see below). When the same moment is also an event, put both on one
-   `archdev log post` call.
+6. What surprised me, corrected an assumption, or ruled out an approach?
+   Did local investigation leave a question that team knowledge could answer?
+   → post a concrete `lesson`, `abandoned`, or `question` while useful (see
+   below), not buried in a PR summary. Also catch up any missed start/done.
+   When the same moment is also an event, put both on one `archdev log post`
+   call. Nothing worth sharing is valid; never manufacture a post.
 7. Otherwise, is this worth a free-text note? → `agent.message`. When in
    doubt, log the note — ambiguous observations beat silent ones, but
    never invent a structured event.
@@ -207,6 +209,26 @@ out), ask:
 `--kind` marks a post as team exhaust: teammates read it, signal
 routines count it, and stream search returns it as the team's lessons. It
 works on its own or on top of any `--event`.
+
+### Notice knowledge-sharing moments
+
+- A test contradicts your assumption, an API has surprising semantics, or a
+  configuration change does not take effect: share what the evidence proves.
+- A setup trap, useful technique, or non-obvious tradeoff could save a teammate
+  work: post a lesson now. A fix, commit or PR is not required. Distinguish
+  observations from hypotheses; do not invent a root cause to fill a template.
+- An approach is ruled out: post `abandoned` with why, instead of repeating the
+  same finding as both an abandoned approach and a lesson.
+- After a bounded check of code, tests, docs and room history, team context is
+  still missing: ask a specific question with evidence and what you tried.
+  Questions need not be product decisions or blockers. Continue independent
+  work while waiting; asking does not pause the task or authorize a risky action.
+
+Before a final reply or handoff, and at reporting boundaries, revisit these
+triggers. Search before a lesson; add new evidence rather than duplicating one.
+Nothing worth sharing is a valid outcome: no quotas, invented lessons, or routine
+progress posts. These knowledge posts need no extraction or assessment.
+Subagents return findings to the parent as they arise; only the parent posts.
 
 ### Tag every post with its project
 
@@ -235,18 +257,18 @@ files posts by project lists it under Unfiled.
 | Kind | Post when | Must include |
 |---|---|---|
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
-| `lesson` | right away, on a reusable root cause, failure, or fix | symptom, cause, fix; the exact command, error, or file |
+| `lesson` | right away, on a reusable discovery, root cause, technique, or tradeoff | observation, evidence, and what to do differently; the exact command, error, or file |
 | `abandoned` | an approach failed and should not be repeated | what was tried, why it failed |
 | `done` | a meaningful outcome is finished | intent, externally visible result, actual verification; `-r` PR URL. Anything reusable the work taught goes in its own `lesson`, not inside the done |
 | `handoff` | someone else owns the next action | headline starts `@firstname`; current state |
-| `question` | a decision only a teammate can make | headline starts `@firstname`; evidence and options |
+| `question` | missing team knowledge or an unresolved decision after local investigation | headline starts with a real known `@firstname`; evidence, what you tried, and a specific ask |
 
 ```sh
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind start "Porting lifecycle posts into archdev log" -b "Rooms skill was deprecated, so agents stopped posting lessons" -r tsk_abc123
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind lesson "Claude Code exports CLAUDE_CODE_SESSION_ID, not CLAUDE_SESSION_ID" -b "Symptom: posts labeled harness archdev with no session; cause: wrong env name in room-exhaust.ts; fix: read CLAUDE_CODE_SESSION_ID first" -r src/ts/archdev/src/room-exhaust.ts --risk medium --basis room_history
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind abandoned "Dropped the env shim for session ids" -b "Wrappers do not propagate it into hook subprocesses"
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind done "archdev log carries checkout context again" -b "Rooms UI worktree and my-areas filters show log posts; focused tests pass" -r https://github.com/org/repo/pull/123
-"$archdev" log post --project prj_0123456789abcdef01234567 --kind question "@sam should lifecycle posts also go to team rooms?" -b "Today they go to the org room only"
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind question "@sam why does the partner still require retry compatibility?" -b "Code, tests and room history do not explain ACME_RETRY_COMPAT. Is it preserving a partner constraint? I can continue independent test work while waiting." -r src/retry/compat.rs
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind handoff "@sam owns the Rooms UI facet follow-up" -b "CLI side merged; UI still reads only post_type" -r https://github.com/org/repo/pull/123
 ```
 
@@ -268,6 +290,9 @@ Rules:
   --payload-file <dir>/event.json`.
   It counts as a `done` for teammates and carries the validated event
   for activity readers.
+- `question` requires an addressee. If the owner is unknown, ask the room with
+  a plain `log post` note instead of inventing an @mention. Use real observations,
+  paths and teammate identities; the commands above illustrate the format.
 - `--answers <msg_id>` links a post to the teammate `question` it
   answers.
 - Review each post before sending. Never post raw transcripts; state

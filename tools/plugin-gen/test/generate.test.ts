@@ -140,6 +140,31 @@ describe("generation", () => {
     }
   });
 
+  test("knowledge sharing covers discoveries and non-blocking questions without quotas", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
+    for (const text of [skill, monitor]) {
+      assert.match(text, /Before a final reply or handoff, and at reporting boundaries/);
+      assert.match(text, /corrected an assumption/);
+      assert.match(text, /no extraction or assessment/);
+      assert.match(text, /no quotas, invented lessons, or routine\s+progress posts/);
+      assert.match(text, /owner is unknown/);
+      assert.doesNotMatch(text, /a decision only a teammate can make/);
+    }
+    assert.match(skill, /verified discovery is worth sharing before a fix or PR exists/);
+    assert.match(skill, /Return reusable discoveries,[\s\S]*as they arise/);
+    assert.match(monitor, /A fix, commit or PR is not required/);
+    assert.match(monitor, /Questions need not be product decisions or blockers/);
+    assert.match(monitor, /asking does not pause the task or authorize a risky action/);
+    assert.match(monitor, /instead of inventing an @mention/);
+    assert.match(monitor, /only the parent posts/);
+    for (const harness of HARNESSES) {
+      const prefix = `${ADAPTERS[harness].root}/skills/archdev`;
+      assert.equal(byPath.get(`${prefix}/SKILL.md`)?.content.toString("utf8"), skill);
+      assert.equal(byPath.get(`${prefix}/references/monitor.md`)?.content.toString("utf8"), monitor);
+    }
+  });
+
   test("review queries expose exact-head risk and scope without making reporting wait", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     assert.match(skill, /references\/monitor\.md#read-pr-risk-scope-and-rules/);

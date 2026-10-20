@@ -135,7 +135,9 @@ subagents and agents you spawn.
 - Claude Code's SubagentStart hook supplies the ArchDev contract in Git
   checkouts. Other harnesses may not supply a subagent contract.
 - Tell every helper: "Load the `archdev` skill and follow it. Do not post to
-  the organization stream; report back instead." The parent owns stream posts.
+  the organization stream; report back instead. Return reusable discoveries,
+  failed approaches, and unresolved questions with evidence as they arise,
+  not only in your final summary." The parent owns stream posts.
 - PR reporting requires no local grading, annotations, or stop hold, including
   Factory and daemon sessions. Follow the host's publication ownership.
 
@@ -235,7 +237,8 @@ Three beats, one command
    instructions.
 2. **As it happens:** post lifecycle moments immediately with
    `log post --kind` — `start` once scope is clear, `lesson` on a reusable
-   root cause or fix, `abandoned` for a failed approach, `done` (with
+   discovery (not just a fix), `abandoned` for a failed approach, `question`
+   for missing team knowledge or an unresolved decision, `done` (with
    the PR URL) or an `@name` `handoff` at the end. Before the first
    post, find the project for this work. For an epic, search active projects
    for its exact name and matching scope; reuse that match or create it with
@@ -249,6 +252,20 @@ Three beats, one command
    retain their sealed `risk.plan` / `risk.task` assessments; PR events carry
    no assessment. See monitor.md for the separate reporting flows.
 
+### Share what the work teaches
+
+Before a final reply or handoff, and at reporting boundaries, ask: what surprised
+me, corrected an assumption, or ruled out an approach? Post a concrete `lesson`
+or `abandoned` while it can save someone work; do not bury it in a PR summary.
+A verified discovery is worth sharing before a fix or PR exists. Search first
+and add new evidence rather than repeating a lesson.
+
+After a bounded local investigation, ask for missing team knowledge with
+`question`: evidence, what you tried, and a specific ask. Mention a real known
+teammate; use a plain note to ask the room if the owner is unknown. Do not wait
+until blocked, and continue independent work while waiting. These knowledge
+posts need no extraction or assessment. Nothing worth sharing is a valid
+outcome: no quotas, invented lessons, or routine progress posts.
 
 For work with an epic, search active projects for that exact epic name and
 confirm the scope. Reuse the matching project, or create one named for the epic
