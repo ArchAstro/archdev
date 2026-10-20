@@ -60,6 +60,9 @@ try {
     Set-Content -LiteralPath (Join-Path $homeDir ".claude\settings.json") -Encoding ASCII -Value '{"permissions":{"allow":["Read"]},"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo teammate"}]}]}}'
     New-Item -ItemType Directory -Path (Join-Path $homeDir '.config/archdev') | Out-Null
     Set-Content -LiteralPath (Join-Path $homeDir '.config/archdev/config.json') -Encoding ASCII -Value '{"defaultApp":"dap_033y70rWJriCRNyb9uL0Pm"}'
+    # Seed first-use product state, not hooks. Keep the analytics identity in
+    # the snapshot: ordinary commands must also leave an existing ID unchanged.
+    Set-Content -LiteralPath (Join-Path $homeDir '.config/archdev/install_id') -Encoding ASCII -Value ([Guid]::NewGuid().ToString())
     Push-Location $checkout
     try {
         & git -c core.hooksPath=NUL -c init.templateDir= init --quiet

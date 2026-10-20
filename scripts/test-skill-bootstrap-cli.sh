@@ -47,6 +47,9 @@ printf '%s\n' '{"permissions":{"allow":["Read"]},"hooks":{"SessionStart":[{"hook
 # profile once so the proof measures hook/setting mutations, not initialization.
 mkdir -p "$home/.config/archdev"
 printf '%s\n' '{"defaultApp":"dap_033y70rWJriCRNyb9uL0Pm"}' >"$home/.config/archdev/config.json"
+# Analytics creates this machine identity on first use, independently of hook
+# consent. Seed it too, but keep it in the snapshot to catch later mutations.
+python3 -c 'import uuid; print(uuid.uuid4())' >"$home/.config/archdev/install_id"
 before="$(snapshot "$home")"
 checkout_before="$(snapshot "$checkout")"
 for skill in archdev tasks; do
