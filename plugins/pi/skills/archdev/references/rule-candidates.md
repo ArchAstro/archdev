@@ -41,7 +41,7 @@ archdev rules add --repository <owner/repo> --md-file <draft.md> --jev-file <dra
 archdev rules --repository <owner/repo>
 ```
 
-Adding needs the user's own GitHub write access to the repository. Keep `--correction` to the user's relevant steer, without secrets or unrelated conversation. The rule is active as soon as it is added and applies to later PRs; it does not edit repository files. `rules add` prints `added: <name> (<rule_id>) active`, or `edited: …` when a rule with that name already existed. Confirm the listing shows the rule as `active`. If a write's outcome is uncertain, list the rules before retrying.
+Adding needs the user's own GitHub write access to the repository. Keep `--correction` to the user's relevant steer, without secrets or unrelated conversation. The rule is active as soon as it is added and applies to later PRs; it does not edit repository files. `rules add` prints `added: <name> (<rule_id>) active`, or `edited: …` when a rule with that name already existed. Confirm the listing shows the rule as `active`. If a rule file in the repository has the same name, the listing shows the file (source `repository`) instead; the file wins until it is removed, so the add did not fail. If a write's outcome is uncertain, list the rules before retrying.
 
 ## Change a rule
 
