@@ -180,25 +180,41 @@ describe("generation", () => {
     assert.match(queries, /null `hash_ok` \/ `digest_ok` do not mean\nverification passed/);
     assert.match(queries, /--json rules --repository <owner\/repo>/);
     assert.match(queries, /Rules are active as soon as\nthey are added/);
-    assert.match(queries, /not a query for a PR's applicable rules or\nrule-check results/);
+    assert.match(queries, /not a query for a PR's applicable rules or\nrule-check results; read those from `inspect metadata`'s `rules` key above/);
     assert.doesNotMatch(queries, /rules candidates|rules pr\b|inert/);
+    const verdicts = queries.split("### Rule verdicts for a PR head\n")[1]?.split("\n### ")[0];
+    assert.ok(verdicts, "rule verdicts have their own subsection");
+    for (const requirement of [
+      /`\{"state": "checked", \.\.\.\}`/,
+      /`\{"state": "not_checked"\}`[\s\S]*unassessed, never a pass/,
+      /`\{"state": "unreadable", "error": \.\.\.\}`/,
+      /A violation is a claim to check, not a confirmed defect/,
+      /`\{"state": "unavailable", "reason": \.\.\.\}`/,
+      /Never disable, edit or revert a rule to clear a violation/,
+      /predates rule verdicts returns no `rules` key/,
+    ]) assert.match(verdicts, requirement);
+    assert.doesNotMatch(queries, /per-rule pass\/fail verdict; say when that information is unavailable/);
     assert.doesNotMatch(queries, /extract (?:run|finalize)|--assessment\b/);
   });
 
-  test("PR completion requires current-head CI and server risk follow-through in the existing skill", () => {
+  test("PR completion requires current-head CI, server risk and rule follow-through in the existing skill", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     const completion = skill.split("## Pull Requests\n")[1]?.split("\n## ")[0];
     assert.ok(completion, "the existing core skill owns PR completion");
     for (const requirement of [
       /After opening a PR or pushing a new head/,
-      /you must follow through on CI and risk/,
+      /you must follow through on CI, risk\nand rule violations/,
       /without waiting for another user request/,
       /inspect metadata <owner\/repo>#<number> --sha <head-sha>/,
       /both `risk\.pr` and `risk\.code-region`/,
       /Risk is not a defect checklist/,
       /regression test/,
       /Missing results are unassessed, never low/,
-      /stop if someone else\n   moves the head/,
+      /stop if\s+someone else\s+moves the head/,
+      /Review the `rules` section's violations/,
+      /read the rule file and the cited lines/,
+      /Never disable a rule yourself/,
+      /`not_checked` or `unreadable`/,
       /existing permissions and publication ownership/,
       /Do not merge/,
       /A read-only PR question does not start a repair loop/,
