@@ -212,7 +212,7 @@ describe("generation", () => {
       /Missing results are unassessed, never low/,
       /stop if\s+someone else\s+moves the head/,
       /Review the `rules` section's violations/,
-      /read the rule file and the cited lines/,
+      /read the rule and the cited lines/,
       /Never disable a rule yourself/,
       /`not_checked` or `unreadable`/,
       /existing permissions and publication ownership/,

@@ -37,7 +37,7 @@ and rule violations without waiting for another user request:
    Fix substantiated bugs and meaningful coverage gaps within scope; explain
    concerns left unchanged. Add a regression test for behavioral fixes.
 3. Review the `rules` section's violations. Each is the checker's claim, not a
-   confirmed defect: read the rule file and the cited lines. Fix a violation
+   confirmed defect: read the rule and the cited lines. Fix a violation
    that holds and is within the PR's scope; otherwise say in your summary why
    you left it. Never disable a rule yourself; whether a rule is wrong for the
    repository is a person's decision.

@@ -495,8 +495,9 @@ It is one of three states:
   do not treat it as no violations.
 
 A violation is a claim to check, not a confirmed defect; the checker has false
-positives. Read the rule file named by `source_file` and the cited lines before
-acting. If it holds and is within the PR's scope, fix it and push. If it does
+positives. Read the rule and the cited lines before acting: a rule from a
+repository file names that file in `source_file`; a stored rule (`rl_` id,
+`source_file` "ArchDev rules") is in the `rules --repository` listing below. If it holds and is within the PR's scope, fix it and push. If it does
 not hold, or fixing it is outside the PR's scope, say so in your summary with
 the reason. `partial: true` means some rule files were not read, and
 `invalid_rules` lists rule files the check could not use; neither is a pass.
