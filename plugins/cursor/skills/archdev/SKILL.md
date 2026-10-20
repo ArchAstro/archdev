@@ -22,8 +22,8 @@ reference with the concrete commands.
 
 ## Pull Requests
 
-After opening a PR or pushing a new head, you must follow through on CI and risk
-without waiting for another user request:
+After opening a PR or pushing a new head, you must follow through on CI, risk
+and rule violations without waiting for another user request:
 
 1. Watch CI and, in parallel, read ArchDev's server assessments for the current
    GitHub PR head, not the checkout's `HEAD`:
@@ -36,15 +36,23 @@ without waiting for another user request:
    Risk is not a defect checklist: investigate the evidence, not just the grade.
    Fix substantiated bugs and meaningful coverage gaps within scope; explain
    concerns left unchanged. Add a regression test for behavioral fixes.
-3. Test, push fixes to the same branch, and recheck CI and risk for the new head.
-   Respect existing permissions and publication ownership; stop if someone else
-   moves the head. Do not merge without separate authorization.
-4. Continue until required CI passes and current-head risk concerns are handled,
-   or report a blocker. Missing results are unassessed, never low; disclose
-   partial coverage and unavailable grading rather than claiming the PR is ready.
+3. Review the `rules` section's violations. Each is the checker's claim, not a
+   confirmed defect: read the rule file and the cited lines. Fix a violation
+   that holds and is within the PR's scope; otherwise say in your summary why
+   you left it. Never disable a rule yourself; whether a rule is wrong for the
+   repository is a person's decision.
+4. Test, push fixes to the same branch, and recheck CI, risk and rules for the
+   new head. Respect existing permissions and publication ownership; stop if
+   someone else moves the head. Do not merge without separate authorization.
+5. Continue until required CI passes and current-head risk concerns and rule
+   violations are handled, or report a blocker.
+   Missing results are unassessed, never low or passing: a `rules` state of
+   `not_checked` or `unreadable`, or no `rules` key from an older CLI, means
+   rules were not assessed. Disclose partial coverage and unavailable grading
+   rather than claiming the PR is ready.
 
-Finish with the PR/head, CI results, fixes/tests, remaining risks, and
-blockers—not just a link to the PR.
+Finish with the PR/head, CI results, fixes/tests, rule violations fixed or left
+and why, remaining risks, and blockers—not just a link to the PR.
 
 Report PR activity immediately, independently of this verification. See
 [the risk read guidance](references/monitor.md#read-pr-risk-scope-and-rules) for
@@ -287,9 +295,10 @@ For the required [Pull Requests](#pull-requests) workflow, or when asked about
 a PR's published risk or scope, follow
 [Read PR risk, scope, and rules](references/monitor.md#read-pr-risk-scope-and-rules).
 Use `inspect metadata <owner/repo>#<number> --sha <head-sha>` for the exact
-revision; its JSON includes assessments and scope intent/history/assessment.
+revision; its JSON includes assessments, scope intent/history/assessment, and
+the `rules` verdicts the server's rule check stored for that head.
 `rules --repository <owner/repo>` lists the repository's active and disabled
-rules, not a PR's applicable rules or pass/fail results.
+rules, not a PR's rule results.
 
 Keep querying separate from PR reporting: do not fetch or wait for a grade
 as a reporting prerequisite. Missing server grades remain unassessed. They do
