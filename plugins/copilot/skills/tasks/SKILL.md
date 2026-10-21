@@ -248,12 +248,34 @@ The review command also accepts optional `major_decisions` (not part of
     {
       "id": "export-format",
       "name": "Choose the export format",
-      "description": "Which format should the first version support?",
-      "options": ["CSV", "JSON"]
+      "question": "Which file format should the first export version produce?",
+      "description": "Spreadsheet users want CSV; API consumers want JSON. Default if undecided: CSV.",
+      "recommended": 1,
+      "options": [
+        "CSV\n\n- **Effect:** the download opens directly in spreadsheets.\n- **Cost:** one streaming writer; nested fields need flattening.\n- **Risk:** a later JSON request means a second format to maintain.",
+        "JSON\n\n- **Effect:** the output keeps nested fields as they are.\n- **Cost:** a second endpoint if CSV is wanted later.\n- **Risk:** spreadsheet users cannot open it without conversion."
+      ]
     }
   ]
 }
 ```
+
+Write each `major_decisions` entry so a reviewer can answer from the card
+alone:
+
+- `question`: the one-sentence question being decided, ending in `?`.
+- `description`: why it matters and the default if undecided.
+- `options`: at most 8 strings. The first line is a short label; the lines
+  after it are markdown with `**Effect:**`, `**Cost:**` and `**Risk:**` lines
+  for that option. A bare label is valid, but give consequences whenever the
+  options differ in more than name.
+- `recommended`: the 1-based number of the option you recommend. It must be
+  an integer within `options` (the CLI rejects 0, a number past the last
+  option, non-integers, and any value without `options`). Omit it when you have
+  no recommendation; never mark one option "(recommended)" in its text instead.
+
+Older renderers ignore `question` and `recommended`, so keep `description`
+self-sufficient.
 
 Replace illustrative paths with this project's real planned proof. Optional
 node fields also include `context`, `scope`, `exclusions`, `deliverables`,
@@ -339,7 +361,8 @@ test each node with a reader that has only that node. Run exactly one round.
      `exclusions`, `deliverables`, `implementation`, or `risk`). Write it so a
      reader without your history could act on it; name real paths and symbols.
    - **A choice only the human can make:** add or extend a `major_decisions`
-     entry. Do not pick an answer to close the gap.
+     entry with `question`, per-option Effect/Cost/Risk lines and, if you have
+     a view, `recommended`. Do not pick an answer to close the gap.
    - **Not a real gap** (already stated, or out of scope): leave the node as
      is and note why in the triage summary.
 
