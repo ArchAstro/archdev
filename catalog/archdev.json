@@ -16,6 +16,7 @@
     { "name": "archdev", "path": "archdev" },
     { "name": "tasks", "path": "tasks" },
     { "name": "tasks-execute", "path": "tasks-execute" },
+    { "name": "plan-collab", "path": "plan-collab" },
     { "name": "shots", "path": "shots" }
   ],
   "mcp": {
