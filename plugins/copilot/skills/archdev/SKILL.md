@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); generating, saving, and sharing live Ask dashboards (archdev ask); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); live Ask dashboards (archdev ask); public file sharing (archdev share); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -195,6 +195,33 @@ creates a new tile. If saving succeeds but sharing fails, keep the returned
 artifact ID from the error and retry `ask share`, not `ask create`.
 Inspect the Ask board before retrying an unconfirmed room write: a timeout
 can happen after the post was accepted, and a new share can duplicate it.
+
+## Publish files to the web
+
+Use `archdev share` when the user requests a public link for a file, screenshot,
+HTML report, or static demo. Check `"$archdev" share --help` for `upload`, `show`,
+`complete`, `delete`, and `purge`; older CLIs do not support this group. Do not
+upgrade without approval. Read [sharing.md](references/sharing.md) for limits,
+retry handling, and administrative user purge.
+
+```sh
+# Review the file manifest locally: no login, upload, or team post.
+"$archdev" --json share upload report.html demo/ --dry-run
+# Only publish content the user asked to make public.
+"$archdev" --json share upload report.html demo/ --public
+"$archdev" --json share show <share-id>
+"$archdev" --json share delete <share-id>
+```
+
+Anyone with a URL can read the files. Publish only the requested content;
+review directory manifests and never upload secrets or private data. Hidden
+files and obvious credential files are excluded, but this is not a secret
+scanner. Uploading does not post to the Company Room or publish a PR.
+Return each share's `url`, ID, and expiry. Shares expire after 180 days.
+Directories preserve relative assets; use the explicit `index.html` URL when
+present, not a bare directory URL. Ownership is assigned from the authenticated
+ArchDev user, never from a local flag; public URLs include that user's immutable
+`usr_` ID, not their email address.
 
 ## Rules from a session
 
