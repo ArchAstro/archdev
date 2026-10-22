@@ -7,8 +7,8 @@ description: Use when an agent should co-edit a markdown plan live with a person
 
 A plan is a markdown Artifact edited live by a person in the browser and by
 your **local seat**: the `archdev plan collab start` process, which joins the
-Artifact channel as an agent actor, mirrors the text to a file on disk, and
-relays signals to you. You never touch the channel directly. You drive the
+Artifact channel as an agent actor and relays signals to you. The plan lives
+only in the Artifact; nothing is written to disk. You never touch the channel directly. You drive the
 seat with short-lived commands that find it through a **handle file**.
 
 ```
@@ -35,23 +35,23 @@ hold is required.
 archdev plan collab start --file plan.md [--handle plan.collab.json] [--artifact <id>] [--agent <id>] [--model @alias]
 ```
 
-- `start` creates a plan Artifact from the file (or reuses `--artifact`),
-  prints a `started` event with the page `url`, then **keeps running**. Run it
+- `start` creates a plan Artifact seeded once from `--file` (or reuses
+  `--artifact`). The seat never reads or writes that file again; it is a
+  starting draft, not a copy of the plan. Read the plan with `read`.
+- `start` prints a `started` event with the page `url`, then **keeps running**. Run it
   in the background and read its stdout; stop it with Ctrl-C.
-- The handle defaults to `<file>.collab.json`. It holds a loopback port and a
+- The handle defaults to `<file>.collab.json`, beside the seed file. It holds a loopback port and a
   capability token. Never print, commit or share it. The seat deletes it on
   exit; `start` refuses to run if the handle already exists.
-- The file on disk is the checkpoint copy. The seat rewrites it on every
-  server checkpoint, so edit the plan through the verbs below, not the file
-  (see file conflicts).
-- Without `--model`, you answer `complete.request` yourself. With
-  `--model @alias` (a configured model alias) the seat answers them and you
-  only see the signals.
+- With `--model @alias` (a configured model alias) the seat answers ghost
+  completions itself and you only see the signals. Without it the seat tells
+  the page it has no completer and ghost suggestions are off; any
+  `complete.request` an older page still sends is yours to answer.
 - Tell the person the `url` from the `started` event.
 
-Seat stdout events: `started`, `signal` (every relayed signal), `checkpoint`,
-`completion.required` (you must answer a completion), `file.conflict`,
-`signal.rejected`, `report.required` (plan approved, see section 4).
+Seat stdout events: `started`, `signal` (every relayed signal),
+`completion.required` (you must answer a completion) and `report.required`
+(plan approved, see section 4).
 
 ## 2. The loop
 
@@ -93,8 +93,6 @@ Received signals and what to do:
 | `plan.tasks.request {request, revision}` | The person asked to break the approved plan into tasks. Reply with `plan.tasks.result` (section 4). |
 | `run.undo {run}` | Revert that run: apply the inverse of what it wrote (section 5). |
 | `run.reviewed {run}` | The person reviewed the run. Nothing to send. |
-| `file.conflict {path, diff}` | Disk differs from the Artifact. See section 6. |
-| `file.resolve {action: merge\|overwrite}` | The seat resolves it itself and syncs. Observe only. |
 | `plan.approved {revision}` | Plan frozen. Report it (section 4). Stop editing. |
 | `plan.reopened {revision}` | Editing is allowed again. |
 
@@ -106,7 +104,6 @@ Sent by you:
 | `run.status {run, state, steps[], ranges[]}` | `run` |
 | `agent.reply {request, text}` | `signals --input` |
 | `plan.tasks.result {request, revision, tasks[]}` | `signals --input` |
-| `file.resolve {action}` | `signals --input` |
 
 **Every `ask.request` and `agent.request` ends with an `agent.reply`** whose
 `request` is the payload's `id`. The page shows the prompt as "Queued" and
@@ -225,22 +222,6 @@ archdev plan collab run --handle plan.collab.json --input \
   ranges, shifted by later edits), and `apply` the document with exactly that
   text removed. Do not undo more than that run. Then send `run.status` for it.
 
-## 6. File conflicts
-
-If the file changes on disk outside the seat, the seat sends `file.conflict
-{path, diff}` to the page and stops writing checkpoints until it is resolved.
-Never overwrite the person's outside edit silently.
-
-- **merge**: put the reviewed merged text in the file, then
-  `signals --input '{"kind":"file.resolve","payload":{"action":"merge"}}'`.
-  The seat sends that exact text into the Artifact.
-- **overwrite**: the Artifact text wins. The seat rewrites the file from
-  the Artifact and discards the outside edit; send
-  `{"kind":"file.resolve","payload":{"action":"overwrite"}}`.
-
-Ask the person which they want unless they already said. The page can also
-send `file.resolve` itself; the seat handles either path.
-
 ## Gotchas
 
 1. The seat is one process per plan. Keep it running while you work; if
@@ -248,5 +229,5 @@ send `file.resolve` itself; the seat handles either path.
 2. Handle one signal at a time and answer each; unanswered requests make the
    page look stuck.
 3. Never fabricate a signal the person did not trigger.
-4. Do not edit `plan.md` directly while the seat runs unless resolving a
-   conflict.
+4. Editing the seed file changes nothing in the plan. Change the plan with
+   `suggest` or `apply`.
