@@ -140,6 +140,26 @@ describe("generation", () => {
     }
   });
 
+  test("public file sharing is explicit, user-owned, and distinct from team posts", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    const guide = readFileSync(path.join(repoRoot, "archdev/references/sharing.md"), "utf8");
+    assert.match(skill.split("---")[1]!, /public file sharing \(archdev share\)/);
+    const section = skill.split("## Publish files to the web\n")[1]?.split("\n## ")[0];
+    assert.ok(section);
+    assert.match(section, /--dry-run/);
+    assert.match(section, /--public/);
+    assert.match(section, /does not post to the Company Room/);
+    assert.match(section, /180 days/);
+    assert.match(section, /authenticated\nArchDev user/);
+    assert.match(guide, /share purge --user <usr_ID> --confirm/);
+    assert.match(guide, /disables future sharing/);
+    assert.match(guide, /tombstones/);
+    assert.match(guide, /share complete/);
+    for (const harness of HARNESSES) {
+      assert.equal(byPath.get(`${ADAPTERS[harness].root}/skills/archdev/references/sharing.md`)?.content.toString("utf8"), guide);
+    }
+  });
+
   test("knowledge sharing covers discoveries and non-blocking questions without quotas", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
