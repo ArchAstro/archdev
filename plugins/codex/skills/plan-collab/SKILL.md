@@ -220,7 +220,14 @@ archdev plan collab run --handle plan.collab.json --input \
 - Use `stopped` if you abandon the work.
 - On `run.undo`, `read`, locate the text that run wrote (its last reported
   ranges, shifted by later edits), and `apply` the document with exactly that
-  text removed. Do not undo more than that run. Then send `run.status` for it.
+  text removed. Do not undo more than that run. Then send `run.status` for it
+  with `"undone":true` and `"reviewed":true`, keeping its `run` id; the page
+  keeps the run open and approval blocked until it sees them:
+
+  ```sh
+  archdev plan collab run --handle plan.collab.json --input \
+    '{"to":"all","payload":{"run":"r1","state":"done","steps":[{"text":"Undone","done":true}],"ranges":[],"undone":true,"reviewed":true}}'
+  ```
 
 ## Gotchas
 
