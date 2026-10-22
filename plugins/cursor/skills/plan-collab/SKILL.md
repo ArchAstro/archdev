@@ -87,8 +87,10 @@ Received signals and what to do:
 |---|---|
 | `complete.request {request, position, revision}` | Ghost text for the cursor. Compose a short continuation, then `complete`. |
 | `complete.cancel {request}` | Drop that request. The seat already cancelled it. |
-| `ask.request {id, range:[from,to], quote, text}` | Person asked about a selection. Answer by writing a suggestion over `range` with `suggest`. |
+| `ask.request {id, intent, range:[from,to], quote, text}` | Person asked about a selection (`intent:"edit"`) or asked a question (`intent:"chat"`). Edit: write a suggestion over `range` with `suggest`. Both: then `agent.reply`. |
 | `agent.request {id, text, section?}` | A task for you. Do it (run status, then `suggest` or `apply`), then `agent.reply`. |
+| `run.stop {run}` | The person pressed Stop. Stop writing for that run and send its `run.status` with `state:"stopped"`. |
+| `plan.tasks.request {request, revision}` | The person asked to break the approved plan into tasks. Reply with `plan.tasks.result` (section 4). |
 | `run.undo {run}` | Revert that run: apply the inverse of what it wrote (section 5). |
 | `run.reviewed {run}` | The person reviewed the run. Nothing to send. |
 | `file.conflict {path, diff}` | Disk differs from the Artifact. See section 6. |
@@ -103,7 +105,13 @@ Sent by you:
 | `complete.suggestion {request, position, text, alternatives[]}` | `complete` |
 | `run.status {run, state, steps[], ranges[]}` | `run` |
 | `agent.reply {request, text}` | `signals --input` |
+| `plan.tasks.result {request, revision, tasks[]}` | `signals --input` |
 | `file.resolve {action}` | `signals --input` |
+
+**Every `ask.request` and `agent.request` ends with an `agent.reply`** whose
+`request` is the payload's `id`. The page shows the prompt as "Queued" and
+keeps the plan from being approved until that reply arrives; a suggestion
+alone does not clear it.
 
 ### Ghost completion (`complete.request`)
 
@@ -120,10 +128,16 @@ Pass `request`, `revision` and `position` back unchanged. It fails with
 moved on; drop it, do not retry. Keep text short and do not repeat what is
 already after the cursor.
 
+The next keystroke cancels a request, usually within a second. An agent that
+handles one command at a time rarely answers in time, so for working ghost
+text start the seat with `--model @alias` and let the seat answer them.
+
 ### Ask about a selection (`ask.request`)
 
-Answer by editing, not chatting. Rewrite `range` as a CriticMarkup suggestion
-the person accepts or rejects:
+`intent:"chat"` is a question from the agent panel with no selection: answer
+it in the `agent.reply` text and do not edit. `intent:"edit"` asks for a
+change. Answer by editing, not chatting. Rewrite `range` as a CriticMarkup
+suggestion the person accepts or rejects:
 
 ```sh
 archdev plan collab suggest --handle plan.collab.json --input \
@@ -138,6 +152,15 @@ archdev plan collab suggest --handle plan.collab.json --input \
   or shorten the range; there is no escape syntax.
 - `quote` is the selected text at ask time; if `read` shows it moved, find it
   again before using positions.
+- An empty `range` with an empty `quote` (Ask with no selection) inserts at
+  that position.
+
+Then clear the prompt with a one-line reply, edit or chat:
+
+```sh
+archdev plan collab signals --handle plan.collab.json --input \
+  '{"kind":"agent.reply","to":"actor:<from>","payload":{"request":"<payload.id>","text":"…"}}'
+```
 
 ### Agent task (`agent.request`)
 
@@ -169,6 +192,21 @@ On `plan.approved` the seat prints a `report.required` event naming
 `risk.plan` and `log post plan.updated`. Follow the `archdev` skill's plan
 reporting rules for that post. After approval do not edit until
 `plan.reopened`.
+
+### Break into tasks (`plan.tasks.request`)
+
+After approval the person can ask for a draft task graph. Read the plan, draft
+tasks from its steps, and reply to the requester with the same `request` and
+`revision`:
+
+```sh
+archdev plan collab signals --handle plan.collab.json --input \
+  '{"kind":"plan.tasks.result","to":"actor:<from>","payload":{"request":"<payload.request>","revision":<payload.revision>,"tasks":[{"key":"t1","title":"…","risk":"low","area":"…","dependsOn":[]}]}}'
+```
+
+`risk` is `low`, `medium` or `high`; `dependsOn` lists other task `key`s. The
+page shows the draft and offers `archdev tasks review start`; follow the
+`tasks` skill from there.
 
 ## 5. Runs and undo
 
