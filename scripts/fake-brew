@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Stand-in Homebrew for the skill bootstrap tests. It appends its argv to
+# $FAKE_BREW_LOG, answers `--prefix` with $FAKE_BREW_PREFIX, and for
+# `upgrade` or `reinstall archastro/tools/archdev` replaces the keg with
+# Cellar/archdev/0.60.0 (a scripts/fake-archdev wrapper at $ARCHDEV_FAKE_BIN)
+# and relinks <prefix>/bin/archdev and <prefix>/opt/archdev, as Homebrew does.
+# `upgrade` leaves an existing 0.60.0 keg alone, even a broken one.
+#
+#   FAKE_BREW_EXIT=N  fail upgrade/reinstall with status N, keg unchanged
+
+set -euo pipefail
+
+printf '%s\n' "$*" >>"$FAKE_BREW_LOG"
+case "${1:-}" in
+  --prefix) printf '%s\n' "$FAKE_BREW_PREFIX" ;;
+  upgrade | reinstall)
+    [[ "${2:-}" == archastro/tools/archdev ]] || exit 1
+    if [[ "${FAKE_BREW_EXIT:-0}" != 0 ]]; then
+      printf 'Error: fake brew %s failed\n' "$1" >&2
+      exit "$FAKE_BREW_EXIT"
+    fi
+    # Like Homebrew, upgrading the latest version changes nothing.
+    if [[ "$1" == upgrade && -d "$FAKE_BREW_PREFIX/Cellar/archdev/0.60.0" ]]; then
+      printf 'Warning: archastro/tools/archdev 0.60.0 already installed\n' >&2
+      exit 0
+    fi
+    # Real brew reports progress on stdout; the bootstrap must keep it off its own.
+    printf '==> %s archastro/tools/archdev 0.60.0\n' "$1"
+    rm -rf "$FAKE_BREW_PREFIX/Cellar/archdev"
+    keg="$FAKE_BREW_PREFIX/Cellar/archdev/0.60.0/bin"
+    mkdir -p "$keg"
+    printf '#!/bin/sh\nARCHDEV_FAKE_VERSION=0.60.0 exec "%s" "$@"\n' "$ARCHDEV_FAKE_BIN" >"$keg/archdev"
+    chmod +x "$keg/archdev"
+    ln -sfn ../Cellar/archdev/0.60.0/bin/archdev "$FAKE_BREW_PREFIX/bin/archdev"
+    mkdir -p "$FAKE_BREW_PREFIX/opt"
+    ln -sfn ../Cellar/archdev/0.60.0 "$FAKE_BREW_PREFIX/opt/archdev"
+    ;;
+  *) exit 1 ;;
+esac
