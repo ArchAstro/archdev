@@ -19,7 +19,11 @@ scope. Do not edit agent instruction files or commit changes without permission.
 The Bash and PowerShell bootstrap scripts resolve or install the executable
 and check its capabilities. They do not install or refresh hooks, install
 skills, authenticate, or create repository configuration. Do not run them to
-bypass the guide's consent steps.
+bypass the guide's consent steps. When the executable is Homebrew-managed
+(linked from a Homebrew Cellar), they update it with
+`brew upgrade archastro/tools/archdev` (or `brew reinstall` for a current but
+broken copy) and never install a second copy; without a working `brew` they
+stop with an error naming that binary.
 
 ## Version and login
 
