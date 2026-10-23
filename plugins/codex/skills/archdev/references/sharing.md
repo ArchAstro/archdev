@@ -14,9 +14,12 @@ than switching to the repository's internal shared-credential uploader.
 ```
 
 Preview validates all inputs and prints their file manifests without logging in
-or writing anything remotely. Upload requires explicit `--public`; the user's
-request to publish is still required. `--public` does not authorize unrelated
-content. Public publication cannot be undone for copies others already saved.
+or writing anything remotely. Upload requires explicit `--public`. Non-sensitive
+screenshots and recordings used as PR visual evidence do not need separate
+upload approval; exclude or redact sensitive data before uploading. Other
+content still requires the user's request to publish. `--public` does not
+authorize unrelated content. Public publication cannot be undone for copies
+others already saved.
 
 Results contain a `shares` array in input order with each share's `id`,
 `user_id`, `url`, `expires_at`, and file manifest. Progress goes to stderr.
