@@ -1,6 +1,6 @@
 ---
 name: tasks-execute
-description: Use when someone wants an agent to work through an ArchDev Tasks epic — pick ready tasks, lease each one, keep a lease heartbeat running the whole time, implement and verify, commit, close, and continue to the next task. Triggers include "work the epic", "execute these tasks", "pick up the next task", "run the plan", or /tasks-execute <epic>.
+description: Use when someone wants an agent to work through an ArchDev Tasks epic — pick ready tasks, lease each one, keep a lease heartbeat running the whole time, implement and verify, commit, push and open a pull request, close, and continue to the next task. Triggers include "work the epic", "execute these tasks", "pick up the next task", "run the plan", or /tasks-execute <epic>.
 ---
 
 # Execute an epic
@@ -11,7 +11,7 @@ loop:
 ```
 pick ready task → claim lease → start heartbeat → work → verify
       ↑                                                   ↓
- next ready task ← close ← stop heartbeat ← comment ← commit
+ next ready task ← close ← stop heartbeat ← comment ← push + PR ← commit
 ```
 
 Two rules matter more than anything else in this skill:
@@ -253,14 +253,16 @@ than `renewed`, run the lease-lost steps below.
 5. Two failed attempts on the same failure means change approach, not try
    a third time. If you are still stuck, use §7.
 
-## 6. Commit, then close
+## 6. Commit, push, open a PR, then close
 
-This skill carries each task through to a commit. Invoking it on an epic is
-the user's explicit request to **commit** each finished task. It is **not** a
-request to push or open PRs; do those only when the user said so for this
-run. Repository instructions still decide the branch and commit format. If
-they forbid agent commits outright, stop at verified, uncommitted work and
-ask.
+This skill carries each task through to a pull request. Invoking it on an
+epic is the user's explicit request to **commit, push and open a PR** for
+each finished task. Skip pushing only when the user said so for this run
+("commit only", "don't push"), or when the repository instructions forbid
+agent pushes; then stop at the commit and say so in the report. Repository
+instructions still decide the branch, commit format, PR format and whether
+PRs open ready or as drafts. If they forbid agent commits outright, stop at
+verified, uncommitted work and ask.
 
 1. Gate check: the heartbeat's newest line is `renewed` (§4).
 2. Commit only that task's files, on the branch the repository rules
@@ -271,11 +273,35 @@ ask.
    Task: <task-id>
    ```
    Never bypass hooks (`--no-verify`). If a hook fails, fix the cause.
-3. If pushing was requested: push, then run the PR bookkeeping the `archdev`
-   skill requires for any PR head you moved.
-4. Record the result on the task:
-   `"$archdev" tasks comment <task-id> "Done in <sha> on <branch>. Verified by <test names>."`
-5. Gate check again, then stop the heartbeat and close, fenced with your
+3. Pick the PR base before pushing:
+   - **The task's prerequisites are merged** (or it has none): branch from
+     the remote default branch (`git fetch origin <default>`, then rebase
+     onto `origin/<default>`) and open the PR against it.
+   - **A prerequisite's PR is still open** and this task builds on its
+     code: stack. Base this branch and the PR on the prerequisite's branch,
+     and put `Merge order: after #<n>` at the top of the PR body.
+   - **A base PR merged while you worked** (its branch is gone, or
+     `gh pr create` says the base is not a branch): rebase only your own
+     commits onto the default branch (`git rebase --onto origin/<default>
+     <old-base-tip>`), run a compile/lint check, push with
+     `--force-with-lease`, and open the PR against the default branch.
+4. Gate check, then push the branch and open one PR per task. Use the
+   repository's PR template and rules (title, required first line, problem,
+   what changed, testing with the canonical end-to-end proof, risk). Name
+   the task and link it. Never push over someone else's branch.
+5. Link the PR to the task and record the result:
+   ```sh
+   "$archdev" tasks links add <task-id> <pr-url> --type pull_request
+   "$archdev" tasks comment <task-id> "PR <url>: <sha> on <branch>. Verified by <test names>."
+   ```
+   Then run the PR bookkeeping the `archdev` skill requires for any PR head
+   you moved.
+6. Do not wait for CI before moving on: CI runs the full suites while you
+   work the next task. Locally, run the focused tests and gates the task
+   names (§5), not every suite. Check the PR's CI when you finish the epic
+   (§9), or sooner if the next task stacks on it, and fix failures on the
+   same branch.
+7. Gate check again, then stop the heartbeat and close, fenced with your
    lease. The last renewal leaves minutes on the lease, which is plenty for
    the close. Stopping first means the heartbeat never reports your own close
    as a lost lease.
@@ -284,8 +310,10 @@ ask.
    ```
    If the close fails, restart the heartbeat with the same IDs before you
    retry or investigate.
-6. Run `"$archdev" presence clear` if you set presence. Update the state file.
-7. Go back to §2. Closing a task can make its dependents ready.
+8. Run `"$archdev" presence clear` if you set presence. Update the state file
+   with the task's PR URL.
+9. Go back to §2. Closing a task can make its dependents ready; a dependent
+   that builds on this task's code stacks on its PR (step 3).
 
 ## 7. Give a task back
 
@@ -326,9 +354,13 @@ still running for a task you closed or released.
 
 Report back in this form:
 
-1. **Done:** task, commit SHA, and the verification that proved it.
+1. **Done:** task, commit SHA, PR link and its CI state, and the
+   verification that proved it.
 2. **Given back:** task, why, and the question it needs answered.
 3. **Blocked or not started:** task and its blockers, from
    `tasks ready --explain --epic "<epic>"`.
 4. **For a human:** tasks tagged `human` or `post_deploy`.
-5. **Pushed or PRs opened:** only if pushing was requested.
+5. **PRs:** every PR opened, its base (stacked or default branch), its
+   merge order, and CI status. Check CI on each before reporting and fix
+   failures on the same branch. If pushing was skipped, say so and list the
+   unpushed branches.
