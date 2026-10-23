@@ -140,6 +140,25 @@ describe("generation", () => {
     }
   });
 
+  test("visual PR evidence uses public sharing without a separate approval gate", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
+    const guide = readFileSync(path.join(repoRoot, "archdev/references/sharing.md"), "utf8");
+    const prs = skill.split("## Pull Requests\n")[1]?.split("\n## ")[0];
+    assert.ok(prs);
+    assert.match(prs, /include screenshots or a short recording/);
+    assert.match(prs, /before\/after captures/);
+    assert.match(prs, /Use `archdev share` for hosting/);
+    assert.match(prs, /Exclude or redact sensitive data before uploading/);
+    assert.match(prs, /supplements, rather than replaces, automated tests/);
+    assert.doesNotMatch(prs, /(?:obtain|ask for|require) (?:explicit )?(?:approval|consent)/i);
+    assert.match(skill, /or to host non-sensitive PR visual evidence/);
+    assert.match(guide, /PR visual evidence do not need separate\nupload approval/);
+    assert.match(guide, /Other\ncontent still requires the user's request to publish/);
+    for (const harness of HARNESSES) {
+      assert.equal(byPath.get(`${ADAPTERS[harness].root}/skills/archdev/SKILL.md`)?.content.toString("utf8"), skill);
+    }
+  });
+
   test("public file sharing is explicit, user-owned, and distinct from team posts", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     const guide = readFileSync(path.join(repoRoot, "archdev/references/sharing.md"), "utf8");

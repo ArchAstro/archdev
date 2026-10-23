@@ -22,6 +22,11 @@ reference with the concrete commands.
 
 ## Pull Requests
 
+For visual/UI changes, include screenshots or a short recording in the PR
+description, preferably before/after captures. Use `archdev share` for hosting.
+**Exclude or redact sensitive data before uploading.** Visual evidence
+supplements, rather than replaces, automated tests.
+
 After opening a PR or pushing a new head, you must follow through on CI, risk
 and rule violations without waiting for another user request:
 
@@ -199,7 +204,8 @@ can happen after the post was accepted, and a new share can duplicate it.
 ## Publish files to the web
 
 Use `archdev share` when the user requests a public link for a file, screenshot,
-HTML report, or static demo. Check `"$archdev" share --help` for `upload`, `show`,
+HTML report, or static demo, or to host non-sensitive PR visual evidence.
+Check `"$archdev" share --help` for `upload`, `show`,
 `complete`, `delete`, and `purge`; older CLIs do not support this group. Do not
 upgrade without approval. Read [sharing.md](references/sharing.md) for limits,
 retry handling, and administrative user purge.
@@ -207,14 +213,15 @@ retry handling, and administrative user purge.
 ```sh
 # Review the file manifest locally: no login, upload, or team post.
 "$archdev" --json share upload report.html demo/ --dry-run
-# Only publish content the user asked to make public.
+# Publish requested files or non-sensitive PR visual evidence.
 "$archdev" --json share upload report.html demo/ --public
 "$archdev" --json share show <share-id>
 "$archdev" --json share delete <share-id>
 ```
 
-Anyone with a URL can read the files. Publish only the requested content;
-review directory manifests and never upload secrets or private data. Hidden
+Anyone with a URL can read the files. Publish only the requested content or
+non-sensitive PR visual evidence; review directory manifests and never upload
+secrets or private data. Hidden
 files and obvious credential files are excluded, but this is not a secret
 scanner. Uploading does not post to the Company Room or publish a PR.
 Return each share's `url`, ID, and expiry. Shares expire after 180 days.
