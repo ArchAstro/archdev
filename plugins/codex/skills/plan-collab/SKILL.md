@@ -90,7 +90,7 @@ Received signals and what to do:
 | `ask.request {id, intent, range:[from,to], quote, text}` | Person asked about a selection (`intent:"edit"`) or asked a question (`intent:"chat"`). Edit: write a suggestion over `range` with `suggest`. Both: then `agent.reply`. |
 | `agent.request {id, text, section?}` | A task for you. Do it (run status, then `suggest` or `apply`), then `agent.reply`. |
 | `run.stop {run}` | The person pressed Stop. Stop writing for that run and send its `run.status` with `state:"stopped"`. |
-| `plan.tasks.request {request, revision}` | The person asked to break the approved plan into tasks. Reply with `plan.tasks.result` (section 4). |
+| `plan.tasks.request {request, revision}` | The person asked to break the approved plan into tasks. Build the full task plan with the `tasks` skill and publish it to the Tasks tab (section 4). |
 | `run.undo {run}` | Revert that run: apply the inverse of what it wrote (section 5). |
 | `run.reviewed {run}` | The person reviewed the run. Nothing to send. |
 | `plan.approved {revision}` | Plan frozen. Report it (section 4). Stop editing. |
@@ -103,7 +103,8 @@ Sent by you:
 | `complete.suggestion {request, position, text, alternatives[]}` | `complete` |
 | `run.status {run, state, steps[], ranges[]}` | `run` |
 | `agent.reply {request, text}` | `signals --input` |
-| `plan.tasks.result {request, revision, tasks[]}` | `signals --input` |
+| `run.status` with `run:"tasks:<request>"` | `run` (section 4) |
+| task-plan preview published to the Tasks tab | `tasks publish` (section 4) |
 
 **Every `ask.request` and `agent.request` ends with an `agent.reply`** whose
 `request` is the payload's `id`. The page shows the prompt as "Queued" and
@@ -192,18 +193,56 @@ reporting rules for that post. After approval do not edit until
 
 ### Break into tasks (`plan.tasks.request`)
 
-After approval the person can ask for a draft task graph. Read the plan, draft
-tasks from its steps, and reply to the requester with the same `request` and
-`revision`:
+After approval the person chooses **Break into tasks**; the page sends
+`plan.tasks.request {request, revision}` to your seat and shows the Tasks tab
+as pending. You answer with a complete task plan published to the plan's
+hosted review source. The page never shows the person a command to copy, and
+you do not send `plan.tasks.result` (the old five-field draft).
 
-```sh
-archdev plan collab signals --handle plan.collab.json --input \
-  '{"kind":"plan.tasks.result","to":"actor:<from>","payload":{"request":"<payload.request>","revision":<payload.revision>,"tasks":[{"key":"t1","title":"…","risk":"low","area":"…","dependsOn":[]}]}}'
-```
+Check once that the CLI has the verb: `archdev plan collab tasks publish
+--help`. If it fails, the CLI is too old; tell the person and ask to update it
+with the `archdev` skill. Do not fall back to a flat draft.
 
-`risk` is `low`, `medium` or `high`; `dependsOn` lists other task `key`s. The
-page shows the draft and offers `archdev tasks review start`; follow the
-`tasks` skill from there.
+1. **Announce the work.** Send `run.status` before reading anything, with
+   `run` exactly `tasks:<payload.request>`, `state:"working"` and **empty**
+   `ranges`. The page ignores a task run whose id does not match the pending
+   request, whose sender is not the requested seat, or whose ranges are not
+   empty; it then shows no progress. Keep the same `run` id for every update.
+   Do not start a step text with `Writing ` (the page reads those as plan
+   sections).
+
+   ```sh
+   archdev plan collab run --handle plan.collab.json --input \
+     '{"to":"all","payload":{"run":"tasks:<request>","state":"working","steps":[{"text":"Reading the approved plan","done":true},{"text":"Drafting the task graph","done":false}],"ranges":[]}}'
+   ```
+
+2. **Read the approved plan** with `read`. Confirm `revision` equals the
+   request's `revision`; if the plan moved or was reopened, the request is
+   void: send `state:"stopped"` and stop.
+3. **Build the complete preview with the `tasks` skill**, section "Turn the
+   source into a draft DAG" and "Check each task in isolation". Use the
+   plan as the source and write the preview JSON to a scratch file
+   (not the repository), with every task carrying objective, acceptance,
+   verification, implementation and risk. Do not open `tasks review start`
+   for a plan collab request: the hosted Tasks tab is the review surface.
+   Update `run.status` as steps finish (same `run`, `state:"working"`).
+4. **Publish** to this plan's hosted review source:
+
+   ```sh
+   archdev plan collab tasks publish --handle plan.collab.json --file task-preview.json
+   ```
+
+   The verb validates the preview exactly as `tasks review` does and refuses a
+   thin one; fix what it names and rerun. The Tasks tab replaces the pending
+   state with the full review within a couple of seconds.
+5. **Close the run.** Send `run.status` with the same `run`, `state:"done"`,
+   every step `done:true` and empty `ranges`. If you abandon the work or
+   publishing fails for good, send `state:"stopped"` instead and tell the
+   person why; a `working` run left behind keeps the tab pending.
+
+Approving the published review saves Tasks. The hosted saver currently drops
+task attachments, decisions and `deploy_target`; do not promise those reach
+the saved Tasks.
 
 ## 5. Runs and undo
 

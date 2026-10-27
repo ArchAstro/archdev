@@ -289,6 +289,16 @@ keeps the rollout from proceeding without the rest.
 Keep context concise and omit secrets and customer data. The CLI validates the
 preview and computes its hash; do not manufacture `plan_hash`.
 
+### From a plan collab request
+
+When the source is an approved collaborative plan (a `plan.tasks.request` on
+an `archdev plan collab` seat), follow the `plan-collab` skill, section "Break
+into tasks". Build the same preview as above from the plan's `read` content,
+with the same isolation checks in section 3, then publish it with `archdev
+plan collab tasks publish --handle <seat.json> --file <preview.json>` instead
+of `tasks review start` (section 4). The hosted Tasks tab is the review; do
+not start a local review server or save Tasks yourself.
+
 ## 3. Check each task in isolation before review
 
 The drafter has the whole conversation, so its tasks read as complete to it
