@@ -12,9 +12,9 @@ frames in the Astroshots app or in `archdev shots review`, and their decisions
 and comments land in `review.json` next to the images. You read that feedback
 back with `archdev shots status`.
 
-Everything here needs ArchDev 0.53.0 or newer; check `archdev --version` and,
-if it is older, ask the person to run `archdev upgrade`. `archdev shots --help` lists
-the commands; every subcommand has its own `--help`, and the CLI is the
+This guide describes ArchDev 0.55.6 and newer. Check `archdev --version`;
+if it is older, ask the person to run `archdev upgrade`. `archdev shots --help`
+lists the commands; every subcommand has its own `--help`, and the CLI is the
 authority when it disagrees with this file.
 
 ## Activity and risk ownership
@@ -27,12 +27,14 @@ hold is required.
 
 ## 1. Check that Shots is on before anything else
 
-Shots is off by default, and the setting belongs to the person, not to you.
-Every `archdev shots` command except `doctor` and `--help` refuses while it is
-off, exits 1 and prints:
+In ArchDev 0.55.6 and later, the local Shots setting defaults to on for each
+profile, but capture also requires the server-owned `archdev_shots` rollout
+flag. An explicit local off setting disables Shots. The setting belongs to the person, not to you.
+When Shots is unavailable, commands other than `doctor`, `--skill` and help
+exit 1 and print:
 
 ```text
-archdev shots is off. Enable it with: archdev settings set shots on
+archdev shots is unavailable. It requires the archdev_shots rollout flag and the local Shots setting on.
 ```
 
 Check first:
@@ -41,9 +43,10 @@ Check first:
 archdev shots doctor
 ```
 
-`doctor` is read-only: it starts no browser and writes nothing. Its first line
-is `archdev shots is on` or the off message above, and it exits 0 only when
-Shots is on. The other lines say where it found the tools each mode needs:
+`doctor` is read-only: it starts no browser and writes nothing. It reports the
+local setting and exits 0 when that setting is on; it does not check server
+rollout eligibility, so a successful doctor does not guarantee capture will
+run. The other lines say where it found the tools each mode needs:
 
 | Tool | Needed for |
 |---|---|
@@ -65,12 +68,14 @@ movies without `--script` do not use them.
 
 `archdev settings get` shows `Shots: on (config)` and `Shots upload: auto
 (config)` rows once the person has set them; before that it shows no Shots
-rows, which means both defaults (off, manual).
+rows. Absent rows mean the local capture setting defaults to on and upload
+defaults to manual; server rollout still controls availability.
 
-### When Shots is off
+### When Shots is unavailable
 
-Ask the person to turn it on. Tell them to run this in their own terminal,
-outside the agent session:
+First check `archdev shots doctor`. If the local setting is off, ask the
+person to turn it on if they want captures. Tell them to run this in their
+own terminal, outside the agent session:
 
 ```sh
 archdev settings set shots on
@@ -82,21 +87,27 @@ without an interactive terminal ("Shots settings require a human terminal
 outside an agent session"), and that includes commands a harness runs for
 the person from the chat (such as Claude Code's `!` prefix). Do not edit the
 ArchDev config file, set a different `ARCHDEV_PROFILE` or `--profile`, or
-otherwise route around the refusal: the setting is the person's consent to
-have screenshots taken. If they decline, carry on without captures and say
+otherwise route around the refusal: the local setting is the person's choice
+about taking screenshots. If they decline, carry on without captures and say
 which evidence is missing.
 
 The setting is stored per ArchDev profile. If the session runs with
-`ARCHDEV_PROFILE=<name>` or `--profile <name>`, the person must enable that
-profile: `archdev --profile <name> settings set shots on`. The off message
-does not include the profile name.
+`ARCHDEV_PROFILE=<name>` or `--profile <name>`, an explicitly disabled
+profile must be enabled there: `archdev --profile <name> settings set shots on`.
+The unavailable message does not include the profile name. If doctor reports
+the local setting on but a command remains unavailable, the rollout flag or
+its authentication or network check may be unavailable; do not change local
+settings to work around it.
 
 ### Upload preference
 
 `archdev settings set shots-upload auto|manual` (default `manual`) is the
 person's preference for sending a session's captures to ArchDev for web
-review. It has the same human-terminal rule. With `manual`, upload only when
-the person asks (section 6).
+review. It has the same human-terminal rule. Captures remain local until
+uploaded. With `manual`, upload only when the person asks (section 6). With
+`auto`, the Stop hook uploads captures from that session when the turn ends,
+provided Shots is enabled. The upload attempts to post available stills to
+the Company Room; a missing room or a delivery failure can prevent the post.
 
 ### Unattended harnesses
 
@@ -105,7 +116,7 @@ profile with Shots on, for example a profile named `astroshot-harness` whose
 `config.json` the harness writes with `{"shots":{"enabled":"on"}}`, and run
 `ARCHDEV_PROFILE=astroshot-harness archdev shots capture …`. That pattern is
 for harness code a team has reviewed and committed. It is not a way to
-capture in an interactive session where the person has not turned Shots on.
+override a person's explicit opt-out in an interactive session.
 
 ## 2. Publish stills
 
@@ -570,7 +581,7 @@ archdev repo hook dismiss --harness <harness> --session <session-id> \
 
 | Message | Cause and fix |
 |---|---|
-| `archdev shots is off. Enable it with: archdev settings set shots on` | Shots is off for this profile. Ask the person to run the command in their own terminal (section 1). |
+| `archdev shots is unavailable. It requires the archdev_shots rollout flag and the local Shots setting on.` | Check the local setting with doctor; if it is on, rollout eligibility or its check may be unavailable (section 1). |
 | `Shots settings require a human terminal outside an agent session` | You tried to change the setting. Ask the person instead. |
 | `not a valid .<ext> image: PATH` | The bytes do not match the extension (a JPEG saved as `.png`, an HTML error page, a truncated file). Recapture it or fix the extension. |
 | `unsupported image extension …` | Stills must be `.png`, `.jpg`, `.jpeg`, `.webp` or `.gif`. |
