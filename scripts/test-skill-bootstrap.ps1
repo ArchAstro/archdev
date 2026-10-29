@@ -16,7 +16,7 @@ $onWindows = $env:OS -eq "Windows_NT"
 $caseVariables = @(
     "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "USERPROFILE",
     "ARCHDEV_FACTORY_AGENT_ROLE", "ARCHDEV_JOB_ID", "ARCHDEV_STEP_ID",
-    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_NO_HEARTBEAT", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION", "ARCHDEV_INSTALL_DIR"
+    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_NO_HEARTBEAT", "ARCHDEV_FAKE_NO_INBOX", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION", "ARCHDEV_INSTALL_DIR"
 )
 $savedPath = $env:PATH
 $savedHome = $env:HOME
@@ -263,7 +263,7 @@ exit 0
 
 try {
     if (-not $onWindows) {
-        foreach ($skill in @("archdev", "tasks", "tasks-execute")) {
+        foreach ($skill in @("archdev", "tasks", "tasks-execute", "tasks-audit")) {
             Invoke-BrewCase "outdated" $skill -Keg old -Brew yes -Copy none -Expect upgrade
             # The incident: a stub reporting 3.0.0 passed the version check and
             # failed the capability probes, so `brew upgrade` would be a no-op.
@@ -285,7 +285,7 @@ try {
             Invoke-BrewCase "nothing-installed-brew-no" $skill -Keg none -Brew no -Copy none -Expect installer
         }
     }
-    foreach ($skill in @("archdev", "tasks", "tasks-execute")) {
+    foreach ($skill in @("archdev", "tasks", "tasks-execute", "tasks-audit")) {
         Invoke-Case "$skill-claude" "" @{ CLAUDECODE = "1" } $skill
         Invoke-Case "$skill-codex" "" @{ CODEX_THREAD_ID = "019a-thread" } $skill
         Invoke-Case "$skill-grok" "" @{ GROK_SESSION_ID = "grok-session" } $skill
@@ -299,6 +299,7 @@ try {
         Invoke-Case "$skill-old-version" "" @{ ARCHDEV_FAKE_VERSION = "0.46.0" } $skill $true
     }
     Invoke-Case "tasks-execute-no-heartbeat" "" @{ ARCHDEV_FAKE_NO_HEARTBEAT = "1" } "tasks-execute" $true
+    Invoke-Case "tasks-audit-no-inbox" "" @{ ARCHDEV_FAKE_NO_INBOX = "1" } "tasks-audit" $true
 } finally {
     foreach ($name in $caseVariables) {
         if ($null -eq $saved[$name]) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }

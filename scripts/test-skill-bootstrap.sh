@@ -35,7 +35,7 @@ run_bootstrap() {
   printf 'ok   %s: executable resolved, no hook installation or refresh\n' "$name"
 }
 
-for skill in archdev tasks tasks-execute; do
+for skill in archdev tasks tasks-execute tasks-audit; do
   run_bootstrap "$skill-claude" "$skill" CLAUDECODE=1
   run_bootstrap "$skill-codex" "$skill" CODEX_THREAD_ID=019a-thread
   run_bootstrap "$skill-grok" "$skill" GROK_SESSION_ID=grok-session
@@ -49,12 +49,14 @@ done
 
 # Consume the entire help stream: with pipefail, grep -q can close early,
 # SIGPIPE the producer, and trigger an unnecessary install of a current CLI.
-for skill in archdev tasks tasks-execute; do
+for skill in archdev tasks tasks-execute tasks-audit; do
   run_bootstrap "$skill-verbose-help" "$skill" ARCHDEV_FAKE_VERBOSE_HELP=1
   # Both skills reject older releases that could silently opt in global hooks.
   rejections=(ARCHDEV_FAKE_NO_LOCAL=1 ARCHDEV_FAKE_VERSION=0.46.0 ARCHDEV_FAKE_VERSION=0.49.5)
   # Task execution also needs the lease heartbeat command.
   [[ "$skill" == tasks-execute ]] && rejections+=(ARCHDEV_FAKE_NO_HEARTBEAT=1)
+  # Auditing paused work needs the human-attention inbox.
+  [[ "$skill" == tasks-audit ]] && rejections+=(ARCHDEV_FAKE_NO_INBOX=1)
   for rejection in "${rejections[@]}"; do
     case_dir="$work/$skill-${rejection%%=*}"
     mkdir -p "$case_dir/home" "$case_dir/bin"
@@ -199,7 +201,7 @@ expect_brew_untouched() {
   fi
 }
 
-for skill in archdev tasks tasks-execute; do
+for skill in archdev tasks tasks-execute tasks-audit; do
   brew_case outdated "$skill" old yes none
   expect_brew_repaired upgrade && expect_no_second_copy &&
     printf 'ok   %s: outdated Homebrew copy upgraded with brew, no second copy\n' "$skill"
