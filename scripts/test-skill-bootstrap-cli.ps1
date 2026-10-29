@@ -20,9 +20,11 @@ function Assert-Proof([bool]$Condition, [string]$Message) {
 function Snapshot([string]$Root) {
     return ((Get-ChildItem -LiteralPath $Root -File -Recurse -Force | Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($Root.Length + 1)
-        # Logs, caches and the hook event queue (drained by a background
-        # worker on its own schedule) are process state, not configuration.
-        if ($relative -notmatch '^(\.archdev[\\/]logs|\.cache[\\/]archdev|\.archdev[\\/]hooks[\\/][^\\/]+[\\/]queue)[\\/]') {
+        # Logs, caches and a repository's hook runtime directory (event queue,
+        # outbox, drain lock and guard, which a background worker creates,
+        # holds open and removes on its own schedule) are process state, not
+        # configuration. Hashing a held drain.guard also fails on Windows.
+        if ($relative -notmatch '^(\.archdev[\\/]logs|\.cache[\\/]archdev|\.archdev[\\/]hooks[\\/][^\\/]+)[\\/]') {
             "$relative $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
         }
     }) -join "`n")

@@ -31,9 +31,10 @@ for path in sorted(root.rglob('*')):
     # Process logs/cache/crash records are not hook or user configuration.
     if relative.parts[:2] in [('.archdev', 'logs'), ('.cache', 'archdev')]:
         continue
-    # Nor is the hook event queue, which a background worker drains on its
-    # own schedule after an installed callback runs.
-    if relative.parts[:2] == ('.archdev', 'hooks') and relative.parts[3:4] == ('queue',):
+    # Nor is a repository's hook runtime directory (event queue, outbox, drain
+    # lock and guard): a background worker creates, holds and removes those
+    # files on its own schedule after an installed callback runs.
+    if relative.parts[:2] == ('.archdev', 'hooks') and len(relative.parts) > 3:
         continue
     if path.is_file():
         print(relative, hashlib.sha256(path.read_bytes()).hexdigest())
