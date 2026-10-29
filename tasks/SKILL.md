@@ -521,6 +521,10 @@ it and let the user decide. The goal is unblocking the graph safely, not
 rubber-stamping status changes, and every change below still follows the
 user's direction on decisions and scope.
 
+For an audit of the user's own Tasks, prefer the `tasks-audit` skill if it
+is installed: it runs this section as a guided workflow, with one
+investigating subagent per epic and a plain-language report.
+
 1. **Inventory.** Page through work needing attention:
    ```sh
    "$archdev" tasks list --status paused --limit 100 --after-cursor <cursor>

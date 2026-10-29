@@ -4,7 +4,7 @@ Task D prepares public plugin version 0.49.7. This file records source work,
 not a published artifact. Runtime A/B/C shipped in CLI 0.49.6; a CLI version
 number alone does not establish that these skill changes are installed.
 
-Canonical sources are root `archdev/`, `tasks/`, `tasks-execute/` and `plan-collab/`.
+Canonical sources are root `archdev/`, `tasks/`, `tasks-execute/`, `tasks-audit/` and `plan-collab/`.
 Firstlanding commit `9b708c4338` removed the duplicate embedded skill bundles;
 both CLIs now install the public repository archive. Regenerate plugins with
 `npm run build` in `tools/plugin-gen`; never edit generated copies.

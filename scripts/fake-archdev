@@ -5,6 +5,7 @@
 #
 #   ARCHDEV_FAKE_SETUP_EXIT=N   exit code of `repo hook setup`
 #   ARCHDEV_FAKE_NO_HEARTBEAT=1 behave like a release without `tasks heartbeat`
+#   ARCHDEV_FAKE_NO_INBOX=1     behave like a release without `tasks inbox`
 
 set -euo pipefail
 
@@ -16,6 +17,11 @@ case "$args" in
     [[ "${ARCHDEV_FAKE_NO_HEARTBEAT:-0}" == 1 ]] && exit 1
     echo "Usage: archdev tasks heartbeat [options] <task-id>"
     ;;
+  "tasks inbox --help")
+    [[ "${ARCHDEV_FAKE_NO_INBOX:-0}" == 1 ]] && exit 1
+    echo "Usage: archdev tasks inbox [options]"
+    ;;
+  "tasks answer --help") echo "      --expected-version <version>  Refuse unless the Task is still at this version" ;;
   "agents run --help") echo "Usage: archdev agents run [options]" ;;
   "settings provider models --help") echo "Usage: archdev settings provider models [options]" ;;
   "repo status --help") echo "Probe CLI, login, model access, repo wiring, taxonomy, and hooks" ;;
