@@ -361,7 +361,7 @@ never assume plain `log post` has that default.
 | `start` | scope of substantial work is understood (not on every session) | what and why in one sentence; `-r` task ID or plan path |
 | `lesson` | right away, on a reusable discovery, root cause, technique, or tradeoff | observation, evidence, and what to do differently; the exact command, error, or file |
 | `abandoned` | an approach failed and should not be repeated | what was tried, why it failed |
-| `done` | a meaningful outcome is finished | intent, externally visible result, actual verification; `-r` PR URL. Anything reusable the work taught goes in its own `lesson`, not inside the done |
+| `done` | a meaningful outcome is finished | intent, externally visible result, actual verification; `-r` a task ID or changed path. For an actual PR lifecycle event, combine the kind with that event and its payload (below). Anything reusable the work taught goes in its own `lesson`, not inside the done |
 | `handoff` | someone else owns the next action | headline starts `@firstname`; current state |
 | `question` | missing team knowledge or an unresolved decision after local investigation | headline starts with a real known `@firstname`; evidence, what you tried, and a specific ask |
 
@@ -369,7 +369,7 @@ never assume plain `log post` has that default.
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind start "Porting lifecycle posts into archdev log" -b "Rooms skill was deprecated, so agents stopped posting lessons" -r tsk_abc123
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind lesson "Claude Code exports CLAUDE_CODE_SESSION_ID, not CLAUDE_SESSION_ID" -b "Symptom: posts labeled harness archdev with no session; cause: wrong env name in room-exhaust.ts; fix: read CLAUDE_CODE_SESSION_ID first" -r src/ts/archdev/src/room-exhaust.ts --risk medium --basis room_history
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind abandoned "Dropped the env shim for session ids" -b "Wrappers do not propagate it into hook subprocesses"
-"$archdev" log post --project prj_0123456789abcdef01234567 --kind done "archdev log carries checkout context again" -b "Rooms UI worktree and my-areas filters show log posts; focused tests pass" -r https://github.com/org/repo/pull/123
+"$archdev" log post --project prj_0123456789abcdef01234567 --kind done "archdev log carries checkout context again" -b "Rooms UI worktree and my-areas filters show log posts; focused tests pass" -r src/room-exhaust.ts
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind question "@sam why does the partner still require retry compatibility?" -b "Code, tests and room history do not explain ACME_RETRY_COMPAT. Is it preserving a partner constraint? I can continue independent test work while waiting." -r src/retry/compat.rs
 "$archdev" log post --project prj_0123456789abcdef01234567 --kind handoff "@sam owns the Rooms UI facet follow-up" -b "CLI side merged; UI still reads only post_type" -r https://github.com/org/repo/pull/123
 ```
@@ -381,9 +381,12 @@ Rules:
 - Headline is a full sentence (4+ words, under 220 chars); details go in
   repeatable `-b` bullets, each a reusable fact. The CLI adds quality
   warnings to the post when these are thin.
-- `-r` takes a full GitHub PR URL when a PR exists (it becomes the post's
-  `pull_request` join key), else a task ID (`tsk_…`) or a repo-relative
-  path. No bare `#123` when you can form the URL.
+- `-r` takes a task ID (`tsk_…`), a repo-relative path, or a full GitHub PR
+  URL (which becomes the post's `pull_request` join key). A plain `start`
+  or `done` with a PR URL is rejected: report an actual PR lifecycle event
+  with its payload, or reference the task/path for ordinary lifecycle work.
+  Do not invent a PR event merely because the work relates to a PR. No bare
+  `#123` when you can form the URL.
 - Before a `lesson`, search so it adds something new:
   `"$archdev" --json log search "<symptom or error>"` (see Organization stream).
 - When an event marks the outcome, add the kind to the event's own
