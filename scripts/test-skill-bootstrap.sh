@@ -95,7 +95,7 @@ fake_archdev_at() {
   chmod +x "$1"
 }
 
-# brew_case <name> <skill> <keg: old|stub|crash|current|missing|none> <brew: yes|no|fail>
+# brew_case <name> <skill> <keg: old|stub|crash|version-error|current|missing|none> <brew: yes|no|fail>
 #   <copy: none|old|current> [<variant: opt|other-brew>]
 # An old keg is 0.49.0; every other keg is the formula's latest, 0.60.0, so a
 # `brew upgrade` of it changes nothing, as with real Homebrew.
@@ -120,6 +120,7 @@ brew_case() {
       stub) printf '#!/bin/sh\necho "archdev 3.0.0"\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
       # A binary that crashes before it can report a version.
       crash) printf '#!/bin/sh\nexit 139\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
+      version-error) printf '#!/bin/sh\necho "archdev 0.60.0"\nexit 139\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
       missing) rm -rf "$prefix/Cellar/archdev" ;;
     esac
     ln -s "../Cellar/archdev/$keg_version/bin/archdev" "$prefix/bin/archdev"
@@ -154,6 +155,7 @@ brew_case() {
     ARCHDEV_FAKE_LOG="$case_dir/setup.log" ARCHDEV_FAKE_BIN="$repo/scripts/fake-archdev" \
     FAKE_BREW_LOG="$case_dir/brew.log" FAKE_BREW_PREFIX="$prefix" \
     FAKE_BREW_EXIT="$([[ "$brew" == fail ]] && echo 1 || echo 0)" \
+    ARCHDEV_FAKE_VERBOSE_VERSION="$([[ "$variant" == verbose ]] && echo 1 || echo 0)" \
     bash "$repo/$skill/scripts/bootstrap.sh" >"$case_dir/out" 2>"$case_dir/stderr"
   case_exit=$?
   set -e
@@ -216,6 +218,15 @@ for skill in archdev tasks tasks-execute tasks-audit; do
 
   # The incident: a stub reporting 3.0.0 passed the version check and failed
   # the capability probes, so `brew upgrade` would have been a no-op.
+  brew_case verbose-old "$skill" old yes none verbose
+  if expect_brew_repaired upgrade && expect_no_second_copy; then
+    printf 'ok   %s: verbose outdated Homebrew version upgraded\n' "$skill"
+  fi
+  brew_case version-error "$skill" version-error yes none
+  if expect_brew_repaired reinstall && expect_no_second_copy; then
+    printf 'ok   %s: failed version command reinstalled despite version text\n' "$skill"
+  fi
+
   brew_case broken "$skill" stub yes none
   expect_brew_repaired reinstall && expect_no_second_copy &&
     printf 'ok   %s: broken current Homebrew copy reinstalled with brew, no second copy\n' "$skill"

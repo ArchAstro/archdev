@@ -135,7 +135,7 @@ function Invoke-BrewCase {
         [string]$Skill,
         # An old keg is 0.49.0; every other keg is the formula's latest, 0.60.0,
         # so a `brew upgrade` of it changes nothing, as with real Homebrew.
-        [ValidateSet("old", "stub", "crash", "current", "missing", "none")][string]$Keg,
+        [ValidateSet("old", "stub", "crash", "version-error", "current", "missing", "none")][string]$Keg,
         [ValidateSet("yes", "no", "fail")][string]$Brew,
         [ValidateSet("none", "old", "current")][string]$Copy,
         # upgrade / reinstall: brew repairs the keg; current: used as is;
@@ -145,7 +145,7 @@ function Invoke-BrewCase {
         [string]$ErrorText = "",
         # opt: PATH reaches the keg through Homebrew's opt link.
         # other-brew: another prefix's brew comes first on PATH.
-        [ValidateSet("", "opt", "other-brew")][string]$Variant = ""
+        [ValidateSet("", "opt", "other-brew", "verbose")][string]$Variant = ""
     )
     $label = "brew $Skill-$Name"
     $caseDir = Join-Path $work "brew-$Skill-$Name"
@@ -169,6 +169,7 @@ function Invoke-BrewCase {
             "stub" { Set-Content -LiteralPath $kegArchDev -Value "#!/bin/sh`necho `"archdev 3.0.0`""; & chmod +x $kegArchDev }
             # A binary that crashes before it can report a version.
             "crash" { Set-Content -LiteralPath $kegArchDev -Value "#!/bin/sh`nexit 139"; & chmod +x $kegArchDev }
+            "version-error" { Set-Content -LiteralPath $kegArchDev -Value "#!/bin/sh`necho 'archdev 0.60.0'`nexit 139"; & chmod +x $kegArchDev }
             "missing" { Remove-Item -LiteralPath (Join-Path $prefix "Cellar/archdev") -Recurse -Force }
         }
         & ln -s "../Cellar/archdev/$kegVersion/bin/archdev" (Join-Path $prefixBin "archdev")
@@ -208,6 +209,7 @@ function Invoke-BrewCase {
     $env:FAKE_BREW_LOG = $brewLog
     $env:FAKE_BREW_PREFIX = $prefix
     $env:FAKE_BREW_EXIT = if ($Brew -eq "fail") { "1" } else { "0" }
+    $env:ARCHDEV_FAKE_VERBOSE_VERSION = if ($Variant -eq "verbose") { "1" } else { "0" }
     $env:ARCHDEV_INSTALL_DIR = Join-Path $caseDir "install"
     $runner = Join-Path $caseDir "runner.ps1"
     $bootstrap = (Join-Path $repo "$Skill/scripts/bootstrap.ps1").Replace("'", "''")
@@ -226,7 +228,7 @@ exit 0
     } finally {
         $env:PATH = $savedPath
         $env:HOME = $savedHome
-        foreach ($name in @("ARCHDEV_FAKE_BIN", "FAKE_BREW_LOG", "FAKE_BREW_PREFIX", "FAKE_BREW_EXIT")) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
+        foreach ($name in @("ARCHDEV_FAKE_BIN", "FAKE_BREW_LOG", "FAKE_BREW_PREFIX", "FAKE_BREW_EXIT", "ARCHDEV_FAKE_VERBOSE_VERSION")) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
     }
     $errorText = Get-Content (Join-Path $caseDir "stderr") -Raw
     if (-not $errorText) { $errorText = "" }
@@ -276,6 +278,8 @@ try {
             Invoke-BrewCase "outdated" $skill -Keg old -Brew yes -Copy none -Expect upgrade
             # The incident: a stub reporting 3.0.0 passed the version check and
             # failed the capability probes, so `brew upgrade` would be a no-op.
+            Invoke-BrewCase "verbose-old" $skill -Keg old -Brew yes -Copy none -Expect upgrade -Variant verbose
+            Invoke-BrewCase "version-error" $skill -Keg version-error -Brew yes -Copy none -Expect reinstall
             Invoke-BrewCase "broken" $skill -Keg stub -Brew yes -Copy none -Expect reinstall
             Invoke-BrewCase "crash" $skill -Keg crash -Brew yes -Copy none -Expect reinstall
             Invoke-BrewCase "opt" $skill -Keg old -Brew yes -Copy none -Expect upgrade -Variant opt
