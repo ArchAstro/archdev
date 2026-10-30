@@ -209,7 +209,8 @@ describe("generation", () => {
     const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
     assert.match(skill.split("---")[1]!, /log knowledge.*log finding/);
     assert.match(skill, /references\/monitor\.md#recall-and-publish-findings-when-supported/);
-    const findings = monitor.split("### Recall and publish findings when supported\n")[1]?.split("\n### Stream posts")[0];
+    const knowledge = readFileSync(path.join(repoRoot, "archdev/references/knowledge.md"), "utf8");
+    const findings = knowledge.split("### Recall and publish findings when supported\n")[1]?.split("\n### Stream posts")[0];
     assert.ok(findings, "capability-gated findings have a dedicated workflow");
     const text = findings.replace(/\s+/g, " ");
     assert.match(text, /log --help.*knowledge.*finding.*independently/);
@@ -234,8 +235,8 @@ describe("generation", () => {
   });
 
   test("artifact publication is preview-first and recall remains bounded attributed information", () => {
-    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
-    const findings = monitor.split("### Recall and publish findings when supported\n")[1]?.split("\n### Stream posts")[0];
+    const knowledge = readFileSync(path.join(repoRoot, "archdev/references/knowledge.md"), "utf8");
+    const findings = knowledge.split("### Recall and publish findings when supported\n")[1]?.split("\n### Stream posts")[0];
     assert.ok(findings);
     const text = findings.replace(/\s+/g, " ");
     const commands = findings.split("\n").filter((line) => line.startsWith('"$archdev" --json log finding '));
@@ -263,14 +264,14 @@ describe("generation", () => {
       /do not publish automatically/,
       /Helpers report evidence to the parent; they do not publish/,
     ]) assert.match(text, requirement);
-    assert.match(monitor, /finding previews do not return it or wake the outbox/);
+    assert.match(knowledge, /finding previews do not return it or wake the outbox/);
   });
 
   test("review queries expose exact-head risk and scope without making reporting wait", () => {
     const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     assert.match(skill, /references\/monitor\.md#read-pr-risk-scope-and-rules/);
-    const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
-    const queries = monitor.split("## Read PR risk, scope, and rules\n")[1]?.split("## Factory sessions")[0];
+    const prGuide = readFileSync(path.join(repoRoot, "archdev/references/pr-reporting.md"), "utf8");
+    const queries = prGuide.split("## Read PR risk, scope, and rules\n")[1]?.split("## Factory sessions")[0];
     assert.ok(queries, "query guidance has its own section, separate from PR reporting");
     assert.match(queries, /inspect metadata <owner\/repo>#<number> --sha <head-sha>/);
     assert.match(queries, /newest published revision, which may lag behind the PR/);
@@ -328,8 +329,25 @@ describe("generation", () => {
     }
   });
 
-  test("PR reporting stays immediate while completion requires risk reads", () => {
+  test("default guidance is bounded and routes to existing specialized references", () => {
+    const skill = readFileSync(path.join(repoRoot, "archdev/SKILL.md"), "utf8");
     const monitor = readFileSync(path.join(repoRoot, "archdev/references/monitor.md"), "utf8");
+    const helper = readFileSync(path.join(repoRoot, "archdev/references/helper.md"), "utf8");
+    assert.ok(Buffer.byteLength(skill + monitor) < 40_000, "core + routing checklist UTF-8 budget");
+    assert.ok(Buffer.byteLength(helper) < 4_096, "internal helper routing budget");
+    assert.match(skill, /Internal helpers read \[helper.md\]/);
+    assert.match(helper, /parent owns team-room posts/);
+    assert.match(helper, /before launch/);
+    for (const [file, text] of [["SKILL.md", skill], ["references/monitor.md", monitor], ["references/helper.md", helper]]) {
+      for (const link of text!.matchAll(/\]\(([^)]+\.md)(?:#[^)]*)?\)/g)) {
+        if (link[1]!.includes(":")) continue;
+        assert.ok(existsSync(path.resolve(repoRoot, "archdev", path.dirname(file!), link[1]!)), `${file} links to ${link[1]}`);
+      }
+    }
+  });
+
+  test("PR reporting stays immediate while completion requires risk reads", () => {
+    const monitor = readFileSync(path.join(repoRoot, "archdev/references/pr-reporting.md"), "utf8");
     assert.match(monitor, /SKILL\.md#pull-requests/);
     assert.match(monitor, /Reporting a PR event does not complete PR verification/);
     assert.match(monitor, /required PR completion workflow/);
