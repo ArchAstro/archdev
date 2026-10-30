@@ -16,7 +16,7 @@ $onWindows = $env:OS -eq "Windows_NT"
 $caseVariables = @(
     "CLAUDECODE", "CODEX_THREAD_ID", "GROK_SESSION_ID", "USERPROFILE",
     "ARCHDEV_FACTORY_AGENT_ROLE", "ARCHDEV_JOB_ID", "ARCHDEV_STEP_ID",
-    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_NO_HEARTBEAT", "ARCHDEV_FAKE_NO_INBOX", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION", "ARCHDEV_INSTALL_DIR"
+    "ARCHDEV_FAKE_SETUP_EXIT", "ARCHDEV_FAKE_LOG", "ARCHDEV_FAKE_INVOCATIONS", "ARCHDEV_FAKE_NO_LOCAL", "ARCHDEV_FAKE_NO_HEARTBEAT", "ARCHDEV_FAKE_NO_INBOX", "ARCHDEV_FAKE_VERBOSE_HELP", "ARCHDEV_FAKE_VERSION", "ARCHDEV_INSTALL_DIR"
 )
 $savedPath = $env:PATH
 $savedHome = $env:HOME
@@ -57,6 +57,7 @@ function Invoke-Case {
     if ($onWindows) { $env:USERPROFILE = $homeDir }
     $env:PATH = $casePath
     $env:ARCHDEV_FAKE_LOG = $log
+    $env:ARCHDEV_FAKE_INVOCATIONS = Join-Path $caseDir "invocations.log"
     # Linux PowerShell has no LOCALAPPDATA; rejection tests must reach the
     # intercepted download, not fail while constructing a Windows default.
     $env:ARCHDEV_INSTALL_DIR = Join-Path $caseDir "install"
@@ -101,6 +102,14 @@ exit 0
         Write-Host "FAIL ${Name}: bootstrap printed '$out', not the archdev path"
         $script:failures++
         return
+    }
+    if ($Skill -eq "archdev") {
+        $calls = @(Get-Content -LiteralPath (Join-Path $caseDir "invocations.log"))
+        if ($calls.Count -ne 7 -or @($calls | Select-Object -Unique).Count -ne 7) {
+            Write-Host "FAIL ${Name}: healthy core bootstrap must probe version and six capabilities once"
+            $script:failures++
+            return
+        }
     }
     $actual = (Get-Content -LiteralPath $log -Raw)
     $actual = if ($actual) { $actual.Trim() } else { "" }
