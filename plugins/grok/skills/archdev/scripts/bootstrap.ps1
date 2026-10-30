@@ -34,6 +34,7 @@ $minVersion = [Version]"0.49.6"
 
 function Test-Version([string]$Binary) {
     $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
+    if ($LASTEXITCODE -ne 0) { return $false }
     try {
         return ([Version]$raw -ge $minVersion)
     } catch {
@@ -145,6 +146,8 @@ function Update-HomebrewArchDev([string]$Binary) {
     }
 }
 
+# Cache success only for this invocation, never across an install/repair.
+$skillChecked = $false
 $existing = Get-Command archdev -ErrorAction SilentlyContinue
 $candidate = if ($existing) { Resolve-ArchDevPath $existing.Source } else { $null }
 $homebrewArchDev = Find-HomebrewArchDev $candidate
@@ -153,12 +156,16 @@ if ($homebrewArchDev) {
     if ($candidate -and $candidate -ne $archdev) {
         [Console]::Error.WriteLine("Using Homebrew-managed ArchDev at $archdev; $candidate comes first on PATH.")
     }
-    if (-not (Test-LinkedFile $archdev) -or -not (Test-Skill $archdev)) {
+    if ((Test-LinkedFile $archdev) -and (Test-Skill $archdev)) {
+        $skillChecked = $true
+    } else {
         Update-HomebrewArchDev $archdev
     }
 } else {
     $archdev = if ($candidate) { $candidate } else { Install-ArchDev }
-    if (-not (Test-Skill $archdev)) {
+    if (Test-Skill $archdev) {
+        $skillChecked = $true
+    } else {
         [Console]::Error.WriteLine("Updating ArchDev: this skill requires 0.49.6+ and repository hook setup with --local.")
         $archdev = Install-ArchDev
     }
@@ -170,9 +177,7 @@ if ($homebrewArchDev -and -not (Test-LinkedFile $archdev)) {
 if (-not (Test-Path -LiteralPath $archdev -PathType Leaf)) {
     throw "ArchDev installer did not create an executable at $archdev"
 }
-& $archdev --version *> $null
-if ($LASTEXITCODE -ne 0) { throw "ArchDev version verification failed" }
-if (-not (Test-Skill $archdev)) {
+if (-not $skillChecked -and -not (Test-Skill $archdev)) {
     if ($homebrewArchDev) { throw "Homebrew-managed ArchDev at $archdev still fails the capability check after brew; not installing a second copy." }
     throw "Installed ArchDev lacks required commands or --local hook setup (need 0.49.6+); stopping without a global fallback"
 }

@@ -20,7 +20,7 @@ run_bootstrap() {
   chmod +x "$case_dir/bin/archdev" "$case_dir/bin/curl"
   : >"$case_dir/setup.log"
   if ! out="$(env -i HOME="$case_dir/home" PATH="$case_dir/bin:/usr/bin:/bin" \
-    ARCHDEV_FAKE_LOG="$case_dir/setup.log" "$@" \
+    ARCHDEV_FAKE_LOG="$case_dir/setup.log" ARCHDEV_FAKE_INVOCATIONS="$case_dir/invocations.log" "$@" \
     bash "$repo/$skill/scripts/bootstrap.sh" 2>"$case_dir/stderr")"; then
     printf 'FAIL %s: bootstrap exited nonzero\n' "$name" >&2
     cat "$case_dir/stderr" >&2
@@ -29,6 +29,11 @@ run_bootstrap() {
   fi
   if [[ "$out" != "$case_dir/bin/archdev" || -s "$case_dir/setup.log" ]]; then
     printf 'FAIL %s: bootstrap must return only the binary path without hook writes\n' "$name" >&2
+    failures=$((failures + 1))
+    return
+  fi
+  if [[ "$skill" == archdev ]] && [[ "$(wc -l <"$case_dir/invocations.log" | tr -d ' ')" != 7 || "$(sort "$case_dir/invocations.log" | uniq -d)" != "" ]]; then
+    printf 'FAIL %s: healthy core bootstrap must probe version and six capabilities once\n' "$name" >&2
     failures=$((failures + 1))
     return
   fi

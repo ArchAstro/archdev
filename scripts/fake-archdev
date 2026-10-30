@@ -10,6 +10,9 @@
 set -euo pipefail
 
 args="$*"
+if [[ -n "${ARCHDEV_FAKE_INVOCATIONS:-}" ]]; then
+  printf '%s\n' "$args" >>"$ARCHDEV_FAKE_INVOCATIONS"
+fi
 case "$args" in
   --version) echo "${ARCHDEV_FAKE_VERSION:-0.49.6}" ;;
   "tasks review update --help") echo "Usage: archdev tasks review update [options] <id>" ;;
