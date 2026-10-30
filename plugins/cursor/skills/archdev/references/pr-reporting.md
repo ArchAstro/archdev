@@ -1,5 +1,12 @@
 # PR reporting and current-head verification
 
+For a review-only / do-not-merge request, create PRs as drafts from the start
+and leave auto-merge off. Repository policies can enable auto-merge on ready
+PRs while checks are pending. Verify both draft and auto-merge state; do not
+mark ready or enable merging without the user's permission. If automation
+merges unexpectedly, disclose the actual actor, head and time rather than
+claiming that no merge occurred; do not silently revert it.
+
 ## PR activity and server grading
 
 Server automation owns hosted PR and code-region grading and default review
