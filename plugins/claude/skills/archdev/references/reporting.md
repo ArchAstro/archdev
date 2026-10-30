@@ -1,4 +1,4 @@
-# Structured plan and task reporting
+# Structured event reporting
 
 ## Report
 
@@ -64,15 +64,22 @@
   `"$archdev" extract context <extractor> <ref> --json` prints the value
   schema; author the value into `<dir>/event.json` and post it with
   `"$archdev" log post --project <id> --event <event> --payload-file <dir>/event.json --message "<one-line summary>"`.
-  `--payload-file` takes the value object, never an extraction
-  envelope. When the value comes from
-  `"$archdev" extract run <extractor> <ref> --sink file:<dir>/out/`,
-  the sink writes a nested envelope `{key, provenance, schema, value}`
-  several directories down (find it with
-  `find <dir>/out -name '*.json'`), and passing that file fails with
-  `Unrecognized keys: "schema", "key", "provenance", "value"`. Extract
-  the envelope value file first:
-  `jq .value <envelope.json> > <dir>/event.json`.
+  `log post` validates the event value itself: a separate `extract run`
+  is optional, not a required validation pass. Author the substantive JSON
+  once and post it directly. When an extraction was already stored, current
+  CLIs also accept its envelope file and check that its extractor matches
+  the event; do not create another file just to unwrap `value` by hand.
+
+### Optional piped input
+
+Inspect `"$archdev" log post --help` before using stdin. Only when its
+`--payload-file` description advertises stdin, `--payload-file -` accepts
+one JSON event value or matching extraction envelope from a pipe (including
+`extract run --sink stdout`). It uses the same validation, project, assessment
+and delivery path as a file. On older CLIs, keep using `<dir>/event.json`;
+do not upgrade or install anything merely to enable this optional shortcut.
+Plan/task events still require their explicit `--assessment` file and sealed
+risk result; piped input never removes those judgments or evidence.
 
 ## Plan and task risk assessments
 
