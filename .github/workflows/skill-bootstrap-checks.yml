@@ -60,3 +60,8 @@ jobs:
           echo "$ARCHDEV_INSTALL_DIR" >>"$GITHUB_PATH"
       - name: Agent configures only the explicitly chosen scope
         run: scripts/test-skill-bootstrap-cli.sh
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Lifecycle examples pass the released CLI's dry-run validation
+        run: ARCHDEV_CLI_UNDER_TEST="$(command -v archdev)" node --test tools/plugin-gen/test/lifecycle-examples.test.ts

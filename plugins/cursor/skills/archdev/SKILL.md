@@ -282,7 +282,10 @@ Three beats, one command
    `log post --kind` — `start` once scope is clear, `lesson` on a reusable
    discovery (not just a fix), `abandoned` for a failed approach, `question`
    for missing team knowledge or an unresolved decision, `done` (with
-   the PR URL) or an `@name` `handoff` at the end. Before the first
+   a task/path reference) or an `@name` `handoff` at the end. If reporting
+   an actual PR lifecycle event, combine its payload and `--event pr.*`
+   with the kind; a plain `start`/`done` referencing a PR URL is rejected.
+   Before the first
    post, find the project for this work. For an epic, search active projects
    for its exact name and matching scope; reuse that match or create it with
    the epic name. Without an epic, select an active product-area or initiative
