@@ -177,8 +177,12 @@ content already has that shape:
   participants with labels of a few words, and about 4–8 messages. A wider
   diagram shrinks to fit the column and its text becomes unreadable. Draw one diagram instead of a paragraph that narrates the same
   sequence.
-- Keep each implementation step to one or two lines. List touched files once
-  in `scope` instead of repeating paths in every step.
+- Keep each implementation step to one or two lines. List the repository
+  paths the task changes once in `scope` (files, directories, or git globs
+  such as `src/api/export/`) instead of repeating them in every step. Write
+  paths, not a prose label like `"Export API"`: the repository-rule check
+  uses them to choose the rules for those languages and to read repository
+  context, and a label matches no files.
 - Label a guess as `Hypothesis:`, not as an observation.
 - Write a field that holds a fence or a table as a string array, one line per
   entry, as in the example below. Such an array is joined as raw markdown, so
@@ -226,7 +230,7 @@ The review command also accepts optional `major_decisions` (not part of
         "grade": "low",
         "notes": "Reuses an existing, tested query path; blast radius is one new read-only endpoint."
       },
-      "scope": ["Export API"],
+      "scope": ["src/api/export/", "tests/export-api.e2e.test.ts"],
       "exclusions": ["Scheduled exports"]
     },
     {
@@ -240,6 +244,7 @@ The review command also accepts optional `major_decisions` (not part of
         "grade": "low",
         "notes": ["Additive UI change on an existing button.", "No data model or auth changes."]
       },
+      "scope": ["src/pages/results/", "tests/export-ui.e2e.test.ts"],
       "depends_on": ["export-api"],
       "dependency_reasons": {"export-api": "The download action needs the export endpoint."}
     }
@@ -384,6 +389,27 @@ test each node with a reader that has only that node. Run exactly one round.
    Give the human a short summary in the progress update before review: per
    task, gaps found, how each was resolved, any moved to `major_decisions`,
    and any node left unchecked.
+5. Lint the plan before opening the review:
+
+   ```sh
+   "$archdev" --json tasks graph import --file plans/task-review.json --dry-run
+   ```
+
+   It writes nothing. Its `lint` list holds the deterministic plan lints and
+   `repository-rule` findings, which come from judging each node's brief
+   against this repository's rules (`.archdev/rules`, `rules/`) with Jev.
+   `tasks review start` runs the same checks and refuses to save while an
+   error stands.
+   - Fix each error in the node: rewrite the requirement the rule names, or
+     add an `Exemplar: <repo path>` line naming the sibling the task mirrors.
+     Re-run until no errors remain.
+   - Pass `--allow-lint <rule>` (import) or `allow_lint` (review JSON) only
+     when the human approves that override.
+   - A `repository-rule` warning that says `not_evaluated` means the model
+     was unavailable. It does not block; re-run later.
+   - To see every rule's verdict for a node, run `"$archdev" extract run
+     plan.rule-verdicts --plan plans/task-review.json --json` and read the
+     receipt file it names.
 
 ## 4. Open the review and keep it running
 
