@@ -60,8 +60,9 @@ install_archdev() (
 )
 
 version_ok() {
-  local version
-  checked_version="$("$1" --version 2>/dev/null | head -n 1)" || return 1
+  local raw version
+  raw="$("$1" --version 2>/dev/null)" || return 1
+  checked_version="${raw%%$'\n'*}"
   version="$(printf '%s' "$checked_version" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
   [[ -n "$version" ]] || return 1
   [[ "$(printf '%s\n%s\n' "$min_version" "$version" | sort -V | head -n 1)" == "$min_version" ]]

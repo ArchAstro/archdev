@@ -33,8 +33,11 @@ function Install-ArchDev {
 $minVersion = [Version]"0.49.6"
 
 function Test-Version([string]$Binary) {
-    $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
+    # Drain native output before selecting a line. Select-Object -First 1 in
+    # the native pipeline may stop the process and manufacture a nonzero exit.
+    $versionLines = @(& $Binary --version 2>$null)
     if ($LASTEXITCODE -ne 0) { return $false }
+    $raw = ($versionLines | Select-Object -First 1) -replace "[^0-9.]", ""
     try {
         return ([Version]$raw -ge $minVersion)
     } catch {
