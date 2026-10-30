@@ -75,7 +75,8 @@
 Inspect `"$archdev" log post --help` before using stdin. Only when its
 `--payload-file` description advertises stdin, `--payload-file -` accepts
 one JSON event value or matching extraction envelope from a pipe (including
-`extract run --sink stdout`). It uses the same validation, project, assessment
+`extract run --sink stdout`). Stdin is limited to 8 MiB before parsing; use a
+file for larger extraction artifacts. It uses the same validation, project, assessment
 and delivery path as a file. On older CLIs, keep using `<dir>/event.json`;
 do not upgrade or install anything merely to enable this optional shortcut.
 Plan/task events still require their explicit `--assessment` file and sealed
