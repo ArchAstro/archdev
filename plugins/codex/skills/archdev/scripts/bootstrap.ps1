@@ -136,10 +136,13 @@ function Update-HomebrewArchDev([string]$Binary) {
     }
     $version = $null
     if (Test-LinkedFile $Binary) {
-        $raw = (& $Binary --version 2>$null | Select-Object -First 1) -replace "[^0-9.]", ""
-        try { $version = [Version]$raw } catch { $version = $null }
+        $versionOutput = @(& $Binary --version 2>$null)
+        if ($LASTEXITCODE -eq 0) {
+            $raw = ($versionOutput | Select-Object -First 1) -replace "[^0-9.]", ""
+            try { $version = [Version]$raw } catch { $version = $null }
+        }
     }
-    # Only a readable, too-old version needs an upgrade; anything else is broken.
+    # Only a successful, too-old version needs an upgrade; anything else is broken.
     $action = if ($version -and $version -lt $minVersion) { "upgrade" } else { "reinstall" }
     [Console]::Error.WriteLine("Updating Homebrew-managed ArchDev at ${Binary}: brew $action $brewFormula")
     # Callers read stdout as the archdev path, so brew's progress goes to stderr.

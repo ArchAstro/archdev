@@ -133,7 +133,7 @@ find_homebrew_archdev() {
 # missing, crashes, or a current version fails the capability probes, where
 # upgrade would be a no-op.
 update_homebrew_archdev() {
-  local binary="$1" action=reinstall brew version=""
+  local binary="$1" action=reinstall brew raw version=""
   # The brew that owns this keg; another prefix's brew could install a second copy.
   brew="$(real_path "$binary")"
   brew="${brew%%/Cellar/archdev/*}/bin/brew"
@@ -142,11 +142,11 @@ update_homebrew_archdev() {
     printf 'Not installing a second copy of ArchDev.\n' >&2
     return 1
   fi
-  if [[ -x "$binary" ]]; then
-    version="$("$binary" --version 2>/dev/null | head -n 1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  if [[ -x "$binary" ]] && raw="$("$binary" --version 2>/dev/null)"; then
+    version="$(printf '%s' "${raw%%$'\n'*}" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
   fi
-  # Only a readable, too-old version needs an upgrade; anything else is broken.
-  if [[ -n "$version" ]] && ! version_ok "$binary"; then
+  # Only a successful, too-old version needs an upgrade; anything else is broken.
+  if [[ -n "$version" && "$(printf '%s\n%s\n' "$min_version" "$version" | sort -V | head -n 1)" != "$min_version" ]]; then
     action=upgrade
   fi
   printf 'Updating Homebrew-managed ArchDev at %s: brew %s %s\n' "$binary" "$action" "$brew_formula" >&2
