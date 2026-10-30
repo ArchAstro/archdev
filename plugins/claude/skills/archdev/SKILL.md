@@ -257,7 +257,11 @@ installation skips shared repository initialization.
 
 ## 3. Monitor
 
-Read [monitor.md](references/monitor.md), including **Current attention**.
+Top-level sessions read [monitor.md](references/monitor.md), the routing checklist.
+Load its detailed references only for the operation you are about to perform;
+progressive loading does not make any reporting or verification rule optional.
+Internal helpers read [helper.md](references/helper.md) instead of the monitor
+and its team-posting workflows, unless taking independently tracked ownership.
 Presence commands require CLI **0.46.3 or newer**.
 Use `presence update` when taking up or switching a task, PR, or job, and
 `presence clear` when that attention ends. Presence keeps one mutable
@@ -267,9 +271,9 @@ For internal helper subagents, review runs, summarizers, judges, or other
 compartmentalized tasks that should not report presence, use
 `ARCHDEV_PRESENCE_DISABLED=1` in the child environment before launch (requires
 **0.46.9+**). Keep it scoped to the helper and its descendants so the parent
-session and independently tracked workers retain presence. See
-[Internal helpers](references/monitor.md#internal-helpers) for examples and the
-limits of native delegation tools that cannot set a child's environment.
+session and independently tracked workers retain presence. Read
+[Presence and internal helpers](references/presence.md#internal-helpers) before
+using presence or handling native delegation tools without child-environment controls.
 
 Three beats, one command
 (`archdev log`: `post` to write, `messages` / `search` to read;
