@@ -30,6 +30,36 @@ Without an epic, select the project by product area or initiative. Older tasks
 and artifacts may omit these optional fields; new agent-authored work should
 include both. Project membership does not change task visibility.
 
+## Start branch
+
+A Task starts from the repository's `archdev.json` `origin.start_branch`
+(for example `stable`) unless something names another branch. Pick the branch
+only when the work must not start from the default: a fix that has to land on
+and rebase onto `main` while the repository's start branch is `stable`, or
+resuming a paused `needs_access` or host-environment Task from `main`. Do not
+set it on ordinary Tasks.
+
+Precedence, highest first:
+
+1. PR label `archdev:start-branch:<branch>` (applies to that PR's remediation
+   and rebase).
+2. The Task's `archdev_start_branch` setting.
+3. `archdev.json` `origin.start_branch`.
+
+Set it:
+
+- New Task: `archdev tasks create "<name>" --start-branch main`.
+- Existing Task: `archdev tasks update <id> --start-branch main`; clear it
+  with `archdev tasks update <id> --clear-start-branch`.
+- Plan nodes: `"start_branch": "main"` on the node. Omitting it keeps whatever
+  the saved Task already has.
+- A person can edit it in the Task side panel on the ArchDev Tasks page.
+
+The value is a plain branch name (`main`, `release/1.2`); the CLI rejects
+anything else. It also sets the branch the dependency gate checks for that
+Task. `--start-branch` needs an ArchDev CLI newer than v0.55.9; on an older CLI
+`tasks create --help` does not list it, so upgrade rather than leaving it out.
+
 
 ## 1. Connect this machine
 
@@ -284,7 +314,8 @@ self-sufficient.
 
 Replace illustrative paths with this project's real planned proof. Optional
 node fields also include `context`, `scope`, `exclusions`, `deliverables`,
-`depends_on`, `dependency_reasons`, `priority` (0–4), and `kind`
+`depends_on`, `dependency_reasons`, `priority` (0–4), `start_branch`
+(see "Start branch"), and `kind`
 (`"human"` or `"post_deploy"`, which exempts the node from the
 pre-merge-unsatisfiable plan lint).
 A `human` or `post_deploy` node that holds deferred production proof must be
