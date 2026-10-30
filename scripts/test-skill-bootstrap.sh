@@ -52,6 +52,9 @@ for skill in archdev tasks tasks-execute tasks-audit; do
   run_bootstrap "$skill-setup-would-fail" "$skill" CLAUDECODE=1 ARCHDEV_FAKE_SETUP_EXIT=1
 done
 
+# Version output must also be drained before checking native exit status.
+run_bootstrap "archdev-verbose-version" archdev ARCHDEV_FAKE_VERBOSE_VERSION=1
+
 # Consume the entire help stream: with pipefail, grep -q can close early,
 # SIGPIPE the producer, and trigger an unnecessary install of a current CLI.
 for skill in archdev tasks tasks-execute tasks-audit; do
