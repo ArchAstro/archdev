@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); live Ask dashboards (archdev ask); public file sharing (archdev share); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); live Ask dashboards (archdev ask); public file sharing (archdev share); mandatory PR CI and risk follow-through; PR CI and review events (events watch, claim, release); published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -48,7 +48,7 @@ and rule violations without waiting for another user request:
    repository is a person's decision.
 4. Test, push fixes to the same branch, and recheck CI, risk and rules for the
    new head. Respect existing permissions and publication ownership; stop if
-   someone else moves the head. Do not merge without separate authorization.
+   someone else moves the head or owns it ([PR events](references/pr-events.md)). Do not merge without separate authorization.
 5. Continue until required CI passes and current-head risk concerns and rule
    violations are handled, or report a blocker.
    Missing results are unassessed, never low or passing: a `rules` state of
@@ -337,6 +337,22 @@ clients; agents authoring new work should set both.
 Every post carries human-readable text: structured posts add
 `--message "<one-line summary>"` as the headline over the CLI-rendered
 payload summary.
+
+## 4. PR events
+
+After opening a PR or pushing a new head, follow
+[PR events](references/pr-events.md) to watch it for CI failures and reviews,
+claim the PR head before changing it, push the fix, store annotations for the
+new head and release the claim. Requires CLI **0.55.4 or newer**; check
+`events claim --help` first and skip this section on older CLIs without
+upgrading unprompted (see
+[bootstrap.md](references/bootstrap.md#pr-events-minimum-version)). Claude
+Code runs the watch under the Monitor tool; other harnesses run it detached or
+with `--once`, never in the foreground. An exit code 3 from `events claim`
+means another agent or the daemon owns the head: make no change.
+
+To coordinate PR repairs from a session that does not edit code, read
+[the PR event orchestrator](references/pr-orchestrator.md).
 
 ## Read PR risk, scope, and rules
 
