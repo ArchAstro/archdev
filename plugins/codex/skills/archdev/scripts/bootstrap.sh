@@ -61,8 +61,9 @@ install_archdev() (
 
 version_ok() {
   local raw version
-  raw="$("$1" --version 2>/dev/null | head -n 1)"
-  version="$(printf '%s' "$raw" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+  raw="$("$1" --version 2>/dev/null)" || return 1
+  checked_version="${raw%%$'\n'*}"
+  version="$(printf '%s' "$checked_version" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
   [[ -n "$version" ]] || return 1
   [[ "$(printf '%s\n%s\n' "$min_version" "$version" | sort -V | head -n 1)" == "$min_version" ]]
 }
@@ -132,7 +133,7 @@ find_homebrew_archdev() {
 # missing, crashes, or a current version fails the capability probes, where
 # upgrade would be a no-op.
 update_homebrew_archdev() {
-  local binary="$1" action=reinstall brew version=""
+  local binary="$1" action=reinstall brew raw version=""
   # The brew that owns this keg; another prefix's brew could install a second copy.
   brew="$(real_path "$binary")"
   brew="${brew%%/Cellar/archdev/*}/bin/brew"
@@ -141,11 +142,11 @@ update_homebrew_archdev() {
     printf 'Not installing a second copy of ArchDev.\n' >&2
     return 1
   fi
-  if [[ -x "$binary" ]]; then
-    version="$("$binary" --version 2>/dev/null | head -n 1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  if [[ -x "$binary" ]] && raw="$("$binary" --version 2>/dev/null)"; then
+    version="$(printf '%s' "${raw%%$'\n'*}" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
   fi
-  # Only a readable, too-old version needs an upgrade; anything else is broken.
-  if [[ -n "$version" ]] && ! version_ok "$binary"; then
+  # Only a successful, too-old version needs an upgrade; anything else is broken.
+  if [[ -n "$version" && "$(printf '%s\n%s\n' "$min_version" "$version" | sort -V | head -n 1)" != "$min_version" ]]; then
     action=upgrade
   fi
   printf 'Updating Homebrew-managed ArchDev at %s: brew %s %s\n' "$binary" "$action" "$brew_formula" >&2
@@ -155,6 +156,10 @@ update_homebrew_archdev() {
   fi
 }
 
+# Reuse successful checks only within this invocation. Installing or repairing
+# the binary leaves this false so the replacement is checked from scratch.
+skill_checked=false
+checked_version=""
 candidate="$(command -v archdev 2>/dev/null || true)"
 homebrew_archdev="$(find_homebrew_archdev "$candidate" || true)"
 if [[ -n "$homebrew_archdev" ]]; then
@@ -162,7 +167,9 @@ if [[ -n "$homebrew_archdev" ]]; then
   if [[ -n "$candidate" && "$(absolute_path "$candidate")" != "$executable" ]]; then
     printf 'Using Homebrew-managed ArchDev at %s; %s comes first on PATH.\n' "$executable" "$(absolute_path "$candidate")" >&2
   fi
-  if ! supports_skill "$executable"; then
+  if supports_skill "$executable"; then
+    skill_checked=true
+  else
     update_homebrew_archdev "$executable" || exit 1
   fi
 else
@@ -172,7 +179,9 @@ else
     install_archdev || exit 1
     executable="$(absolute_path "$install_dir/archdev")"
   fi
-  if ! supports_skill "$executable"; then
+  if supports_skill "$executable"; then
+    skill_checked=true
+  else
     printf 'Updating ArchDev: this skill requires 0.49.6+ and repository hook setup with --local.\n' >&2
     install_archdev || exit 1
     executable="$(absolute_path "$install_dir/archdev")"
@@ -188,14 +197,14 @@ fi
   exit 1
 }
 
-"$executable" --version >&2
-supports_skill "$executable" || {
+if [[ "$skill_checked" != true ]] && ! supports_skill "$executable"; then
   if [[ -n "$homebrew_archdev" ]]; then
     printf 'Homebrew-managed ArchDev at %s still fails the capability check after brew; not installing a second copy.\n' "$executable" >&2
   fi
   printf 'Installed ArchDev lacks required commands or --local hook setup (need 0.49.6+); stopping without a global fallback.\n' >&2
   exit 1
-}
+fi
+printf '%s\n' "$checked_version" >&2
 
 # Resolving the executable must not choose configuration scope. Install and
 # repair hooks only through the approved branch in https://archdev.ai/install.md.

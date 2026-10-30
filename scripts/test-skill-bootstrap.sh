@@ -20,7 +20,7 @@ run_bootstrap() {
   chmod +x "$case_dir/bin/archdev" "$case_dir/bin/curl"
   : >"$case_dir/setup.log"
   if ! out="$(env -i HOME="$case_dir/home" PATH="$case_dir/bin:/usr/bin:/bin" \
-    ARCHDEV_FAKE_LOG="$case_dir/setup.log" "$@" \
+    ARCHDEV_FAKE_LOG="$case_dir/setup.log" ARCHDEV_FAKE_INVOCATIONS="$case_dir/invocations.log" "$@" \
     bash "$repo/$skill/scripts/bootstrap.sh" 2>"$case_dir/stderr")"; then
     printf 'FAIL %s: bootstrap exited nonzero\n' "$name" >&2
     cat "$case_dir/stderr" >&2
@@ -29,6 +29,11 @@ run_bootstrap() {
   fi
   if [[ "$out" != "$case_dir/bin/archdev" || -s "$case_dir/setup.log" ]]; then
     printf 'FAIL %s: bootstrap must return only the binary path without hook writes\n' "$name" >&2
+    failures=$((failures + 1))
+    return
+  fi
+  if [[ "$skill" == archdev ]] && [[ "$(wc -l <"$case_dir/invocations.log" | tr -d ' ')" != 7 || "$(sort "$case_dir/invocations.log" | uniq -d)" != "" ]]; then
+    printf 'FAIL %s: healthy core bootstrap must probe version and six capabilities once\n' "$name" >&2
     failures=$((failures + 1))
     return
   fi
@@ -46,6 +51,9 @@ for skill in archdev tasks tasks-execute tasks-audit; do
   run_bootstrap "$skill-unknown" "$skill"
   run_bootstrap "$skill-setup-would-fail" "$skill" CLAUDECODE=1 ARCHDEV_FAKE_SETUP_EXIT=1
 done
+
+# Version output must also be drained before checking native exit status.
+run_bootstrap "archdev-verbose-version" archdev ARCHDEV_FAKE_VERBOSE_VERSION=1
 
 # Consume the entire help stream: with pipefail, grep -q can close early,
 # SIGPIPE the producer, and trigger an unnecessary install of a current CLI.
@@ -87,7 +95,7 @@ fake_archdev_at() {
   chmod +x "$1"
 }
 
-# brew_case <name> <skill> <keg: old|stub|crash|current|missing|none> <brew: yes|no|fail>
+# brew_case <name> <skill> <keg: old|stub|crash|version-error|current|missing|none> <brew: yes|no|fail>
 #   <copy: none|old|current> [<variant: opt|other-brew>]
 # An old keg is 0.49.0; every other keg is the formula's latest, 0.60.0, so a
 # `brew upgrade` of it changes nothing, as with real Homebrew.
@@ -112,6 +120,7 @@ brew_case() {
       stub) printf '#!/bin/sh\necho "archdev 3.0.0"\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
       # A binary that crashes before it can report a version.
       crash) printf '#!/bin/sh\nexit 139\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
+      version-error) printf '#!/bin/sh\necho "archdev 0.60.0"\nexit 139\n' >"$keg_dir/archdev" && chmod +x "$keg_dir/archdev" ;;
       missing) rm -rf "$prefix/Cellar/archdev" ;;
     esac
     ln -s "../Cellar/archdev/$keg_version/bin/archdev" "$prefix/bin/archdev"
@@ -146,6 +155,7 @@ brew_case() {
     ARCHDEV_FAKE_LOG="$case_dir/setup.log" ARCHDEV_FAKE_BIN="$repo/scripts/fake-archdev" \
     FAKE_BREW_LOG="$case_dir/brew.log" FAKE_BREW_PREFIX="$prefix" \
     FAKE_BREW_EXIT="$([[ "$brew" == fail ]] && echo 1 || echo 0)" \
+    ARCHDEV_FAKE_VERBOSE_VERSION="$([[ "$variant" == verbose ]] && echo 1 || echo 0)" \
     bash "$repo/$skill/scripts/bootstrap.sh" >"$case_dir/out" 2>"$case_dir/stderr"
   case_exit=$?
   set -e
@@ -208,6 +218,15 @@ for skill in archdev tasks tasks-execute tasks-audit; do
 
   # The incident: a stub reporting 3.0.0 passed the version check and failed
   # the capability probes, so `brew upgrade` would have been a no-op.
+  brew_case verbose-old "$skill" old yes none verbose
+  if expect_brew_repaired upgrade && expect_no_second_copy; then
+    printf 'ok   %s: verbose outdated Homebrew version upgraded\n' "$skill"
+  fi
+  brew_case version-error "$skill" version-error yes none
+  if expect_brew_repaired reinstall && expect_no_second_copy; then
+    printf 'ok   %s: failed version command reinstalled despite version text\n' "$skill"
+  fi
+
   brew_case broken "$skill" stub yes none
   expect_brew_repaired reinstall && expect_no_second_copy &&
     printf 'ok   %s: broken current Homebrew copy reinstalled with brew, no second copy\n' "$skill"

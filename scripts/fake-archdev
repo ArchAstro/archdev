@@ -10,8 +10,18 @@
 set -euo pipefail
 
 args="$*"
+if [[ -n "${ARCHDEV_FAKE_INVOCATIONS:-}" ]]; then
+  printf '%s\n' "$args" >>"$ARCHDEV_FAKE_INVOCATIONS"
+fi
 case "$args" in
-  --version) echo "${ARCHDEV_FAKE_VERSION:-0.49.6}" ;;
+  --version)
+    echo "${ARCHDEV_FAKE_VERSION:-0.49.6}"
+    if [[ "${ARCHDEV_FAKE_VERBOSE_VERSION:-0}" == 1 ]]; then
+      for ((line = 0; line < 4096; line++)); do
+        printf 'Additional version diagnostic output\n'
+      done
+    fi
+    ;;
   "tasks review update --help") echo "Usage: archdev tasks review update [options] <id>" ;;
   "tasks heartbeat --help")
     [[ "${ARCHDEV_FAKE_NO_HEARTBEAT:-0}" == 1 ]] && exit 1
