@@ -7,14 +7,13 @@ param(
     [switch]$SkipPathUpdate,
     [switch]$SkipVerify,
     # Where `archdev setup` installs the skill and hooks: user (globally) or
-    # repository. Asked inside a Git repository; otherwise user.
+    # repository. Always asked interactively; required without a terminal.
     [string]$Scope = $env:ARCHDEV_INSTALL_SCOPE,
     # Deprecated: reporting is always enabled. `disabled` declines setup.
     [string]$Reporting = $env:ARCHDEV_INSTALL_REPORTING,
     [switch]$SkipLogin,
     [switch]$SkipSetup,
-    # Never prompt. Sign-in then needs ARCHDEV_TOKEN, and setup installs
-    # globally unless -Scope says otherwise.
+    # Never prompt. Sign-in then needs ARCHDEV_TOKEN, and setup requires -Scope.
     [switch]$Yes
 )
 
@@ -27,6 +26,30 @@ $Owner = "ArchAstro"
 $Repo = "archdev"
 $AgentPrompt = "Set up this repository with ArchDev."
 function Test-Truthy([string]$Value) { return @("1", "true", "yes", "on") -contains "$Value".ToLowerInvariant() }
+
+# Keep placement consent independent of repository/Node availability. Validate
+# project prerequisites only after selection; never fall back to global hooks.
+function Resolve-SetupScope([string]$RequestedScope, [bool]$CanPrompt, [string]$RepositoryRoot, [bool]$NodeAvailable) {
+    if ([string]::IsNullOrWhiteSpace($RequestedScope)) {
+        if (-not $CanPrompt) {
+            throw "Setup needs an explicit -Scope user or -Scope repository. Choose where to install hooks, or use -SkipSetup to install only the CLI."
+        }
+        Write-Host "Where should ArchDev install its skill and hooks?"
+        Write-Host "  1) Globally  (every repository you work in)"
+        $Hint = if ($RepositoryRoot) { $RepositoryRoot } else { "run from a Git repository" }
+        Write-Host "  2) This repository  ($Hint)"
+        do {
+            $Choice = (Read-Host "Choose [1]").Trim()
+        } while (@("", "1", "2") -notcontains $Choice)
+        $RequestedScope = if ($Choice -eq "2") { "repository" } else { "user" }
+    }
+    if (@("user", "repository") -notcontains $RequestedScope) { throw "Unknown -Scope: $RequestedScope (use user or repository)" }
+    if ($RequestedScope -eq "repository") {
+        if (-not $RepositoryRoot) { throw "-Scope repository needs a Git repository. Run the installer from inside the repository." }
+        if (-not $NodeAvailable) { throw "Repository hooks need Node.js on PATH. Install Node.js, or use -Scope user." }
+    }
+    return $RequestedScope
+}
 if (Test-Truthy $env:ARCHDEV_INSTALL_SKIP_LOGIN) { $SkipLogin = $true }
 if (Test-Truthy $env:ARCHDEV_INSTALL_SKIP_SETUP) { $SkipSetup = $true }
 if (Test-Truthy $env:ARCHDEV_INSTALL_NONINTERACTIVE) { $Yes = $true }
@@ -236,22 +259,7 @@ if ($SkipSetup) {
     $RepoRoot = Get-RepositoryRoot
     $HasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
 
-    # The only question: inside a repository, the skill and hooks can live there
-    # instead of globally. Everywhere else, and without a terminal, they are
-    # global. Repository hooks need Node.js, so without it the answer is global.
-    if ([string]::IsNullOrWhiteSpace($Scope)) {
-        $Scope = "user"
-        if ($Interactive -and $RepoRoot -and $HasNode) {
-            Write-Host "Where should ArchDev install its skill and hooks?"
-            Write-Host "  1) Globally  (every repository you work in)"
-            Write-Host "  2) This repository  ($RepoRoot)"
-            if ((Read-Host "Choose [1]").Trim() -eq "2") { $Scope = "repository" }
-        }
-    }
-    if ($Scope -eq "repository") {
-        if (-not $RepoRoot) { throw "-Scope repository needs a Git repository. Run the installer from inside the repository." }
-        if (-not $HasNode) { throw "Repository hooks need Node.js on PATH. Install Node.js, or use -Scope user." }
-    }
+    $Scope = Resolve-SetupScope $Scope $Interactive $RepoRoot $HasNode
 
     Write-Host "Setup posts a one-time installation announcement, and session hooks report activity and findings to your organization's shared stream, visible to its members."
     if ($Scope -eq "repository") { Push-Location $RepoRoot }
