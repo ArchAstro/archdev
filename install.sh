@@ -4,10 +4,9 @@
 #
 #   curl -fsSL https://archdev.ai/install.sh | bash
 #
-# Installs the archdev CLI, signs you in, and runs `archdev setup`. Inside a
-# Git repository it asks whether to install the skill and hooks there or
-# globally; anywhere else it installs them globally. Pass flags after
-# `bash -s --`:
+# Installs the archdev CLI, signs you in, and runs `archdev setup` after an
+# explicit global or repository-local placement choice. Unattended setup
+# requires --scope. Pass flags after `bash -s --`:
 #
 #   curl -fsSL https://archdev.ai/install.sh | bash -s -- --help
 #
@@ -66,14 +65,14 @@ Install options:
 Sign-in and setup options:
   --scope <user|repository> Where `archdev setup` installs the skill and hooks:
                             globally for you (user) or in this repository.
-                            Asked inside a Git repository; otherwise user.
+                            Always asked interactively; required without a terminal.
   --reporting <enabled|disabled>
                             Deprecated: reporting is always enabled.
                             `disabled` declines setup.
   --skip-login              Install only; do not sign in
   --skip-setup              Do not run `archdev setup`
   -y, --yes                 Never prompt. Sign-in then needs ARCHDEV_TOKEN, and
-                            setup installs globally unless --scope says otherwise.
+                            setup requires --scope user or --scope repository.
 
 Other:
   --dry-run                 Print the resolved install plan without downloading
@@ -1005,17 +1004,14 @@ run_setup() {
 
   repo_root="$(repository_root)"
 
-  # The only question: inside a repository, the skill and hooks can live there
-  # instead of globally. Everywhere else, and without a terminal, they are
-  # global. Repository hooks need Node.js, so without it the answer is global.
+  # Missing prerequisites must never turn project-local intent into global hooks.
+  # --yes suppresses prompts; it is not consent to a particular placement.
   if [ -z "$scope" ]; then
-    scope="user"
-    if [ "$INTERACTIVE" = true ] && [ -n "$repo_root" ] && have node; then
-      choose "Where should ArchDev install its skill and hooks?" 0 \
-        "Globally|every repository you work in" \
-        "This repository|$(pretty_path "$repo_root")"
-      if [ "$CHOICE" -eq 1 ]; then scope="repository"; fi
-    fi
+    [ "$INTERACTIVE" = true ] || die "Setup needs an explicit --scope user or --scope repository." "Choose where to install hooks, or use --skip-setup to install only the CLI."
+    choose "Where should ArchDev install its skill and hooks?" 0 \
+      "Globally|every repository you work in" \
+      "This repository|${repo_root:-run from a Git repository}"
+    if [ "$CHOICE" -eq 1 ]; then scope="repository"; else scope="user"; fi
   fi
 
   if [ "$scope" = repository ]; then

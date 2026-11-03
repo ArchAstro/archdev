@@ -54,7 +54,7 @@ jobs:
           ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home/.local/bin
         run: |
           mkdir -p "$HOME"
-          ./install.sh
+          ./install.sh --skip-login --skip-setup
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
           test -f "$HOME/${{ matrix.completion_file }}"
       - name: Install a release without a completion command
@@ -66,10 +66,10 @@ jobs:
           # still succeed and must not leave an empty completion file.
           mkdir -p "$HOME"
           scripts/create-unix-fixtures.sh --output-dir "$RUNNER_TEMP/release-nocompletion" --version 0.31.0 --no-completion
-          ./install.sh --version 0.31.0 --base-url "file://$RUNNER_TEMP/release-nocompletion" --install-dir "$HOME/.local/bin"
+          ./install.sh --version 0.31.0 --base-url "file://$RUNNER_TEMP/release-nocompletion" --install-dir "$HOME/.local/bin" --skip-login --skip-setup
           test "$("$HOME/.local/bin/archdev" --version)" = 0.31.0
           test ! -e "$HOME/${{ matrix.completion_file }}"
-      - name: Setup installs globally without a terminal
+      - name: Unattended setup requires an explicit scope
         env:
           ARCHDEV_RELEASE_BASE_URL: http://127.0.0.1:8123
           ARCHDEV_VERSION: 0.31.0
@@ -77,11 +77,13 @@ jobs:
           SHELL: /bin/${{ matrix.shell_name }}
           ARCHDEV_INSTALL_DIR: ${{ runner.temp }}/home-setup/.local/bin
         run: |
-          # The documented one-liner: the script arrives on stdin and there is
-          # no terminal, so the installer must not prompt. The checkout is a
-          # Git repository, and the unasked placement question means global.
+          # Neither a missing terminal nor --yes grants global placement.
           mkdir -p "$HOME"
-          cat install.sh | bash >"$RUNNER_TEMP/unattended.log" 2>&1
+          if cat install.sh | bash >"$RUNNER_TEMP/missing-scope.log" 2>&1; then exit 1; fi
+          grep -F -- '--scope user or --scope repository' "$RUNNER_TEMP/missing-scope.log"
+          if cat install.sh | bash -s -- --yes >"$RUNNER_TEMP/yes.log" 2>&1; then exit 1; fi
+          grep -F -- '--scope user or --scope repository' "$RUNNER_TEMP/yes.log"
+          cat install.sh | bash -s -- --scope user >"$RUNNER_TEMP/unattended.log" 2>&1
           grep -F 'Skill and hooks installed for this user' "$RUNNER_TEMP/unattended.log"
           grep -F 'Set up this repository with ArchDev.' "$RUNNER_TEMP/unattended.log"
           cat install.sh | bash -s -- --scope repository >"$RUNNER_TEMP/repository.log" 2>&1
@@ -191,6 +193,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Placement consent contracts
+        shell: pwsh
+        run: ./scripts/test-installer-scope.ps1
       - name: Build fixture release
         shell: pwsh
         run: |
@@ -230,12 +235,18 @@ jobs:
             if ($fallback -notmatch "Installing the TypeScript CLI \(archdev-old\) instead") { throw "Missing the fallback notice: $fallback" }
             $oldVersion = & "$env:RUNNER_TEMP\bin-old\archdev.exe" --version
             if ($oldVersion.Trim() -ne "0.30.0") { throw "archdev-old fallback version mismatch: $oldVersion" }
-            ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate
+            ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Scope user
             $cliVersion = & "$env:RUNNER_TEMP\bin\archdev.exe" --version
             if ($cliVersion.Trim() -ne "0.31.0") { throw "archdev.exe version mismatch" }
-            # No terminal in CI, so the installer must not prompt. The checkout
-            # is a Git repository, and the unasked placement question means global.
-            $unattended = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate *>&1 | Out-String)
+            # Neither a missing terminal nor -Yes grants global placement.
+            foreach ($yesFlag in @($false, $true)) {
+              $missingScope = $null
+              try {
+                ./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Yes:$yesFlag *>&1 | Out-Null
+              } catch { $missingScope = "$_" }
+              if ($missingScope -notmatch "explicit -Scope user or -Scope repository") { throw "Missing scope did not fail: $missingScope" }
+            }
+            $unattended = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Scope user *>&1 | Out-String)
             if ($unattended -notmatch "Skill and hooks installed for this user") { throw "Setup did not install globally: $unattended" }
             if ($unattended -notmatch "Set up this repository with ArchDev\.") { throw "Missing the agent prompt: $unattended" }
             $repository = (./install.ps1 -Version 0.31.0 -BaseUrl http://127.0.0.1:8123/rust -InstallDir "$env:RUNNER_TEMP\bin" -SkipPathUpdate -Scope repository *>&1 | Out-String)

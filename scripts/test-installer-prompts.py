@@ -79,20 +79,24 @@ class InstallerPromptTest(unittest.TestCase):
         for directory in (self.home, self.state, self.tools, self.release):
             directory.mkdir()
         self.build_release()
-        # Repository placement is offered only inside a Git repository with
-        # Node.js on PATH; the hooks themselves never run here.
+        # Repository placement needs Node.js; the hooks themselves never run here.
         (self.tools / "node").write_text("#!/bin/sh\nexit 0\n")
         (self.tools / "node").chmod(0o755)
         self.repo = self.root / "repo"
         self.repo.mkdir()
+        self.outside = self.root / "outside"
+        self.outside.mkdir()
         subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
         self.env = {
             "HOME": str(self.home),
+            "TMPDIR": str(self.root),
             "PATH": f"{self.tools}:/usr/bin:/bin",
             "SHELL": "/bin/bash",
             "TERM": "xterm-256color",
             "LANG": "C.UTF-8",
             "FAKE_STATE": str(self.state),
+            # TMPDIR may itself be inside another repository.
+            "GIT_CEILING_DIRECTORIES": str(self.root),
         }
 
     def build_release(self):
@@ -128,7 +132,7 @@ class InstallerPromptTest(unittest.TestCase):
         )
         pid, fd = pty.fork()
         if pid == 0:
-            os.chdir(cwd or self.root)
+            os.chdir(cwd or self.outside)
             os.execve("/bin/bash", ["bash", "-c", command, "installer", *args], dict(self.env, **env))
         fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 100, 0, 0))
         self.pid, self.fd, self.output, self.seen = pid, fd, b"", 0
@@ -209,16 +213,15 @@ class InstallerPromptTest(unittest.TestCase):
     # -- scenarios ----------------------------------------------------------
 
     def test_sign_in_then_global_setup_outside_a_repository(self):
-        # The full first-run path outside a repository: browser sign-in, then
-        # setup installs globally without asking anything else.
+        # Even outside a repository, global hooks require a scope decision.
         self.start()
         self.answer("Sign in now?", ENTER)
         self.expect("Paste the code")
         os.write(self.fd, b"good\r")
         self.expect("Signed in as dev@example.test")
+        self.answer("Where should ArchDev install its skill and hooks?", ENTER)
         self.assertEqual(self.finish(), 0)
-        self.assertNotIn("Where should ArchDev install", self.text())
-        self.assertEqual(self.setup_call(), ["setup --scope user --reporting enabled", str(self.root)])
+        self.assertEqual(self.setup_call(), ["setup --scope user --reporting enabled", str(self.outside)])
         self.assertIn("Skill and hooks installed for this user", self.text())
         self.assertIn("is ready", self.text())
         self.assertIn("Set up this repository with ArchDev.", self.text())
@@ -235,6 +238,7 @@ class InstallerPromptTest(unittest.TestCase):
         self.expect("Paste the code")
         os.write(self.fd, b"good\r")
         self.expect("Signed in as dev@example.test")
+        self.answer("Where should ArchDev install its skill and hooks?", ENTER)
         self.assertEqual(self.finish(), 0)
         self.assertEqual(self.login_call(), "auth login")
 
@@ -262,14 +266,62 @@ class InstallerPromptTest(unittest.TestCase):
         self.assertEqual(self.setup_call()[0], "setup --scope repository --reporting enabled")
 
     @unittest.skipIf(shutil.which("node", path="/usr/bin:/bin"), "a system node is on the test PATH")
-    def test_without_node_a_repository_installs_globally_without_asking(self):
-        # Repository hooks need Node.js; with no node on PATH there is no choice.
+    def test_without_node_project_choice_fails_without_global_fallback(self):
         (self.tools / "node").unlink()
         (self.state / "signed-in").touch()
         self.start(cwd=self.repo)
+        self.answer("Where should ArchDev install its skill and hooks?", DOWN, ENTER)
+        self.assertEqual(self.finish(), 1)
+        self.assertIn("Repository hooks need Node.js", self.text())
+        self.assertIsNone(self.setup_call())
+
+    @unittest.skipIf(shutil.which("node", path="/usr/bin:/bin"), "a system node is on the test PATH")
+    def test_without_node_global_choice_still_works(self):
+        (self.tools / "node").unlink()
+        (self.state / "signed-in").touch()
+        self.start(cwd=self.repo)
+        self.answer("Where should ArchDev install its skill and hooks?", ENTER)
         self.assertEqual(self.finish(), 0)
-        self.assertNotIn("Where should ArchDev install", self.text())
         self.assertEqual(self.setup_call()[0], "setup --scope user --reporting enabled")
+
+    def test_project_choice_outside_git_does_not_install_global_hooks(self):
+        (self.state / "signed-in").touch()
+        self.start()
+        self.answer("Where should ArchDev install its skill and hooks?", DOWN, ENTER)
+        self.assertEqual(self.finish(), 1)
+        self.assertIn("needs a Git repository", self.text())
+        self.assertIsNone(self.setup_call())
+
+    def run_unattended(self, *args):
+        return subprocess.run(
+            ["/bin/bash", str(ROOT / "install.sh"), "--base-url", f"file://{self.release}",
+             "--version", VERSION, "--install-dir", str(self.home / ".local/bin"), *args],
+            cwd=self.repo, env=self.env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30,
+        )
+
+    def test_unattended_setup_requires_scope_even_with_yes(self):
+        (self.state / "signed-in").touch()
+        for args in ((), ("--yes",)):
+            with self.subTest(args=args):
+                result = self.run_unattended(*args)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("--scope user or --scope repository", result.stdout)
+                self.assertIsNone(self.setup_call())
+
+    def test_explicit_unattended_scope_is_preserved(self):
+        (self.state / "signed-in").touch()
+        for scope, cwd in (("user", self.repo), ("repository", self.repo)):
+            with self.subTest(scope=scope):
+                result = self.run_unattended("--yes", "--scope", scope)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.setup_call(), [f"setup --scope {scope} --reporting enabled", str(cwd)])
+
+    def test_skip_setup_does_not_require_scope(self):
+        (self.state / "signed-in").touch()
+        result = self.run_unattended("--yes", "--skip-setup")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIsNone(self.setup_call())
 
     def test_skipping_sign_in_skips_setup(self):
         self.start()
@@ -291,6 +343,7 @@ class InstallerPromptTest(unittest.TestCase):
     def test_failed_setup_shows_the_error_and_exits_nonzero(self):
         (self.state / "signed-in").touch()
         self.start(FAKE_SETUP_FAIL="1")
+        self.answer("Where should ArchDev install its skill and hooks?", ENTER)
         self.assertEqual(self.finish(), 1)
         self.assertIn("hooks directory is read-only", self.text())
         self.assertIn("then run: archdev setup --scope user", self.text())
@@ -299,6 +352,13 @@ class InstallerPromptTest(unittest.TestCase):
         self.start()
         self.answer("Sign in now?", b"\x03")
         self.assertEqual(self.finish(), 130)
+
+    def test_interrupt_at_scope_prompt_does_not_install_hooks(self):
+        (self.state / "signed-in").touch()
+        self.start()
+        self.answer("Where should ArchDev install its skill and hooks?", b"\x03")
+        self.assertEqual(self.finish(), 130)
+        self.assertIsNone(self.setup_call())
 
     def test_plain_terminal_uses_numbered_prompts(self):
         self.start(TERM="dumb")
