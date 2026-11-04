@@ -36,6 +36,23 @@ stop with an error naming that binary.
    credentials. Local code inspection does not require an ArchDev account.
 3. `auth logout` removes credentials. Never run it as a repair step.
 
+## PR events minimum version
+
+PR event handling ([pr-events.md](pr-events.md)) needs **0.55.4 or newer**:
+`events claim`, `renew` and `release` shipped in 0.54.7, `events watch` in
+0.51.0 and `events dispatch` in 0.55.4. The bootstrap scripts keep the
+general 0.49.6 floor, because every other workflow works on it, so gate PR
+events yourself before using them:
+
+1. `"$archdev" --version` reports 0.55.4 or newer.
+2. `"$archdev" events claim --help` prints `--pr` and `--head` (a missing
+   command or an older release fails here).
+
+If either check fails, tell the user PR events need a newer ArchDev, skip
+them, and offer the upgrade. Upgrade only with approval, and the same way
+the CLI was installed (`brew upgrade archastro/tools/archdev` for a Homebrew
+copy). Never claim a PR head with a CLI that lacks the command.
+
 ## Model access only when requested
 
 Session reporting does not require provider setup. A missing model-access
