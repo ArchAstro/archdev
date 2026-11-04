@@ -12,7 +12,7 @@ frames in the Astroshots app or in `archdev shots review`, and their decisions
 and comments land in `review.json` next to the images. You read that feedback
 back with `archdev shots status`.
 
-This guide describes ArchDev 0.55.6 and newer. Check `archdev --version`;
+This guide describes ArchDev 0.56.8 and newer. Check `archdev --version`;
 if it is older, ask the person to run `archdev upgrade`. `archdev shots --help`
 lists the commands; every subcommand has its own `--help`, and the CLI is the
 authority when it disagrees with this file.
@@ -51,7 +51,7 @@ run. The other lines say where it found the tools each mode needs:
 | Tool | Needed for |
 |---|---|
 | Chrome | React stills and browser movies; also PTY and frames movies when ffmpeg is missing |
-| Node (22 or newer) and the Node helper | React and Ink stills, and browser movie scripts |
+| Node (22.14.0 or newer) and the bundled Node helper | React and Ink stills, and browser movie scripts |
 | ffmpeg | encoding movies (optional: without it Chrome encodes them, always as WebM) |
 | ffprobe | movie metadata |
 
@@ -59,17 +59,23 @@ A missing tool only blocks the modes that need it. `archdev shots doctor --json`
 gives the same report as JSON (`setting`, then one object per tool with
 `path` and `needed_for`).
 
-`doctor` does not check the Node helper's npm packages, and the helper the
-CLI ships has none installed. React and Ink stills and `movie run --script`
-fail with `astroshot node helper could not load "tsx/esm/api"` (or `"vite"`,
-`"playwright-core"`) until those packages sit next to a helper copy. See
-"Node helper packages" under Troubleshooting. PTY stills, captures and
-movies without `--script` do not use them.
+The released CLI bundles the Node helper and its tool packages. No separate
+helper npm install or Astroshots checkout is needed. React, React DOM and Ink
+remain dependencies of the fixture's project. Node, Chrome and ffmpeg remain
+external prerequisites for the modes that use them.
+
+`doctor` inspects the helper distribution without executing Node or changing
+the cache. Its JSON includes `helper_dependencies`, the distribution source
+and status, required Node version, package readiness, limitations and
+remediation. Node's actual version, OS, architecture and Linux libc compatibility
+remain unverified until a capture runs; a ready distribution is not proof that
+a fixture or browser capture will succeed.
 
 `archdev settings get` shows `Shots: on (config)` and `Shots upload: auto
 (config)` rows once the person has set them; before that it shows no Shots
-rows. Absent rows mean the local capture setting defaults to on and upload
-defaults to manual; server rollout still controls availability.
+rows. In 0.56.8 and later, absent rows mean capture defaults to on and upload
+defaults to auto. Both still require the server rollout flag. An explicit
+`manual` upload preference remains manual after an upgrade.
 
 ### When Shots is unavailable
 
@@ -101,21 +107,30 @@ settings to work around it.
 
 ### Upload preference
 
-`archdev settings set shots-upload auto|manual` (default `manual`) is the
-person's preference for sending a session's captures to ArchDev for web
-review. It has the same human-terminal rule. Captures remain local until
-uploaded. With `manual`, upload only when the person asks (section 6). With
-`auto`, the Stop hook uploads captures from that session when the turn ends,
-provided Shots is enabled. The upload attempts to post available stills to
-the Company Room; a missing room or a delivery failure can prevent the post.
+`archdev settings set shots-upload auto|manual` is the person's preference
+for sending a session's captures to ArchDev for web review. It has the same
+human-terminal rule. In 0.56.8 and later, an unset preference defaults to
+`auto`; earlier releases defaulted to `manual`. Explicit `manual` still opts
+out. `archdev settings unset shots-upload` restores the default for the
+installed CLI version; it does not turn uploads off in 0.56.8 and later.
+
+With `auto`, the Stop hook uploads captures from that session when the turn
+ends, provided Shots is locally enabled and the server rollout flag allows it.
+It does not backfill other sessions' captures. Authentication or rollout-check
+failures prevent upload. Malformed stored upload preferences do not enable it.
+With `manual`, captures remain local until the person requests an upload
+(section 6). The upload attempts to post available stills to the Company Room;
+a missing room or a delivery failure can prevent the post.
 
 ### Unattended harnesses
 
 A test harness that runs without a person at the keyboard can keep its own
 profile with Shots on, for example a profile named `astroshot-harness` whose
-`config.json` the harness writes with `{"shots":{"enabled":"on"}}`, and run
+`config.json` the harness writes with
+`{"shots":{"enabled":"on","upload":"manual"}}`, and run
 `ARCHDEV_PROFILE=astroshot-harness archdev shots capture …`. That pattern is
-for harness code a team has reviewed and committed. It is not a way to
+for harness code a team has reviewed and committed; the explicit manual mode
+keeps its captures local unless the harness is meant to test uploads. It is not a way to
 override a person's explicit opt-out in an interactive session.
 
 ## 2. Publish stills
@@ -222,7 +237,7 @@ did not write before rendering them.
 
 ### React
 
-Needs Chrome, Node and the helper packages (see section 1), plus `react` and
+Needs Chrome, Node and the bundled helper (see section 1), plus `react` and
 `react-dom` in the fixture's project. The fixture default-exports the
 component and its capture settings:
 
@@ -278,8 +293,9 @@ capture --source` if they belong in the review stream.
 
 ### Ink
 
-Needs Node and the helper packages (see section 1), and `ink` 7 and `react`
-19 installed in the fixture's project. That project's `package.json` needs
+Needs Node and the bundled helper (see section 1), plus `ink` and its
+compatible `react` version in the fixture's project. Both Ink 5 / React 18
+and Ink 7 / React 19 are covered by capture proofs. The project's `package.json` needs
 `"type": "module"`; otherwise rendering fails with `Top-level await is
 currently not supported with the "cjs" output format`.
 
@@ -505,8 +521,10 @@ message, never two. A recapture (new bytes) posts again. Do not also attach
 the PNGs to a `done` or `start` post with `-a`; the upload post is the
 stream's copy.
 
-Upload only when the person asked for it, or when their `shots-upload`
-setting is `auto`.
+Upload only when the person asked for it, or when their effective upload mode
+is `auto` (including the unset default in 0.56.8 and later). Let the Stop hook
+handle automatic session uploads; an absent settings row on an older CLI is
+not an automatic-upload preference.
 
 ## 7. User stories
 
@@ -585,7 +603,7 @@ archdev repo hook dismiss --harness <harness> --session <session-id> \
 | `Shots settings require a human terminal outside an agent session` | You tried to change the setting. Ask the person instead. |
 | `not a valid .<ext> image: PATH` | The bytes do not match the extension (a JPEG saved as `.png`, an HTML error page, a truncated file). Recapture it or fix the extension. |
 | `unsupported image extension …` | Stills must be `.png`, `.jpg`, `.jpeg`, `.webp` or `.gif`. |
-| `astroshot node helper could not load "tsx/esm/api"` (or `vite`, `@vitejs/plugin-react`, `playwright-core`) | The helper's npm packages are missing. See "Node helper packages" below. |
+| `astroshot node helper could not load "tsx/esm/api"` (or `vite`, `@vitejs/plugin-react`, `playwright-core`) | The helper distribution is incomplete or an override lacks its packages. Run `archdev shots doctor` and see "Node helper packages" below. |
 | `timed out after Ns waiting for capture lock: …/.capture.lock` | Another capture into the same feature is running. The wait defaults to 120 seconds; `ASTROSHOT_LOCK_TIMEOUT_SECONDS=N` changes it. |
 | `stale capture lock from dead pid N: …; remove it and retry` | A capture process died holding the lock. Confirm no capture is running, then remove that `.capture.lock` directory. |
 | `feature must be kebab-case …`, `slug must be …`, `reserved feature: …` | Rename the feature or slug (section 2). |
@@ -599,22 +617,20 @@ archdev repo hook dismiss --harness <harness> --session <session-id> \
 
 ### Node helper packages
 
-React and Ink stills and browser movie scripts run in a Node helper script
-(`helper.mjs`) that loads `tsx`, `vite`, `@vitejs/plugin-react` and
-`playwright-core` from its own directory, not from your project. The copy the
-CLI writes to its cache has no packages next to it, so these modes fail until
-someone installs them. Installing npm packages changes the person's machine:
-ask first. With their agreement, keep a helper copy in a directory that has
-the packages, and point the CLI at it with `ASTROSHOT_NODE_HELPER`:
+The released CLI bundles `helper.mjs`, `tsx`, `vite`, `@vitejs/plugin-react`
+and `playwright-core` for its target. Capture materializes the matching
+content-addressed cache; the fixture's project supplies React, React DOM or
+Ink. Installing those fixture dependencies does not replace the bundled
+helper tools.
 
-```sh
-helper_dir="$HOME/.local/share/archdev-shots-helper"
-mkdir -p "$helper_dir"
-cp "$(ls -t "$HOME"/.cache/astroshot/node-helper/*/helper.mjs "$HOME"/Library/Caches/astroshot/node-helper/*/helper.mjs 2>/dev/null | head -n 1)" "$helper_dir/"
-npm install --prefix "$helper_dir" tsx vite @vitejs/plugin-react playwright-core
-export ASTROSHOT_NODE_HELPER="$helper_dir/helper.mjs"
-```
+Run `archdev shots doctor` to inspect the distribution and its remediation.
+If the installed release's distribution is incomplete, repair or upgrade the
+CLI installation rather than installing npm packages into its managed cache.
+`ASTROSHOT_NODE_HELPER` selects a custom helper distribution; an override must
+supply matching helper code and packages, and can be the source of a missing
+package error even when the installed CLI bundles them.
 
-The cached `helper.mjs` exists after the first React or Ink attempt, even a
-failed one. Copy it again after upgrading ArchDev: the helper and the CLI
-speak a versioned protocol.
+Node must satisfy the reported version requirement and run on a platform
+supported by the bundled helper. Passive diagnostics do not execute Node,
+so they leave its runtime compatibility unverified; use an actual capture
+to verify the runtime and fixture together.
