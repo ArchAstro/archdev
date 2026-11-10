@@ -526,6 +526,28 @@ is `auto` (including the unset default in 0.56.8 and later). Let the Stop hook
 handle automatic session uploads; an absent settings row on an older CLI is
 not an automatic-upload preference.
 
+### Link the shots in the pull request description
+
+The ArchCode pull request page shows shots only when the PR description links
+them. It does not match uploads by branch name, so an upload that is not
+linked does not appear on the PR. When the work has a PR, put the review URL
+in its description:
+
+```markdown
+Shots: https://archdev.ai/shots/<owner>/<repo>/<feature>
+```
+
+- This is the review URL `upload` prints (`url` under `--json`). After an
+  automatic upload, whose output you do not see, build it from the `origin`
+  repository and the feature name.
+- A feature link shows every uploaded run of that feature. To show one run,
+  link a shot's permalink from the Shots page instead
+  (`https://archdev.ai/shots/<owner>/<repo>/<feature>/runs/<run-id>/<file>`).
+- The link must be an `https://archdev.ai` URL and name the PR's head
+  repository; for a PR from a fork that is the fork.
+- Add the link when you open the PR. If the shots are uploaded later, edit
+  the description then.
+
 ## 7. User stories
 
 A user story is a scripted walk through the product from a user's point of
