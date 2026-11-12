@@ -18,7 +18,8 @@
     { "name": "tasks-execute", "path": "tasks-execute" },
     { "name": "tasks-audit", "path": "tasks-audit" },
     { "name": "plan-collab", "path": "plan-collab" },
-    { "name": "shots", "path": "shots" }
+    { "name": "shots", "path": "shots" },
+    { "name": "eval-review", "path": "eval-review" }
   ],
   "mcp": {
     "name": "archdev",
