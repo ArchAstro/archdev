@@ -1,0 +1,74 @@
+{
+  "title": "Release note drafts",
+  "criteria": [
+    {
+      "key": "accurate",
+      "title": "Does the note match the change?",
+      "hint": "Check against the description and the code",
+      "options": [
+        { "value": "yes", "label": "Yes" },
+        { "value": "partly", "label": "Partly" },
+        { "value": "no", "label": "No" }
+      ],
+      "follow": { "partly": "What is off?", "no": "What is wrong?" }
+    },
+    {
+      "key": "clarity",
+      "title": "How clear is it to a customer?",
+      "options": [
+        { "value": "1", "label": "1 opaque" },
+        { "value": "2", "label": "2" },
+        { "value": "3", "label": "3" },
+        { "value": "4", "label": "4" },
+        { "value": "5", "label": "5 plain" }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "key": "pr-482",
+      "title": "Checkout retries a declined card once",
+      "tag": "payments",
+      "subtitle": "storefront #482",
+      "href": "https://example.com/acme/storefront/pull/482",
+      "hints": { "clarity": "31 words" },
+      "exhibit": {
+        "kind": "frame",
+        "height": 150,
+        "data": null,
+        "html": "<style>body{padding:12px 14px}li{cursor:pointer;padding:6px 8px;border-radius:6px}li.flag{background:#fdecec}</style><ul><li data-id=\"retry\">Checkout now retries a card the processor declined for a temporary reason.</li><li data-id=\"once\">It retries once, then shows the shopper an error.</li></ul><script>const paint=(r)=>{for(const li of document.querySelectorAll('li'))li.classList.toggle('flag',r.flagged.includes(li.dataset.id))};for(const li of document.querySelectorAll('li'))li.addEventListener('click',()=>evalHost.flag(li.dataset.id));paint(evalHost.rating);evalHost.onRating(paint);</script>"
+      },
+      "parts": [
+        { "id": "retry", "label": "Retries a temporary decline", "ref": "charge" },
+        { "id": "once", "label": "Retries once" }
+      ],
+      "references": [
+        { "id": "pr", "kind": "pull", "label": "storefront #482", "href": "https://example.com/acme/storefront/pull/482", "description": "Retries a card the processor declined for a transient reason, once, before showing the shopper an error." },
+        { "id": "charge", "kind": "code", "label": "charge.ts", "path": "src/checkout/charge.ts", "startLine": 3, "side": "modified" }
+      ],
+      "description": "## What changed\n\nCheckout retries a transient decline once before failing the order.",
+      "files": [
+        {
+          "filename": "src/checkout/charge.ts",
+          "status": "modified",
+          "additions": 4,
+          "deletions": 1,
+          "patch": "@@ -1,5 +1,8 @@\n export async function charge(order: Order) {\n-  return processor.charge(order);\n+  const first = await processor.charge(order);\n+  if (first.ok || !isTransient(first.decline)) return first;\n+  // One retry, with the same idempotency key, so the card is charged at most once.\n+  return processor.charge(order);\n }"
+        }
+      ]
+    },
+    {
+      "key": "pr-511",
+      "title": "Search results keep their place after going back",
+      "tag": "search",
+      "subtitle": "storefront #511",
+      "exhibit": {
+        "kind": "image",
+        "mediaType": "image/svg+xml",
+        "alt": "Draft note: Going back to search results returns you to where you were.",
+        "data": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 90\"><style>text{font:16px -apple-system,Segoe UI,sans-serif;fill:#141821}</style><rect width=\"640\" height=\"90\" fill=\"#ffffff\"/><text x=\"20\" y=\"50\">Going back to search results returns you to where you were.</text></svg>"
+      },
+      "description": "Restores the scroll position and the open filters when a shopper returns from a product page."
+    }
+  ]
+}
