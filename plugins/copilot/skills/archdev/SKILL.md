@@ -1,6 +1,6 @@
 ---
 name: archdev
-description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); live Ask dashboards (archdev ask); public file sharing (archdev share); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
+description: Core ArchDev workflow — use for anything involving ArchDev. Covers CLI setup, upgrades, login, and model access; archdev.json validation (check); repo onboarding and readiness (repo status); activity taxonomy mapping (repo map); harness hooks (repo hook setup); build-event reporting (log post, log post --event); prior lessons (log messages, log search, capability-gated log knowledge); artifact findings (log finding); lifecycle posts — start, lesson, abandoned, done, handoff, question (log --kind); agent activity (repo monitor); public file sharing (archdev share); mandatory PR CI and risk follow-through; published PR risk/scope (inspect metadata); and repository rules (rules, rules add, rules edit, rules disable). Load at session start whenever the archdev CLI is installed, the repo contains archdev.json, or the task touches plans, tasks, sessions, commits, PRs, or harness hooks.
 ---
 
 # ArchDev
@@ -153,53 +153,6 @@ subagents and agents you spawn.
   not only in your final summary." The parent owns stream posts.
 - PR reporting requires no local grading, annotations, or stop hold, including
   Factory and daemon sessions. Follow the host's publication ownership.
-
-## Ask dashboards
-
-Use `archdev ask` when someone wants a live dashboard of their team's work,
-PRs, risk, agents, or lessons. Run the CLI for them and return the view's URL;
-they do not need to open the frontend to create it. Check `"$archdev" ask --help`
-first: older releases do not have this command group. Do not upgrade without
-approval. These commands need an ArchDev user login and the
-`archdev_ask_views` feature flag; a 404 can mean Ask is not enabled, not that
-a dashboard is missing. Hosted generation uses ArchDev's model sponsorship,
-not the coding agent's local provider configuration.
-
-```sh
-# Generate and save a personal live view; no Company Room post.
-"$archdev" --json ask create "Show open PR risk grouped by repository"
-# Inspect or revise a view using its returned art_… ID.
-"$archdev" --json ask list
-"$archdev" --json ask show <view-id>
-"$archdev" --json ask update <view-id> "Group by author instead"
-# Generate JSX without saving it or posting anything.
-"$archdev" --json ask generate "Show agents that are stuck"
-# Save supplied JSX without a model call (uses the Ask component kit).
-"$archdev" --json ask create "Team progress" --title "Team progress" --code-file view.jsx
-# Only with permission to share with the team:
-"$archdev" --json ask create "Where is the risk?" --share --pin
-"$archdev" --json ask share <view-id> --pin
-# Archive the personal saved view; shared tiles are not removed.
-"$archdev" --json ask delete <view-id>
-```
-
-`create` saves a personal artifact and returns `id` and `url`. `--title`
-overrides the generated title; `--code-file` on `create` or `update` uses
-supplied JSX instead of calling the model. On `generate`, `--code-file`
-provides the current program for the model to revise. Use `--json` for
-machine-readable output; do not mistake a provisional streamed program for
-a completed generation.
-
-Sharing is a separate write: `create --share` or `share` posts the question
-and a copy of its JSX to the Company Room's Ask board. `--pin` pins that new
-tile (`create --pin` also requires `--share`). Ask permission before publishing
-personal content to the team. Shared views run on each viewer's own live data
-and permissions, not the author's login. Updating or deleting the personal
-artifact does not update or delete earlier shared copies; sharing again
-creates a new tile. If saving succeeds but sharing fails, keep the returned
-artifact ID from the error and retry `ask share`, not `ask create`.
-Inspect the Ask board before retrying an unconfirmed room write: a timeout
-can happen after the post was accepted, and a new share can duplicate it.
 
 ## Publish files to the web
 
