@@ -128,6 +128,22 @@ review: approval owns saving this plan.
    end-to-end test file/scenario and the boundary and observable outcome it
    proves; identify any missing prerequisites honestly.
 
+   **Smallest design that meets the outcome.** Search the code before
+   writing a node. In `context`, give each implementation node:
+
+   - `Extends:` the existing code it changes or reuses (path or symbol).
+   - `Exemplar: <repo path>`: the sibling implementation it copies.
+   - `Size:` a rough estimate, for example "about 150 lines in 3 files".
+
+   Write `acceptance` as concrete, checkable outcomes for the callers that
+   exist today ("the 5 sharing mutations reject a private-result thread"),
+   not absolute invariants ("every path", "no callable can bypass",
+   "never"). A new mechanism needs a `Why not existing:` line saying why the
+   current one is insufficient: a migration, a database trigger, a lock, a
+   new OAuth or auth flow, a new module or service, a new protocol. Do not
+   plan infrastructure for callers that do not exist yet. When the cheaper
+   path is unclear, put the options in `major_decisions`.
+
    **Integration matrix.** A boundary is any place two sides run separately:
    process, pod or replica, service, network or load balancer, queue,
    database, external API, client/server version, OS. For any task that
@@ -167,6 +183,12 @@ review: approval owns saving this plan.
    Motivating incident: a relay accept socket routed correctly only on the
    pod that owned it; the single-VM test shared the registry, the soak gated
    nothing, and the bug was found in production.
+
+   Choose the simplest mechanism first, then write the matrix for it. The
+   matrix covers the entry points that exist, and its size follows the
+   mechanism: a row lock in five mutations needs fewer cells than a trigger
+   on a hot table. Never pick a heavier mechanism (triggers, advisory locks,
+   extra connections) because it makes the matrix easier to claim.
 4. Add `depends_on` only where a task needs another task's result. Explain each
    edge with `dependency_reasons`. Leave independent tasks parallel. Every
    dependency must reference a node key in this graph; no self-edges or cycles.
@@ -238,6 +260,11 @@ The review command also accepts optional `major_decisions` (not part of
       "key": "export-api",
       "title": "Export respects the user's filters",
       "objective": "Add the export endpoint using the existing filtered query.",
+      "context": [
+        "- Extends: `src/api/results/query.ts`, the filtered query the results page uses.",
+        "- Exemplar: `src/api/reports/download.ts` streams a CSV download.",
+        "- Size: about 150 lines in 3 files."
+      ],
       "acceptance": ["Export includes exactly the authorized filtered results."],
       "verification": ["Planned tests/export-api.e2e.test.ts: filtered export crosses HTTP and database boundaries and asserts returned rows."],
       "implementation": [
@@ -391,7 +418,11 @@ test each node with a reader that has only that node. Run exactly one round.
    could not verify, a planned test that does not name its file, boundary, or
    assertion, a referenced path or symbol that does not exist, what a
    dependency provides, or a scope boundary. Also report an empty or missing
-   `implementation` plan, or a `risk` grade with no stated reason. Do not
+   `implementation` plan, or a `risk` grade with no stated reason. Report a
+   missing `Extends:`, `Exemplar:` or `Size:` line, an acceptance item
+   stated as an absolute ("every path", "never") instead of a checkable
+   outcome, and a new migration, trigger, lock, auth flow, module, service
+   or protocol with no reason the existing one is insufficient. Do not
    report style preferences or propose redesigns. An empty gaps list is a
    valid answer.
 
@@ -632,6 +663,10 @@ investigating subagent per epic and a plain-language report.
      The implementation Task closes on local proof only.
      Make that Task a dependency of the rollout/enablement Task or the
      epic-closing Task so it gates them.
+   - **Overbuilt** (work far past the brief's `Size:`, or a new mechanism
+     the brief did not name) → pause; comment the smaller existing path
+     and ask the human whether to rescope. Do not widen the brief to match
+     the code.
    - **Needs access/credentials** → leave paused, tag `needs-access`,
      comment the exact human action required.
    - **Duplicate or superseded** → cancel with a comment pointing at the

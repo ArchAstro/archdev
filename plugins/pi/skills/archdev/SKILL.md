@@ -41,6 +41,9 @@ and rule violations without waiting for another user request:
    Risk is not a defect checklist: investigate the evidence, not just the grade.
    Fix substantiated bugs and meaningful coverage gaps within scope; explain
    concerns left unchanged. Add a regression test for behavioral fixes.
+   A fix may remove code: replacing a mechanism with a smaller one that
+   closes the same defect is valid. Answer a design-level concern by
+   simplifying the design, not by adding another guard layer.
 3. Review the `rules` section's violations. Each is the checker's claim, not a
    confirmed defect: read the rule and the cited lines. Fix a violation
    that holds and is within the PR's scope; otherwise say in your summary why
