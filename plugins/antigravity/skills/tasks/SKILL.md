@@ -141,8 +141,9 @@ review: approval owns saving this plan.
    "never"). A new mechanism needs a `Why not existing:` line saying why the
    current one is insufficient: a migration, a database trigger, a lock, a
    new OAuth or auth flow, a new module or service, a new protocol. Do not
-   plan infrastructure for callers that do not exist yet. When the cheaper
-   path is unclear, put the options in `major_decisions`.
+   plan infrastructure for callers that do not exist yet. When two paths
+   both work, pick the cheaper one and say why; use `major_decisions` only
+   for a product or policy choice the code cannot settle.
 
    **Integration matrix.** A boundary is any place two sides run separately:
    process, pod or replica, service, network or load balancer, queue,
@@ -664,9 +665,11 @@ investigating subagent per epic and a plain-language report.
      Make that Task a dependency of the rollout/enablement Task or the
      epic-closing Task so it gates them.
    - **Overbuilt** (work far past the brief's `Size:`, or a new mechanism
-     the brief did not name) → pause; comment the smaller existing path
-     and ask the human whether to rescope. Do not widen the brief to match
-     the code.
+     the brief did not name) → find the smaller existing path. If the task
+     names no concrete caller, writer, or stored data that path misses,
+     rescope the task to it and comment why; otherwise keep the larger
+     mechanism and record that evidence. Do not widen the brief to match
+     the code without it.
    - **Needs access/credentials** → leave paused, tag `needs-access`,
      comment the exact human action required.
    - **Duplicate or superseded** → cancel with a comment pointing at the
