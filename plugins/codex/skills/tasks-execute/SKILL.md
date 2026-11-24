@@ -249,12 +249,14 @@ than `renewed`, run the lease-lost steps below.
 3. Follow the task's implementation plan, acceptance and verification. They
    are the contract. If they turn out to be wrong, comment what you found
    and why, and adjust within the objective.
-4. Widening scope is the human's call, not yours. That includes more paths
+4. Decide scope changes yourself, on evidence. Widening means more paths
    than the brief names, a stronger guarantee than its acceptance states,
-   or a mechanism much larger than its `Size:`. Do not approve it yourself
-   because an invariant seems to imply it. Comment the question with the
-   smaller and larger options, then ask the user or give the task back
-   (§7).
+   or a mechanism much larger than its `Size:`. First find the smallest
+   change that stops the problem where it starts. Widen only when you can
+   name the concrete caller, writer, or stored data the smaller change
+   misses, and the cost the larger one adds (hot-path work, triggers,
+   locks, deadlock risk). An invariant worded "every path" is not that
+   evidence. Comment the decision, the evidence, and the cost on the task.
 5. Choose the simplest mechanism that meets the acceptance, then prove it.
    Scale the integration matrix to that mechanism. Never pick a heavier one
    (triggers, advisory locks, extra connections) to make the proof easier.
