@@ -32,7 +32,8 @@
   4. Mitigate, then recompute. For each medium or high risk driver the
      assessment names, reduce the risk in the subject itself: fix the
      code, add the missing test or guard, split the unverifiable step,
-     tighten the plan. Then re-author the judgment from the changed
+     tighten the plan, or replace a heavy mechanism with a smaller one
+     that removes the risk. Then re-author the judgment from the changed
      subject and finalize again. Never lower a grade by editing the
      assessment alone. At most two rounds, and only within the work's
      existing scope; a fix that would expand scope stays a residual

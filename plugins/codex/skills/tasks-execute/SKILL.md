@@ -240,17 +240,31 @@ than `renewed`, run the lease-lost steps below.
 
 1. Report the start if the `archdev` skill's lifecycle posts are in use:
    `"$archdev" log post --project <id> --kind start "<what this task delivers>"`.
-2. Follow the task's implementation plan, acceptance and verification. They
+2. Before designing anything, search for the closest existing
+   implementation of the behavior and a sibling to copy, even when the task
+   names them. Comment both paths on the task and extend that code. Build
+   nothing for callers that do not exist yet. Before adding a new mechanism
+   (migration, database trigger, lock, OAuth or auth flow, module, service,
+   protocol), write a one-line reason the existing one is insufficient.
+3. Follow the task's implementation plan, acceptance and verification. They
    are the contract. If they turn out to be wrong, comment what you found
-   and why, and adjust within the objective. Ask the user before changing
-   scope.
-3. Record durable progress on the task at real milestones, not every step:
+   and why, and adjust within the objective.
+4. Widening scope is the human's call, not yours. That includes more paths
+   than the brief names, a stronger guarantee than its acceptance states,
+   or a mechanism much larger than its `Size:`. Do not approve it yourself
+   because an invariant seems to imply it. Comment the question with the
+   smaller and larger options, then ask the user or give the task back
+   (§7).
+5. Choose the simplest mechanism that meets the acceptance, then prove it.
+   Scale the integration matrix to that mechanism. Never pick a heavier one
+   (triggers, advisory locks, extra connections) to make the proof easier.
+6. Record durable progress on the task at real milestones, not every step:
    `"$archdev" tasks comment <task-id> "<decision, finding, or blocker>"`.
-4. Run the verification the task names: its canonical end-to-end test,
+7. Run the verification the task names: its canonical end-to-end test,
    focused tests, and the repository's pre-commit gates. A task is not done
    until they pass, or until the gap is written down on the task with the
    reason.
-5. Two failed attempts on the same failure means change approach, not try
+8. Two failed attempts on the same failure means change approach, not try
    a third time. If you are still stuck, use §7.
 
 ## 6. Commit, push, open a PR, then close
@@ -300,7 +314,10 @@ verified, uncommitted work and ask.
    work the next task. Locally, run the focused tests and gates the task
    names (§5), not every suite. Check the PR's CI when you finish the epic
    (§9), or sooner if the next task stacks on it, and fix failures on the
-   same branch.
+   same branch. When fixing review or risk findings, replacing a mechanism
+   with a smaller one that closes the same defect is a valid fix. Answer a
+   design-level finding by simplifying the design, not by adding another
+   guard layer.
 7. Gate check again, then stop the heartbeat and close, fenced with your
    lease. The last renewal leaves minutes on the lease, which is plenty for
    the close. Stopping first means the heartbeat never reports your own close
