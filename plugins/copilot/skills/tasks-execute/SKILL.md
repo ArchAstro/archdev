@@ -57,27 +57,54 @@ Then:
 
 ## 1. Pin down the epic and the scope
 
-The user names an epic (the Task `epic` label) or a plan. Resolve it before
-claiming anything.
+The user names an Epic ID, a display name, or a plan. Resolve its stable
+`epc_` identity and published members before claiming anything; a Task's
+`epic` label alone is not first-class membership proof.
 
-1. Find the owner scope: `--team <id>`, `--user <id>` (default: you), or
-   `--org <id>`. If the user did not say and more than one fits, ask. Never
-   guess an ID.
-2. List the whole epic, including done work, so you know the shape:
+1. Confirm the current draft was reviewed and published, and execution is
+   separately authorized. In a Workbench thread, require canonical approval
+   through `task_review_publish` and the current revision's `saved` receipt
+   read with `task_review_save` (a read-only tool, not approval or save).
+   CLI imports, project logs, kickoff metadata, and chat consent do not replace
+   that approval; changed drafts need approval again. If the tools are
+   unavailable, return draft briefs to the thread assistant, not a CLI import.
+   Follow the thread's separate claim or Factory-handoff approval rules;
+   review approval alone is not permission to lease work.
+2. Find the owner scope: `--team <id>`, `--user <id>`, or `--org <id>`.
+   Without one, the CLI uses the authenticated organization. If the user did
+   not say and more than one fits, ask. Never guess an ID.
+3. Retain the Epic ID and Task IDs from the approved publication receipt or
+   existing plan state. `tasks show <task-id>` exposes membership as
+   `task_epic`; `epic` is the visible name or a legacy grouping label. If
+   membership is unavailable or disagrees with the intended Epic, resolve
+   visibility or identity before claiming. Do not infer membership from a
+   matching label or publish another graph to discover an ID.
+4. List candidate Tasks, including done work, using the Epic's display name:
    ```sh
-   "$archdev" --json tasks list --epic "<epic>" [--team <id>] --limit 100
-   "$archdev" --json tasks ready --explain --epic "<epic>" [--team <id>]
+   "$archdev" --json tasks list --epic "<epic-name>" [--team <id>] --limit 100
+   "$archdev" --json tasks ready --explain --epic "<epic-name>" [--team <id>]
    ```
-   Page with `--after-cursor` when a page is full.
-3. Note which tasks are tagged `human` or `post_deploy`. Do not claim those:
+   These are label filters, not Epic-ID lookups. Page with `--after-cursor`
+   when a page is full. Match candidates to the retained published Task IDs
+   and confirm `task_epic` before choosing work. Reconcile renamed Epics from
+   known member IDs rather than treating an empty name-filtered list as done.
+   Epic editing commands accept the `epc_` ID or an exact unique name;
+   ambiguous names require the ID. Check `archdev epics --help` for supported
+   commands; do not invent an Epic list or show command.
+5. Preserve Project membership separately: each Task's `project_id` is stored
+   as `metadata.archdev_project_id`, not on the Epic. Do not move Tasks or
+   rewrite metadata to make an execution list match. For new work, follow the
+   `tasks` skill's existing project lookup and review process.
+6. Note which tasks are tagged `human` or `post_deploy`. Do not claim those:
    a person or a production observation closes them. Report them at the end.
-4. Read the repository's agent instructions (`AGENTS.md`, `CLAUDE.md`)
+7. Read the repository's agent instructions (`AGENTS.md`, `CLAUDE.md`)
    before editing. They decide branch, commit, push and test rules. Where
    they are stricter than this skill, they win.
 
 Write a small state file outside the checkout, for example
 `~/.archdev/task-execute/<epic-slug>.json` (`mkdir -p ~/.archdev/task-execute`
-first), holding the epic, scope, and
+first), holding the Epic ID, current display name, approved publication
+revision and Task IDs, scope, and
 for each claimed task its `task_id`, `lease_id`, `session_id`,
 `session_name`, and heartbeat log path. Rewrite it on every claim, release
 and close. It is how you resume after a crash or context reset (§8). It
@@ -86,7 +113,9 @@ contains no secrets; still keep it out of the repository.
 ## 2. Pick the next task
 
 1. Re-read readiness every time. Never reuse an old listing:
-   `"$archdev" --json tasks ready --epic "<epic>" [scope]`.
+   `"$archdev" --json tasks ready --epic "<epic-name>" [scope]`.
+   Recheck published membership and execution authorization from §1; a ready
+   result does not authorize publication, claiming, or scope expansion.
 2. Choose the highest-priority ready task (lowest `priority` number), then
    the oldest. Work one task at a time unless the user asked for parallel
    workers.
@@ -370,6 +399,13 @@ redirects you):
 Stop when the epic has no ready tasks left, when the user stops you, or
 when a blocker needs them. Before you report, check that no heartbeat is
 still running for a task you closed or released.
+
+Epic completion is derived from its member Tasks; do not manually close an
+Epic. No ready Tasks may mean blocked, paused, leased, or unpublished work,
+not completion. Reconcile the published members by retained IDs and report
+remaining drafts or missing visibility honestly. Required proof Tasks must
+belong to the Epic and gate rollout through `depends_on`; do not omit them
+from the completion report because implementation Tasks are done.
 
 Report back in this form:
 

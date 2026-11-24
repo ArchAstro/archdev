@@ -18,17 +18,81 @@ PR and code-region grading: report PR events without fetching, waiting for,
 reusing, or attaching a server grade. No local assessment, annotation or stop
 hold is required.
 
-## Epic and project membership
+## Epic identity and project membership
+
+An Epic has a stable `epc_` ID; its display name is not its identity. Retain
+that ID from an existing review, receipt, or a published member's
+`tasks show <task-id>` response (`task_epic`). The Task's `epic` field is the
+visible name or a legacy grouping label, not proof of first-class membership.
+Epic editing commands accept an exact unique name if the ID is unavailable;
+ambiguous names require the ID. Check `archdev epics --help`: it has no Epic
+create, list, or show verb. Graph output supplies Task IDs, not an Epic ID;
+inspect a returned member or retain the existing receipt rather than
+publishing a new graph just to discover an existing Epic.
+
+Keep Project membership separate: `project_id` belongs on each Task, stored
+as `metadata.archdev_project_id`, not on the Epic. Preserve existing IDs and
+metadata when editing Tasks.
 
 Before creating Tasks, search `archdev projects list --query "<epic>"` for an
 active project with the epic's exact name and the appropriate scope. Reuse it;
 if none fits, create it with `archdev projects create "<epic>" --description
 "<scope>"`. Resolve duplicate names by scope. Set both `--epic` and `--project`
-on task create/update. For graph import and review, set top-level `epic` and
-`project_id` on every node. Preserve the project ID across name changes.
+on task create/update. For graph import and review, set `epic` at graph level
+and `project_id` on every node. Preserve the project ID across name changes.
 Without an epic, select the project by product area or initiative. Older tasks
 and artifacts may omit these optional fields; new agent-authored work should
 include both. Project membership does not change task visibility.
+
+## Draft, review, then publish
+
+Drafts and review requests are not runnable Tasks. Publish only on explicit
+human authorization after the required review. Review approval does not
+itself authorize claiming, execution, or Factory handoff; follow the
+originating thread's separate execution instructions.
+
+**In a Workbench thread**, use its canonical `task_review_publish` tool to
+submit the current draft for review in that originating thread. Retain its
+Epic ID and revision; the human approves the current revision's approval
+request. A chat reply, CLI import, project log, or kickoff record is not that
+approval. A changed draft requires approval again. `task_review_save` reads
+the matching receipt; it is read-only and does not approve, save, or retry.
+Require `saved` for the current revision before treating its Task IDs as
+published. If these tools are unavailable, return draft briefs to the thread
+assistant for review; do not bypass review by importing or claiming.
+
+**For standalone CLI review**, follow sections 4–5 below. The human's
+**Approve & save** authorizes saving that reviewed revision, not execution.
+`tasks graph import` without `--dry-run` writes and publishes Tasks; the
+payload's `action: "preview"` does not make it a preview-only operation. Use
+it only when that publication is explicitly authorized, not to evade review.
+
+For an existing Epic, these supported commands edit its draft and review:
+
+```sh
+"$archdev" epics drafts put <epc_id-or-exact-unique-name> <draft.json>
+"$archdev" epics drafts blockers <epc_id-or-exact-unique-name> <key> --blocked-on <prerequisite-key>
+"$archdev" epics decisions put <epc_id-or-exact-unique-name> <decision-id> <decision.json>
+"$archdev" epics review request <epc_id-or-exact-unique-name>
+"$archdev" epics comments list <epc_id-or-exact-unique-name>
+"$archdev" epics comments resolve <comment-id>
+```
+
+Read installed command help and the draft/decision schema before writing
+files. Review request records a comment; it does not claim recipient
+notification or canonical thread approval. Resolve only addressed review
+comments after review, not merely to unblock saving. Unresolved comments block
+publication. Only after the required review and explicit human authorization:
+
+```sh
+"$archdev" epics publish <epc_id-or-exact-unique-name>
+```
+
+Preserve the plan path, stable node keys, and durable receipt on retries.
+CLI file import and local review share a path-based receipt; revisions update
+the same Task identities. Do not use a copied plan path, a new receipt, or
+`--new` to bypass recovery or duplicate detection. Reconcile interrupted saves
+through the original receipt rather than replacing them with another Epic.
 
 ## Start branch
 
@@ -101,9 +165,10 @@ arguments. If bootstrap fails, report its error and point to the
    it (for example by piping through `head`) — it is the authority when it
    and this skill disagree. Prefer `--json` for output you need to parse.
 3. Choose the destination from the user's request and existing context.
-   Review defaults to the signed-in user's personal Tasks. For team work,
-   supply a known `--team <id>`; use `--repository <owner/repo>` when applicable.
-   If the team is ambiguous, ask which team before saving. Never guess an ID.
+   Review defaults to the signed-in organization when present; without an
+   organization it uses personal Tasks. For team work, supply a known
+   `--team <id>`; use `--repository <owner/repo>` when applicable. Confirm
+   the destination before saving; if it is ambiguous, ask. Never guess an ID.
 4. When resuming work, inspect the existing Tasks and local plan/receipt before
    creating another plan. `tasks list --team <id>` and `tasks show <task-id>`
    expose existing work; consult their help for other scopes.
@@ -111,9 +176,10 @@ arguments. If bootstrap fails, report its error and point to the
 ## 2. Turn the source into a draft DAG
 
 A DAG is a task graph with prerequisite edges and no cycles. Draft locally
-first; opening review does not create Tasks. Do not pre-create every node with
-`tasks create`, or import it separately, before sending the same graph through
-review: approval owns saving this plan.
+first; opening review does not create runnable Tasks. In a Workbench thread,
+use canonical thread review above instead of standalone local review below.
+Do not pre-create every node with `tasks create`, or import it separately,
+before sending the same graph through review: approval owns publication.
 
 1. **From conversation:** extract the requested outcome, agreed decisions,
    constraints, exclusions, and unresolved choices. Inspect relevant code when
@@ -566,8 +632,15 @@ receipt and explain how to restart. Do not report a paused review as saved.
 
 ## 6. Work from the saved Tasks when asked
 
-Approval of a plan saves Tasks; it does not itself request implementation.
-When implementation is authorized, use the installed `tasks guide` lifecycle:
+Approval of a plan publishes Tasks; it does not itself request implementation.
+Retain the Epic ID and verify published membership (`task_epic`) before working
+from name-filtered lists; a legacy `epic` label alone is not membership proof.
+Epic completion is derived from its member Tasks, not manually closed. Keep
+required proof Tasks in the Epic and gate rollout with `depends_on`; no ready
+Tasks does not mean the Epic is complete.
+
+When implementation is separately authorized, use the installed `tasks guide`
+lifecycle and the originating thread's claim/handoff approval rules:
 
 1. Read `tasks ready --explain --team <id>` (or the intended user scope).
 2. Claim with `tasks claim <task-id> --session-name "<short name>"` before
